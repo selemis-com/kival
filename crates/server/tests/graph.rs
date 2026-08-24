@@ -5,7 +5,7 @@ mod tests {
     use axum::http::{Method, StatusCode};
     use eyre::Result;
     use kival_sdk::{
-        GrantPrincipal, MembershipRole, ObjectGraphEdge, ObjectGraphNode, ObjectRole,
+        GraphEdgeKind, GrantPrincipal, MembershipRole, ObjectGraphEdge, ObjectGraphNode, ObjectRole,
         WorkspaceGraphEdge, WorkspaceGraphNode,
     };
     use kival_tests::{TestFixtureExt, TestKival, TestRawResponseExt, object_metadata, test_body};
@@ -105,6 +105,128 @@ mod tests {
     }
 
     #[sqlx::test(migrations = "../kernel/migrations")]
+    async fn graphs_project_current_wikilinks_and_merge_explicit_relationships(
+        pool: sqlx::PgPool,
+    ) -> Result<()> {
+        let r = TestKival::new(pool).await?;
+        let workspace = r.create_workspace("wikilink graph").await?;
+
+        let target = r
+            .create_object(
+                workspace.id,
+                "Graph Wiki Target",
+                &test_body("Graph Wiki Target", "Target body."),
+                object_metadata("graph-wiki-target"),
+            )
+            .await?;
+        let source = r
+            .create_object(
+                workspace.id,
+                "Graph Wiki Source",
+                &test_body(
+                    "Graph Wiki Source",
+                    "See [[Graph Wiki Target]] and [[Graph Wiki Target|the target]] again.",
+                ),
+                object_metadata("graph-wiki-source"),
+            )
+            .await?;
+
+        let object_graph = r
+            .object_graph_as(
+                &r.admin,
+                workspace.id,
+                source.id,
+                "depth=1&direction=both&max_nodes=10&max_edges=10",
+            )
+            .await?;
+        assert_node(&object_graph.nodes, target.id, 1);
+        assert_edge_kind(
+            &object_graph.edges,
+            source.id,
+            target.id,
+            GraphEdgeKind::Wikilink,
+        );
+        assert_eq!(
+            object_graph
+                .edges
+                .iter()
+                .filter(|edge| {
+                    edge.source_object_id == source.id && edge.target_object_id == target.id
+                })
+                .count(),
+            1,
+            "repeated wikilinks should project as one graph connection",
+        );
+
+        let workspace_graph =
+            r.workspace_graph_as(&r.admin, workspace.id, "limit_nodes=50&limit_edges=50").await?;
+        assert_workspace_edge_kind(
+            &workspace_graph.edges,
+            source.id,
+            target.id,
+            GraphEdgeKind::Wikilink,
+        );
+        assert_eq!(
+            workspace_graph
+                .nodes
+                .iter()
+                .find(|node| node.id == source.id)
+                .expect("source node")
+                .out_degree,
+            1,
+        );
+        assert_eq!(
+            workspace_graph
+                .nodes
+                .iter()
+                .find(|node| node.id == target.id)
+                .expect("target node")
+                .in_degree,
+            1,
+        );
+
+        r.create_edge(workspace.id, source.id, target.id).await?;
+        let merged =
+            r.workspace_graph_as(&r.admin, workspace.id, "limit_nodes=50&limit_edges=50").await?;
+        assert_workspace_edge_kind(
+            &merged.edges,
+            source.id,
+            target.id,
+            GraphEdgeKind::RelationshipAndWikilink,
+        );
+        assert_eq!(
+            merged
+                .edges
+                .iter()
+                .filter(|edge| {
+                    edge.source_object_id == source.id && edge.target_object_id == target.id
+                })
+                .count(),
+            1,
+            "relationship and wikilink should merge into one projected connection",
+        );
+
+        r.update_object(
+            workspace.id,
+            source.id,
+            None,
+            Some("The current version no longer links to the target."),
+            None,
+        )
+        .await?;
+        let relationship_only =
+            r.workspace_graph_as(&r.admin, workspace.id, "limit_nodes=50&limit_edges=50").await?;
+        assert_workspace_edge_kind(
+            &relationship_only.edges,
+            source.id,
+            target.id,
+            GraphEdgeKind::Relationship,
+        );
+
+        Ok(())
+    }
+
+    #[sqlx::test(migrations = "../kernel/migrations")]
     async fn object_graph_hides_unreadable_neighbors_and_edges(pool: sqlx::PgPool) -> Result<()> {
         let r = TestKival::new(pool).await?;
 
@@ -148,6 +270,15 @@ mod tests {
             )
             .await?;
 
+        r.update_object(
+            workspace.id,
+            root.id,
+            None,
+            Some("Root body links to [[Hidden Neighbor]]."),
+            None,
+        )
+        .await?;
+
         r.create_object_grant(
             workspace.id,
             root.id,
@@ -181,6 +312,12 @@ mod tests {
             "admin should see the hidden neighbor",
         );
         assert_edge(&admin_graph.edges, hidden_neighbor.id, root.id);
+        assert_edge_kind(
+            &admin_graph.edges,
+            root.id,
+            hidden_neighbor.id,
+            GraphEdgeKind::Wikilink,
+        );
 
         let reader_graph = r
             .object_graph_as(
@@ -204,6 +341,11 @@ mod tests {
         assert!(
             !has_edge(&reader_graph.edges, hidden_neighbor.id, root.id),
             "reader should not see edge from unreadable neighbor",
+        );
+
+        assert!(
+            !has_edge(&reader_graph.edges, root.id, hidden_neighbor.id),
+            "reader should not see wikilink connection to unreadable neighbor",
         );
 
         Ok(())
@@ -365,6 +507,19 @@ mod tests {
         edges.iter().any(|edge| edge.source_object_id == source && edge.target_object_id == target)
     }
 
+    fn assert_edge_kind(
+        edges: &[ObjectGraphEdge],
+        source: Uuid,
+        target: Uuid,
+        kind: GraphEdgeKind,
+    ) {
+        let edge = edges
+            .iter()
+            .find(|edge| edge.source_object_id == source && edge.target_object_id == target)
+            .expect("expected object graph edge");
+        assert_eq!(edge.kind, kind);
+    }
+
     fn has_workspace_node(nodes: &[WorkspaceGraphNode], id: Uuid) -> bool {
         nodes.iter().any(|node| node.id == id)
     }
@@ -378,5 +533,18 @@ mod tests {
 
     fn has_workspace_edge(edges: &[WorkspaceGraphEdge], source: Uuid, target: Uuid) -> bool {
         edges.iter().any(|edge| edge.source_object_id == source && edge.target_object_id == target)
+    }
+
+    fn assert_workspace_edge_kind(
+        edges: &[WorkspaceGraphEdge],
+        source: Uuid,
+        target: Uuid,
+        kind: GraphEdgeKind,
+    ) {
+        let edge = edges
+            .iter()
+            .find(|edge| edge.source_object_id == source && edge.target_object_id == target)
+            .expect("expected workspace graph edge");
+        assert_eq!(edge.kind, kind);
     }
 }

@@ -63,15 +63,18 @@ export type ObjectGraphNode = {
   updated_at: Timestamp;
   /** Shortest traversal distance from the root. */
   distance: number;
-  /** Visible filtered incoming relationship count. */
+  /** Visible filtered incoming connection count. */
   incoming_count: number;
-  /** Visible filtered outgoing relationship count. */
+  /** Visible filtered outgoing connection count. */
   outgoing_count: number;
 };
 
+/** Origin of a connection projected into an object or workspace graph. */
+export type GraphEdgeKind = "relationship" | "wikilink" | "relationship_and_wikilink";
+
 /** Edge in an object-centered graph. */
 export type ObjectGraphEdge = {
-  /** Edge ID. */
+  /** Representative relationship or reference row ID. */
   id: UUID;
   /** Workspace ID. */
   workspace_id: UUID;
@@ -79,7 +82,9 @@ export type ObjectGraphEdge = {
   source_object_id: UUID;
   /** Target-object ID. */
   target_object_id: UUID;
-  /** User that created the edge. */
+  /** How this directed connection is represented in Kival. */
+  kind: GraphEdgeKind;
+  /** User that created the representative relationship or source version. */
   created_by: UUID | null;
   /** Creation timestamp. */
   created_at: Timestamp;
@@ -147,15 +152,15 @@ export type WorkspaceGraphNode = {
   created_at: Timestamp;
   /** Last update timestamp. */
   updated_at: Timestamp;
-  /** Incoming edges in the visible filtered graph before edge-response truncation. */
+  /** Incoming connections in the visible filtered graph before edge-response truncation. */
   in_degree: number;
-  /** Outgoing edges in the visible filtered graph before edge-response truncation. */
+  /** Outgoing connections in the visible filtered graph before edge-response truncation. */
   out_degree: number;
 };
 
 /** Edge in a workspace graph projection. */
 export type WorkspaceGraphEdge = {
-  /** Edge ID. */
+  /** Representative relationship or reference row ID. */
   id: UUID;
   /** Workspace ID. */
   workspace_id: UUID;
@@ -163,7 +168,9 @@ export type WorkspaceGraphEdge = {
   source_object_id: UUID;
   /** Target-object ID. */
   target_object_id: UUID;
-  /** User that created the edge. */
+  /** How this directed connection is represented in Kival. */
+  kind: GraphEdgeKind;
+  /** User that created the representative relationship or source version. */
   created_by: UUID | null;
   /** Creation timestamp. */
   created_at: Timestamp;

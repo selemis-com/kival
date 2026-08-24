@@ -305,7 +305,7 @@ impl TryFrom<StoredWorkspaceGraphNodeRow> for WorkspaceGraphNodeRow {
     }
 }
 
-/// Active edge returned as part of a graph projection.
+/// Deduplicated directed connection returned as part of a graph projection.
 #[derive(Debug, Clone, Copy, sqlx::FromRow)]
 pub struct WorkspaceGraphEdgeRow {
     /// Row identifier.
@@ -316,7 +316,11 @@ pub struct WorkspaceGraphEdgeRow {
     pub source_object_id: Uuid,
     /// Target object identifier.
     pub target_object_id: Uuid,
-    /// User that created the row, when retained.
+    /// Whether an active explicit relationship contributes this connection.
+    pub has_relationship: bool,
+    /// Whether a resolved current-version wikilink contributes this connection.
+    pub has_wikilink: bool,
+    /// User that created the representative relationship or source version, when retained.
     pub created_by: Option<Uuid>,
     /// Creation timestamp.
     pub created_at: OffsetDateTime,
@@ -827,9 +831,8 @@ pub async fn object_graph_nodes(
                     'viewer'::kival.object_role
                 )
         ),
-        visible_edges AS MATERIALIZED (
-            SELECT edge.id, edge.workspace_id, edge.source_object_id, edge.target_object_id,
-                   edge.created_by, edge.created_at, edge.updated_at
+        visible_connections AS MATERIALIZED (
+            SELECT edge.source_object_id, edge.target_object_id
             FROM kival.object_edges edge
             JOIN visible_nodes source_node
                 ON source_node.id = edge.source_object_id
@@ -837,6 +840,18 @@ pub async fn object_graph_nodes(
                 ON target_node.id = edge.target_object_id
             WHERE edge.workspace_id = $1
                 AND edge.revoked_at IS NULL
+            UNION
+            SELECT reference.source_object_id, reference.target_object_id
+            FROM kival.object_references reference
+            JOIN visible_nodes source_node
+                ON source_node.id = reference.source_object_id
+                AND source_node.current_version_id = reference.source_version_id
+            JOIN visible_nodes target_node
+                ON target_node.id = reference.target_object_id
+            WHERE reference.workspace_id = $1
+                AND reference.reference_kind = 'wikilink'
+                AND reference.status = 'resolved'
+                AND reference.source_object_id <> reference.target_object_id
         ),
         walk(object_id, distance) AS (
             SELECT $3::uuid, 0::integer
@@ -847,7 +862,7 @@ pub async fn object_graph_nodes(
             END,
                 walk.distance + 1
             FROM walk
-            JOIN visible_edges edge
+            JOIN visible_connections edge
                 ON (
                 ($5::text IN ('outgoing', 'both') AND edge.source_object_id = walk.object_id)
                 OR ($5::text IN ('incoming', 'both') AND edge.target_object_id = walk.object_id))
@@ -867,13 +882,13 @@ pub async fn object_graph_nodes(
                     target_object_id AS object_id,
                     1::bigint AS in_degree,
                     0::bigint AS out_degree
-                FROM visible_edges
+                FROM visible_connections
                 UNION ALL
                 SELECT
                     source_object_id AS object_id,
                     0::bigint AS in_degree,
                     1::bigint AS out_degree
-                FROM visible_edges
+                FROM visible_connections
             ) endpoints
             GROUP BY endpoints.object_id
         )
@@ -939,35 +954,76 @@ pub async fn object_graph_edges_for_nodes(
 ) -> Result<Vec<WorkspaceGraphEdgeRow>> {
     Ok(sqlx::query_as(
         r#"
+        WITH visible_nodes AS MATERIALIZED (
+            SELECT o.id, o.current_version_id
+            FROM kival.objects o
+            WHERE o.workspace_id = $1
+                AND o.archived_at IS NULL
+                AND kival.has_object_permission(
+                    o.workspace_id,
+                    o.id,
+                    $3,
+                    'viewer'::kival.object_role
+                )
+        ),
+        connections AS MATERIALIZED (
+            SELECT
+                edge.id, edge.workspace_id, edge.source_object_id, edge.target_object_id,
+                TRUE AS has_relationship, FALSE AS has_wikilink, edge.created_by,
+                edge.created_at, edge.updated_at
+            FROM kival.object_edges edge
+            JOIN visible_nodes source_node
+                ON source_node.id = edge.source_object_id
+            JOIN visible_nodes target_node
+                ON target_node.id = edge.target_object_id
+            WHERE edge.workspace_id = $1
+                AND edge.revoked_at IS NULL
+            UNION ALL
+            SELECT
+                reference.id, reference.workspace_id, reference.source_object_id,
+                reference.target_object_id, FALSE AS has_relationship, TRUE AS has_wikilink,
+                source_version.created_by, reference.created_at, reference.updated_at
+            FROM kival.object_references reference
+            JOIN visible_nodes source_node
+                ON source_node.id = reference.source_object_id
+                AND source_node.current_version_id = reference.source_version_id
+            JOIN visible_nodes target_node
+                ON target_node.id = reference.target_object_id
+            JOIN kival.object_versions source_version
+                ON source_version.object_id = reference.source_object_id
+                AND source_version.id = reference.source_version_id
+            WHERE reference.workspace_id = $1
+                AND reference.reference_kind = 'wikilink'
+                AND reference.status = 'resolved'
+                AND reference.source_object_id <> reference.target_object_id
+        ),
+        ranked AS (
+            SELECT
+                connection.*,
+                BOOL_OR(connection.has_relationship) OVER connection_pair AS pair_has_relationship,
+                BOOL_OR(connection.has_wikilink) OVER connection_pair AS pair_has_wikilink,
+                ROW_NUMBER() OVER (
+                    PARTITION BY connection.source_object_id, connection.target_object_id
+                    ORDER BY
+                        connection.has_relationship DESC,
+                        connection.created_at DESC,
+                        connection.id DESC
+                ) AS row_number
+            FROM connections connection
+            WINDOW connection_pair AS (
+                PARTITION BY connection.source_object_id, connection.target_object_id
+            )
+        )
         SELECT
-            edge.id, edge.workspace_id, edge.source_object_id, edge.target_object_id,
-            edge.created_by, edge.created_at, edge.updated_at
-        FROM kival.object_edges edge
-        JOIN kival.objects source_object
-            ON source_object.workspace_id = edge.workspace_id
-            AND source_object.id = edge.source_object_id
-            AND source_object.archived_at IS NULL
-        JOIN kival.objects target_object
-            ON target_object.workspace_id = edge.workspace_id
-            AND target_object.id = edge.target_object_id
-            AND target_object.archived_at IS NULL
-        WHERE edge.workspace_id = $1
-            AND edge.revoked_at IS NULL
-            AND edge.source_object_id = ANY($4)
-            AND edge.target_object_id = ANY($4)
-            AND kival.has_object_permission(
-                edge.workspace_id,
-                edge.source_object_id,
-                $3,
-                'viewer'::kival.object_role
-            )
-            AND kival.has_object_permission(
-                edge.workspace_id,
-                edge.target_object_id,
-                $3,
-                'viewer'::kival.object_role
-            )
-        ORDER BY edge.source_object_id ASC, edge.target_object_id ASC, edge.id ASC
+            ranked.id, ranked.workspace_id, ranked.source_object_id, ranked.target_object_id,
+            ranked.pair_has_relationship AS has_relationship,
+            ranked.pair_has_wikilink AS has_wikilink, ranked.created_by, ranked.created_at,
+            ranked.updated_at
+        FROM ranked
+        WHERE ranked.row_number = 1
+            AND ranked.source_object_id = ANY($4)
+            AND ranked.target_object_id = ANY($4)
+        ORDER BY ranked.source_object_id ASC, ranked.target_object_id ASC, ranked.id ASC
         LIMIT $5
         OFFSET CASE
             WHEN kival.require_access_active_object(
@@ -1008,35 +1064,76 @@ pub async fn workspace_graph_edges_for_nodes(
 ) -> Result<Vec<WorkspaceGraphEdgeRow>> {
     Ok(sqlx::query_as(
         r#"
+        WITH visible_nodes AS MATERIALIZED (
+            SELECT o.id, o.current_version_id
+            FROM kival.objects o
+            WHERE o.workspace_id = $1
+                AND o.archived_at IS NULL
+                AND kival.has_object_permission(
+                    o.workspace_id,
+                    o.id,
+                    $2,
+                    'viewer'::kival.object_role
+                )
+        ),
+        connections AS MATERIALIZED (
+            SELECT
+                edge.id, edge.workspace_id, edge.source_object_id, edge.target_object_id,
+                TRUE AS has_relationship, FALSE AS has_wikilink, edge.created_by,
+                edge.created_at, edge.updated_at
+            FROM kival.object_edges edge
+            JOIN visible_nodes source_node
+                ON source_node.id = edge.source_object_id
+            JOIN visible_nodes target_node
+                ON target_node.id = edge.target_object_id
+            WHERE edge.workspace_id = $1
+                AND edge.revoked_at IS NULL
+            UNION ALL
+            SELECT
+                reference.id, reference.workspace_id, reference.source_object_id,
+                reference.target_object_id, FALSE AS has_relationship, TRUE AS has_wikilink,
+                source_version.created_by, reference.created_at, reference.updated_at
+            FROM kival.object_references reference
+            JOIN visible_nodes source_node
+                ON source_node.id = reference.source_object_id
+                AND source_node.current_version_id = reference.source_version_id
+            JOIN visible_nodes target_node
+                ON target_node.id = reference.target_object_id
+            JOIN kival.object_versions source_version
+                ON source_version.object_id = reference.source_object_id
+                AND source_version.id = reference.source_version_id
+            WHERE reference.workspace_id = $1
+                AND reference.reference_kind = 'wikilink'
+                AND reference.status = 'resolved'
+                AND reference.source_object_id <> reference.target_object_id
+        ),
+        ranked AS (
+            SELECT
+                connection.*,
+                BOOL_OR(connection.has_relationship) OVER connection_pair AS pair_has_relationship,
+                BOOL_OR(connection.has_wikilink) OVER connection_pair AS pair_has_wikilink,
+                ROW_NUMBER() OVER (
+                    PARTITION BY connection.source_object_id, connection.target_object_id
+                    ORDER BY
+                        connection.has_relationship DESC,
+                        connection.created_at DESC,
+                        connection.id DESC
+                ) AS row_number
+            FROM connections connection
+            WINDOW connection_pair AS (
+                PARTITION BY connection.source_object_id, connection.target_object_id
+            )
+        )
         SELECT
-            edge.id, edge.workspace_id, edge.source_object_id, edge.target_object_id,
-            edge.created_by, edge.created_at, edge.updated_at
-        FROM kival.object_edges edge
-        JOIN kival.objects source_object
-            ON source_object.workspace_id = edge.workspace_id
-            AND source_object.id = edge.source_object_id
-            AND source_object.archived_at IS NULL
-        JOIN kival.objects target_object
-            ON target_object.workspace_id = edge.workspace_id
-            AND target_object.id = edge.target_object_id
-            AND target_object.archived_at IS NULL
-        WHERE edge.workspace_id = $1
-            AND edge.revoked_at IS NULL
-            AND edge.source_object_id = ANY($3)
-            AND edge.target_object_id = ANY($3)
-            AND kival.has_object_permission(
-                edge.workspace_id,
-                edge.source_object_id,
-                $2,
-                'viewer'::kival.object_role
-            )
-            AND kival.has_object_permission(
-                edge.workspace_id,
-                edge.target_object_id,
-                $2,
-                'viewer'::kival.object_role
-            )
-        ORDER BY edge.created_at DESC, edge.id DESC
+            ranked.id, ranked.workspace_id, ranked.source_object_id, ranked.target_object_id,
+            ranked.pair_has_relationship AS has_relationship,
+            ranked.pair_has_wikilink AS has_wikilink, ranked.created_by, ranked.created_at,
+            ranked.updated_at
+        FROM ranked
+        WHERE ranked.row_number = 1
+            AND ranked.source_object_id = ANY($3)
+            AND ranked.target_object_id = ANY($3)
+        ORDER BY ranked.created_at DESC, ranked.id DESC
         LIMIT $4
         OFFSET CASE WHEN kival.require_read_workspace($1, $2) THEN 0 ELSE 0 END
         "#,
@@ -1079,15 +1176,27 @@ pub async fn workspace_graph_nodes(
                     'viewer'::kival.object_role
                 )
         ),
-        visible_edges AS MATERIALIZED (
-            SELECT oe.source_object_id, oe.target_object_id
-            FROM kival.object_edges oe
+        visible_connections AS MATERIALIZED (
+            SELECT edge.source_object_id, edge.target_object_id
+            FROM kival.object_edges edge
             JOIN visible_nodes source_node
-                ON source_node.id = oe.source_object_id
+                ON source_node.id = edge.source_object_id
             JOIN visible_nodes target_node
-                ON target_node.id = oe.target_object_id
-            WHERE oe.workspace_id = $1
-                AND oe.revoked_at IS NULL
+                ON target_node.id = edge.target_object_id
+            WHERE edge.workspace_id = $1
+                AND edge.revoked_at IS NULL
+            UNION
+            SELECT reference.source_object_id, reference.target_object_id
+            FROM kival.object_references reference
+            JOIN visible_nodes source_node
+                ON source_node.id = reference.source_object_id
+                AND source_node.current_version_id = reference.source_version_id
+            JOIN visible_nodes target_node
+                ON target_node.id = reference.target_object_id
+            WHERE reference.workspace_id = $1
+                AND reference.reference_kind = 'wikilink'
+                AND reference.status = 'resolved'
+                AND reference.source_object_id <> reference.target_object_id
         ),
         degrees AS (
             SELECT endpoints.object_id,
@@ -1098,13 +1207,13 @@ pub async fn workspace_graph_nodes(
                     target_object_id AS object_id,
                     1::bigint AS in_degree,
                     0::bigint AS out_degree
-                FROM visible_edges
+                FROM visible_connections
                 UNION ALL
                 SELECT
                     source_object_id AS object_id,
                     0::bigint AS in_degree,
                     1::bigint AS out_degree
-                FROM visible_edges
+                FROM visible_connections
             ) endpoints
             GROUP BY endpoints.object_id
         )

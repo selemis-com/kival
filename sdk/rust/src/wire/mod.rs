@@ -36,8 +36,8 @@ pub use events::{Event, EventListParams, EventOrder};
 pub use graph::{
     BacklinkSourceObject, CreateObjectEdgeRequest, CreateObjectGrantRequest, GrantPrincipal,
     ObjectBacklink, ObjectBacklinkReference, ObjectBacklinksParams, ObjectBacklinksResponse,
-    ObjectEdge, ObjectEdgeResponse, ObjectGrant, ObjectGrantResponse, ObjectGraphDirection,
-    ObjectGraphEdge, ObjectGraphNode, ObjectGraphParams, ObjectGraphResponse,
+    GraphEdgeKind, ObjectEdge, ObjectEdgeResponse, ObjectGrant, ObjectGrantResponse,
+    ObjectGraphDirection, ObjectGraphEdge, ObjectGraphNode, ObjectGraphParams, ObjectGraphResponse,
     ObjectGraphTruncation, ObjectRole, UpdateObjectGrantRequest, WorkspaceGraphEdge,
     WorkspaceGraphLimits, WorkspaceGraphNode, WorkspaceGraphParams, WorkspaceGraphResponse,
 };
