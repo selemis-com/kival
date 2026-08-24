@@ -374,6 +374,10 @@ pub fn router(state: Arc<ServerState>) -> Router {
             "/workspaces/{workspace_id}/objects/{object_id}/versions/{version}",
             get(objects::handle_get_version).workspace_api_key(ObjectRead),
         )
+        .route(
+            "/workspaces/{workspace_id}/objects/{object_id}/versions/{version}/wikilinks",
+            get(objects::handle_get_version_wikilinks).workspace_api_key(ObjectRead),
+        )
         .route_layer(from_fn_with_state(state.clone(), auth::enforce_csrf))
         .fallback(status::handle_get_fallback)
         .method_not_allowed_fallback(status::handle_method_not_allowed)

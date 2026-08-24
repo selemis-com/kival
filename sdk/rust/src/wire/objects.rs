@@ -358,6 +358,28 @@ pub struct ObjectVersionResponse {
     pub version: ObjectVersion,
 }
 
+/// Wikilink derived from an immutable object version.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+pub struct ObjectVersionWikilink {
+    /// Normalized title target authored inside the double brackets.
+    pub raw_target: String,
+
+    /// Optional display text authored after the `|` separator.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub display_text: Option<String>,
+
+    /// Resolved target object when the requesting user can read it.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub target_object_id: Option<Uuid>,
+}
+
+/// Object-version wikilink response envelope.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+pub struct ObjectVersionWikilinksResponse {
+    /// Wikilinks in authored source order.
+    pub items: Vec<ObjectVersionWikilink>,
+}
+
 /// Returns an empty JSON object value.
 fn empty_object() -> Value {
     Value::Object(serde_json::Map::new())

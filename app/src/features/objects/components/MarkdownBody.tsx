@@ -3,12 +3,14 @@ import "katex/dist/katex.min.css";
 import type { ReactNode } from "react";
 import { getObjectAttachmentContentUrl } from "../../../shared/api";
 import { styles } from "../../../shared/styles/index";
+import type { ObjectVersionWikilink } from "../../../shared/types";
 import { readDisplayMath, readInlineMath } from "./markdownMath";
 
 type Props = {
   body: string;
   workspaceId: string;
   objectId?: string;
+  wikilinks?: ObjectVersionWikilink[];
   onOpenObject: (objectId: string) => void;
 };
 
@@ -20,6 +22,7 @@ type InlineToken =
   | { kind: "code"; value: string }
   | { kind: "math"; value: string }
   | { kind: "link"; label: InlineToken[]; href: string }
+  | { kind: "wikilink"; target: string; label: string }
   | { kind: "image"; alt: string; attachmentId: string }
   | { kind: "break" };
 
@@ -230,6 +233,27 @@ function parseInline(source: string): InlineToken[] {
       tokens.push({ kind: "math", value: math.value });
       index = math.end;
       continue;
+    }
+
+    if (source.startsWith("[[", index)) {
+      const end = source.indexOf("]]", index + 2);
+
+      if (end !== -1) {
+        const content = source.slice(index + 2, end);
+
+        if (!content.includes("[[")) {
+          const separator = content.indexOf("|");
+          const target = (separator === -1 ? content : content.slice(0, separator)).trim();
+          const display = separator === -1 ? "" : content.slice(separator + 1).trim();
+
+          if (target) {
+            flushText();
+            tokens.push({ kind: "wikilink", target, label: display || target });
+            index = end + 2;
+            continue;
+          }
+        }
+      }
     }
 
     if (source.startsWith("![", index)) {
@@ -812,6 +836,7 @@ function renderInline(
   tokens: InlineToken[],
   workspaceId: string,
   objectId: string | undefined,
+  wikilinks: ObjectVersionWikilink[],
   onOpenObject: (objectId: string) => void,
 ): ReactNode[] {
   return withStableKeys(tokens).map(({ item: token, key }) => {
@@ -821,16 +846,20 @@ function renderInline(
       case "strong":
         return (
           <strong key={key}>
-            {renderInline(token.children, workspaceId, objectId, onOpenObject)}
+            {renderInline(token.children, workspaceId, objectId, wikilinks, onOpenObject)}
           </strong>
         );
       case "emphasis":
         return (
-          <em key={key}>{renderInline(token.children, workspaceId, objectId, onOpenObject)}</em>
+          <em key={key}>
+            {renderInline(token.children, workspaceId, objectId, wikilinks, onOpenObject)}
+          </em>
         );
       case "strikethrough":
         return (
-          <del key={key}>{renderInline(token.children, workspaceId, objectId, onOpenObject)}</del>
+          <del key={key}>
+            {renderInline(token.children, workspaceId, objectId, wikilinks, onOpenObject)}
+          </del>
         );
       case "code":
         return (
@@ -853,11 +882,39 @@ function renderInline(
             image
           />
         );
+      case "wikilink": {
+        const targetObjectId = wikilinks.find(
+          (reference) => reference.raw_target === token.target,
+        )?.target_object_id;
+
+        if (!targetObjectId) {
+          return (
+            <span key={key} data-wikilink-target={token.target}>
+              {token.label}
+            </span>
+          );
+        }
+
+        return (
+          <a
+            key={key}
+            href={`/w/${workspaceId}/objects/${targetObjectId}`}
+            style={styles.markdownLink}
+            data-wikilink-target={token.target}
+            onClick={(event) => {
+              event.preventDefault();
+              onOpenObject(targetObjectId);
+            }}
+          >
+            {token.label}
+          </a>
+        );
+      }
       case "link": {
         const destination = getSafeLinkDestination(token.href);
 
         if (!destination) {
-          return renderInline(token.label, workspaceId, objectId, onOpenObject);
+          return renderInline(token.label, workspaceId, objectId, wikilinks, onOpenObject);
         }
 
         if (destination.kind === "kival-object") {
@@ -871,7 +928,7 @@ function renderInline(
                 onOpenObject(destination.objectId);
               }}
             >
-              {renderInline(token.label, workspaceId, objectId, onOpenObject)}
+              {renderInline(token.label, workspaceId, objectId, wikilinks, onOpenObject)}
             </a>
           );
         }
@@ -883,7 +940,7 @@ function renderInline(
               workspaceId={workspaceId}
               objectId={objectId}
               attachmentId={destination.attachmentId}
-              label={renderInline(token.label, workspaceId, objectId, onOpenObject)}
+              label={renderInline(token.label, workspaceId, objectId, wikilinks, onOpenObject)}
             />
           );
         }
@@ -896,7 +953,7 @@ function renderInline(
             target={destination.newTab ? "_blank" : undefined}
             rel={destination.newTab ? "noopener noreferrer" : undefined}
           >
-            {renderInline(token.label, workspaceId, objectId, onOpenObject)}
+            {renderInline(token.label, workspaceId, objectId, wikilinks, onOpenObject)}
           </a>
         );
       }
@@ -912,6 +969,7 @@ function renderParagraphLines(
   lines: string[],
   workspaceId: string,
   objectId: string | undefined,
+  wikilinks: ObjectVersionWikilink[],
   onOpenObject: (objectId: string) => void,
 ) {
   const tokens: InlineToken[] = [];
@@ -929,19 +987,26 @@ function renderParagraphLines(
     tokens.push(...parseInline(content));
   });
 
-  return renderInline(tokens, workspaceId, objectId, onOpenObject);
+  return renderInline(tokens, workspaceId, objectId, wikilinks, onOpenObject);
 }
 
 function renderBlocks(
   blocks: Block[],
   workspaceId: string,
   objectId: string | undefined,
+  wikilinks: ObjectVersionWikilink[],
   onOpenObject: (objectId: string) => void,
 ): ReactNode[] {
   return withStableKeys(blocks).map(({ item: block, key }) => {
     switch (block.kind) {
       case "heading": {
-        const children = renderInline(parseInline(block.text), workspaceId, objectId, onOpenObject);
+        const children = renderInline(
+          parseInline(block.text),
+          workspaceId,
+          objectId,
+          wikilinks,
+          onOpenObject,
+        );
 
         switch (block.level) {
           case 1:
@@ -989,7 +1054,7 @@ function renderBlocks(
       case "paragraph":
         return (
           <p key={key} style={styles.markdownParagraph}>
-            {renderParagraphLines(block.lines, workspaceId, objectId, onOpenObject)}
+            {renderParagraphLines(block.lines, workspaceId, objectId, wikilinks, onOpenObject)}
           </p>
         );
       case "list": {
@@ -1021,7 +1086,7 @@ function renderBlocks(
                   />
                 )}
                 <div style={item.task ? styles.markdownTaskContent : undefined}>
-                  {renderBlocks(item.blocks, workspaceId, objectId, onOpenObject)}
+                  {renderBlocks(item.blocks, workspaceId, objectId, wikilinks, onOpenObject)}
                 </div>
               </li>
             ))}
@@ -1031,7 +1096,7 @@ function renderBlocks(
       case "blockquote":
         return (
           <blockquote key={key} style={styles.markdownBlockquote}>
-            {renderBlocks(block.blocks, workspaceId, objectId, onOpenObject)}
+            {renderBlocks(block.blocks, workspaceId, objectId, wikilinks, onOpenObject)}
           </blockquote>
         );
       case "code":
@@ -1060,7 +1125,13 @@ function renderBlocks(
                         textAlign: block.alignments[column] ?? "left",
                       }}
                     >
-                      {renderInline(parseInline(header), workspaceId, objectId, onOpenObject)}
+                      {renderInline(
+                        parseInline(header),
+                        workspaceId,
+                        objectId,
+                        wikilinks,
+                        onOpenObject,
+                      )}
                     </th>
                   ))}
                 </tr>
@@ -1076,7 +1147,13 @@ function renderBlocks(
                           textAlign: block.alignments[column] ?? "left",
                         }}
                       >
-                        {renderInline(parseInline(cell), workspaceId, objectId, onOpenObject)}
+                        {renderInline(
+                          parseInline(cell),
+                          workspaceId,
+                          objectId,
+                          wikilinks,
+                          onOpenObject,
+                        )}
                       </td>
                     ))}
                   </tr>
@@ -1095,10 +1172,10 @@ function renderBlocks(
   });
 }
 
-export function MarkdownBody({ body, workspaceId, objectId, onOpenObject }: Props) {
+export function MarkdownBody({ body, workspaceId, objectId, wikilinks = [], onOpenObject }: Props) {
   return (
     <div style={styles.markdownBody}>
-      {renderBlocks(parseBlocks(body), workspaceId, objectId, onOpenObject)}
+      {renderBlocks(parseBlocks(body), workspaceId, objectId, wikilinks, onOpenObject)}
     </div>
   );
 }

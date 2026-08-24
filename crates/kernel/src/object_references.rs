@@ -99,6 +99,17 @@ pub struct ObjectReferenceMaintenance {
     pub reresolution: ReferenceReresolutionSummary,
 }
 
+/// Wikilink derived from one immutable object version.
+#[derive(Debug, Clone, PartialEq, Eq, sqlx::FromRow)]
+pub struct ObjectVersionWikilinkRow {
+    /// Normalized title target authored inside the double brackets.
+    pub raw_target: String,
+    /// Optional display text authored after the `|` separator.
+    pub display_text: Option<String>,
+    /// Resolved target object when it exists and is readable by the requesting user.
+    pub target_object_id: Option<Uuid>,
+}
+
 /// Resolution state for a title-based wikilink.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum WikilinkResolution {
@@ -345,6 +356,62 @@ async fn recompute_object_references_from_parsed(
     }
 
     Ok(update)
+}
+
+/// Lists wikilinks derived from one object version.
+///
+/// Resolved target identifiers are withheld when the requesting user cannot read the target.
+/// Unresolved and ambiguous references therefore also have no target identifier.
+///
+/// # Errors
+///
+/// Returns an error when the source object cannot be read or the underlying `PostgreSQL` query
+/// fails.
+pub async fn list_object_version_wikilinks(
+    pool: &sqlx::PgPool,
+    user_id: Uuid,
+    workspace_id: Uuid,
+    object_id: Uuid,
+    version_id: Uuid,
+) -> Result<Vec<ObjectVersionWikilinkRow>> {
+    Ok(sqlx::query_as::<_, ObjectVersionWikilinkRow>(
+        r#"
+        SELECT
+            object_reference.raw_target,
+            object_reference.display_text,
+            CASE
+                WHEN target_object.id IS NOT NULL
+                    AND kival.has_object_permission(
+                        target_object.workspace_id,
+                        target_object.id,
+                        $4,
+                        CASE
+                            WHEN target_object.archived_at IS NULL
+                                THEN 'viewer'::kival.object_role
+                            ELSE 'admin'::kival.object_role
+                        END
+                    )
+                THEN object_reference.target_object_id
+                ELSE NULL
+            END AS target_object_id
+        FROM kival.object_references object_reference
+        LEFT JOIN kival.objects target_object
+            ON target_object.workspace_id = object_reference.workspace_id
+            AND target_object.id = object_reference.target_object_id
+        WHERE object_reference.workspace_id = $1
+            AND object_reference.source_object_id = $2
+            AND object_reference.source_version_id = $3
+            AND object_reference.reference_kind = 'wikilink'
+        ORDER BY object_reference.span_start, object_reference.id
+        OFFSET CASE WHEN kival.require_read_object($1, $2, $4) THEN 0 ELSE 0 END
+        "#,
+    )
+    .bind(workspace_id)
+    .bind(object_id)
+    .bind(version_id)
+    .bind(user_id)
+    .fetch_all(pool)
+    .await?)
 }
 
 /// Re-resolves current-version wikilinks affected by title namespace changes.

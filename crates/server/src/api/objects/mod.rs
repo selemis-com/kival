@@ -24,7 +24,9 @@ pub(crate) use lifecycle::{
     handle_archive_object, handle_create_object, handle_get_object, handle_list_objects,
     handle_unarchive_object,
 };
-pub(crate) use versions::{handle_get_version, handle_list_versions, handle_update_object};
+pub(crate) use versions::{
+    handle_get_version, handle_get_version_wikilinks, handle_list_versions, handle_update_object,
+};
 
 /// Converts a kernel object into the HTTP wire representation.
 fn api_object(object: Object) -> ObjectResource {

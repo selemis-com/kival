@@ -7,7 +7,8 @@ use crate::{
     ClientError, CreateObjectRequest, KivalClient, ListParams, ListResponse, ObjectAttachment,
     ObjectAttachmentResponse, ObjectBacklinksParams, ObjectBacklinksResponse, ObjectListItem,
     ObjectListParams, ObjectResponse, ObjectVersion, ObjectVersionResponse,
-    ReuseObjectAttachmentRequest, Transport, UpdateObjectRequest, UploadObjectAttachmentParams,
+    ObjectVersionWikilink, ObjectVersionWikilinksResponse, ReuseObjectAttachmentRequest, Transport,
+    UpdateObjectRequest, UploadObjectAttachmentParams,
     client::transport::append_list_params,
 };
 
@@ -425,5 +426,31 @@ where
         let response = self.send_json::<ObjectVersionResponse>(request).await?;
 
         Ok(response.version)
+    }
+
+    /// Lists wikilinks derived from one immutable object version.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`ClientError::ApiKeyRequired`] if no API key is configured. Numeric identifiers
+    /// smaller than one are rejected by the server.
+    pub async fn get_object_version_wikilinks(
+        &self,
+        workspace_id: Uuid,
+        object_id: Uuid,
+        version: impl Into<ObjectVersionIdentifier>,
+    ) -> Result<Vec<ObjectVersionWikilink>, ClientError> {
+        self.require_api_key()?;
+
+        let version = version.into();
+        let request = self.request(
+            &Method::GET,
+            &format!(
+                "/workspaces/{workspace_id}/objects/{object_id}/versions/{version}/wikilinks"
+            ),
+        )?;
+        let response = self.send_json::<ObjectVersionWikilinksResponse>(request).await?;
+
+        Ok(response.items)
     }
 }

@@ -6,11 +6,102 @@ mod tests {
     use eyre::Result;
     use kival_sdk::{
         Event, ListResponse, MembershipRole, ObjectResponse, ObjectRole, ObjectVersion,
-        ObjectVersionResponse, UpdateObjectRequest,
+        ObjectVersionResponse, ObjectVersionWikilinksResponse, UpdateObjectRequest,
     };
     use kival_tests::{
         TestFixtureExt, TestKival, TestRawResponseExt, TestResponseExt, object_metadata, test_body,
     };
+
+    #[sqlx::test(migrations = "../kernel/migrations")]
+    async fn object_version_wikilinks_return_resolved_and_unresolved_targets(
+        pool: sqlx::PgPool,
+    ) -> Result<()> {
+        let r = TestKival::new(pool).await?;
+        let space = r.object_space("version wikilinks").await?;
+        let target = r
+            .create_object(
+                space.workspace.id,
+                "Wikilink Target",
+                &test_body("Wikilink Target", "Target body."),
+                object_metadata("wikilink-target"),
+            )
+            .await?;
+        let source = r
+            .create_object(
+                space.workspace.id,
+                "Wikilink Source",
+                "See [[Wikilink Target]], [[Wikilink Target|the target]], and [[Missing Target]].",
+                object_metadata("wikilink-source"),
+            )
+            .await?;
+        let source_response: ObjectResponse = r
+            .get_json_as(
+                &r.admin,
+                &format!("/workspaces/{}/objects/{}", space.workspace.id, source.id),
+            )
+            .await?
+            .into_success()?;
+        let version = source_response
+            .current_version
+            .expect("created object should have a current version");
+
+        let by_id: ObjectVersionWikilinksResponse = r
+            .get_json_as(
+                &r.admin,
+                &format!(
+                    "/workspaces/{}/objects/{}/versions/{}/wikilinks",
+                    space.workspace.id, source.id, version.id,
+                ),
+            )
+            .await?
+            .into_success()?;
+        assert_eq!(by_id.items.len(), 3);
+        assert_eq!(by_id.items[0].raw_target, "Wikilink Target");
+        assert_eq!(by_id.items[0].display_text, None);
+        assert_eq!(by_id.items[0].target_object_id, Some(target.id));
+        assert_eq!(by_id.items[1].raw_target, "Wikilink Target");
+        assert_eq!(by_id.items[1].display_text.as_deref(), Some("the target"));
+        assert_eq!(by_id.items[1].target_object_id, Some(target.id));
+        assert_eq!(by_id.items[2].raw_target, "Missing Target");
+        assert_eq!(by_id.items[2].display_text, None);
+        assert_eq!(by_id.items[2].target_object_id, None);
+
+        let by_number: ObjectVersionWikilinksResponse = r
+            .get_json_as(
+                &r.admin,
+                &format!(
+                    "/workspaces/{}/objects/{}/versions/1/wikilinks",
+                    space.workspace.id, source.id,
+                ),
+            )
+            .await?
+            .into_success()?;
+        assert_eq!(by_number, by_id);
+
+        let source_reader = r
+            .create_object_actor(
+                space.workspace.id,
+                source.id,
+                "wikilink-source-reader",
+                MembershipRole::Member,
+                ObjectRole::Viewer,
+            )
+            .await?;
+        let masked: ObjectVersionWikilinksResponse = r
+            .get_json_as(
+                &source_reader,
+                &format!(
+                    "/workspaces/{}/objects/{}/versions/{}/wikilinks",
+                    space.workspace.id, source.id, version.id,
+                ),
+            )
+            .await?
+            .into_success()?;
+        assert_eq!(masked.items.len(), 3);
+        assert!(masked.items.iter().all(|reference| reference.target_object_id.is_none()));
+
+        Ok(())
+    }
 
     #[sqlx::test(migrations = "../kernel/migrations")]
     async fn archived_object_admin_can_list_and_get_versions(pool: sqlx::PgPool) -> Result<()> {

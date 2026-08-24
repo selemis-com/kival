@@ -13,6 +13,8 @@ import type {
   ObjectResponse,
   ObjectVersion,
   ObjectVersionResponse,
+  ObjectVersionWikilink,
+  ObjectVersionWikilinksResponse,
   PinState,
   ReuseObjectAttachmentRequest,
   UpdateObjectRequest,
@@ -403,6 +405,31 @@ export function getObjectVersion(
       requestInit({}, signal),
     )
     .then((response) => response.version);
+}
+
+/** Parameters for {@link getObjectVersionWikilinks}. */
+export type GetObjectVersionWikilinksParameters = GetObjectVersionParameters;
+
+/** Return type for {@link getObjectVersionWikilinks}. */
+export type GetObjectVersionWikilinksReturnType = ObjectVersionWikilink[];
+
+/** Lists wikilinks derived from one immutable object version. */
+export function getObjectVersionWikilinks(
+  client: KivalClientBase,
+  parameters: GetObjectVersionWikilinksParameters,
+): Promise<GetObjectVersionWikilinksReturnType> {
+  const { workspaceId, objectId, version, signal } = parameters;
+  if (typeof version === "number" && (!Number.isSafeInteger(version) || version < 1)) {
+    throw new TypeError("version must be a positive safe integer");
+  }
+
+  return client
+    .requestJson<ObjectVersionWikilinksResponse>(
+      `/workspaces/${pathId(workspaceId)}/objects/${pathId(objectId)}` +
+        `/versions/${pathId(version.toString())}/wikilinks`,
+      requestInit({}, signal),
+    )
+    .then((response) => response.items);
 }
 
 /** Parameters for {@link getObjectBacklinks}. */

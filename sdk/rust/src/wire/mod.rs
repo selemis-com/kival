@@ -54,8 +54,8 @@ pub use notifications::{
 pub use objects::{
     CreateObjectRequest, ObjectAttachment, ObjectAttachmentResponse, ObjectListItem,
     ObjectListOrder, ObjectListParams, ObjectResource, ObjectResponse, ObjectVersion,
-    ObjectVersionResponse, ReuseObjectAttachmentRequest, UpdateObjectRequest,
-    UploadObjectAttachmentParams,
+    ObjectVersionResponse, ObjectVersionWikilink, ObjectVersionWikilinksResponse,
+    ReuseObjectAttachmentRequest, UpdateObjectRequest, UploadObjectAttachmentParams,
 };
 pub use pagination::{DEFAULT_LIMIT, ListParams, ListResponse, MAX_LIMIT};
 pub use search::{
