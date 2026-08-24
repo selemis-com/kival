@@ -8,8 +8,7 @@ use kival_sdk::{
     CreateGroupMembershipRequest, CreateGroupRequest, Group, GroupListParams, GroupMembership,
     ListResponse, MembershipRole, PatchField, UpdateGroupRequest,
 };
-use schemars::JsonSchema;
-use serde::{Deserialize, Serialize};
+use serde::Deserialize;
 use uuid::Uuid;
 
 use crate::utils::{
@@ -96,33 +95,25 @@ pub struct GroupsGetCommand {
 }
 
 /// Semantic input for creating a group.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct CreateGroupInput {
     /// Group name.
-    #[schemars(length(min = 1), regex(pattern = r"\S"))]
     pub name: String,
     /// Group description.
     #[serde(default)]
-    #[schemars(length(min = 1), regex(pattern = r"\S"))]
     pub description: Option<String>,
 }
 
 /// Semantic input for updating a group.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
 #[serde(deny_unknown_fields)]
-#[schemars(extend("allOf" = [{"anyOf": [
-    {"required": ["name"]},
-    {"required": ["description"]}
-]}]))]
 pub struct UpdateGroupInput {
     /// New group name.
     #[serde(default, deserialize_with = "deserialize_optional_non_null")]
-    #[schemars(with = "String", length(min = 1), regex(pattern = r"\S"))]
     pub name: Option<String>,
     /// New group description, or null to clear it.
     #[serde(default, deserialize_with = "deserialize_optional_nullable")]
-    #[schemars(length(min = 1), regex(pattern = r"\S"))]
     pub description: Option<Option<String>>,
 }
 

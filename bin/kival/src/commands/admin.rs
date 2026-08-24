@@ -5,7 +5,6 @@ use clap_schema::{CommandSchema, schema_handler};
 use eyre::Result;
 use kival_cli::runner::CliContext;
 use kival_sdk::{ListResponse, UpdateUserRequest, User, UserListParams, UserListStatus};
-use schemars::JsonSchema;
 use serde::Deserialize;
 use uuid::Uuid;
 
@@ -97,13 +96,11 @@ pub struct AdminUsersGetCommand {
 }
 
 /// Semantic input for updating a user.
-#[derive(Debug, Clone, PartialEq, Eq, Deserialize, JsonSchema)]
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
 #[serde(deny_unknown_fields)]
-#[schemars(extend("required" = ["display_name"]))]
 pub struct UpdateUserInput {
     /// New display name.
     #[serde(default, deserialize_with = "deserialize_optional_non_null")]
-    #[schemars(with = "String", length(min = 1), regex(pattern = r"\S"))]
     pub display_name: Option<String>,
 }
 

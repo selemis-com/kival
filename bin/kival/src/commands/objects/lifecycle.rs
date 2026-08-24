@@ -133,13 +133,12 @@ pub struct ObjectBodyOutput {
 }
 
 /// Semantic input for creating an object.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct CreateObjectInput {
     /// Workspace ID.
     pub workspace_id: Uuid,
     /// Object title.
-    #[schemars(length(min = 1), regex(pattern = r"\S"))]
     pub title: String,
     /// Initial object body.
     #[serde(default)]
@@ -150,27 +149,19 @@ pub struct CreateObjectInput {
 }
 
 /// Semantic input for updating object metadata.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
 #[serde(deny_unknown_fields)]
-#[schemars(extend("allOf" = [{"anyOf": [
-    {"required": ["title"]},
-    {"required": ["body"]},
-    {"required": ["metadata"]}
-]}]))]
 pub struct UpdateObjectInput {
     /// Exact current version the update was based on.
     pub expected_current_version_id: Uuid,
     /// New object title.
     #[serde(default, deserialize_with = "deserialize_optional_non_null")]
-    #[schemars(with = "String", length(min = 1), regex(pattern = r"\S"))]
     pub title: Option<String>,
     /// New object body.
     #[serde(default, deserialize_with = "deserialize_optional_non_null")]
-    #[schemars(with = "String")]
     pub body: Option<String>,
     /// New flat object metadata.
     #[serde(default, deserialize_with = "deserialize_optional_non_null")]
-    #[schemars(with = "Map<String, Value>")]
     pub metadata: Option<Map<String, Value>>,
 }
 

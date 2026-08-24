@@ -13,15 +13,9 @@ use url::Url;
 
 use crate::{
     commands::{
-        admin::AdminCommand,
-        completions::CompletionsCommand,
-        events::EventsCommand,
-        groups::GroupsCommand,
-        objects::ObjectsCommand,
-        schema::{SchemaCommand, output_schema_for_path},
-        search::SearchCommand,
-        server::ServerCommand,
-        whoami::WhoamiCommand,
+        admin::AdminCommand, completions::CompletionsCommand, events::EventsCommand,
+        groups::GroupsCommand, objects::ObjectsCommand, schema::SchemaCommand,
+        search::SearchCommand, server::ServerCommand, whoami::WhoamiCommand,
         workspaces::WorkspacesCommand,
     },
     utils::{
@@ -276,7 +270,9 @@ fn validate_output_projection(
         return Ok(());
     };
 
-    let schema = output_schema_for_path(selected_command_path)?.ok_or_else(|| {
+    let contract = Cli::schema()?;
+    let path = selected_command_path.iter().map(String::as_str).collect::<Vec<_>>();
+    let schema = contract.command(&path)?.output.ok_or_else(|| {
         CliError::invalid_projection(
             "Selected command does not support JSON field projection.",
             None,
