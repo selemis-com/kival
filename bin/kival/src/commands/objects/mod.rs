@@ -21,11 +21,12 @@ pub use events::ObjectEventsCommand;
 use eyre::Result;
 pub use grants::{
     ObjectGrantsCommand, ObjectGrantsCreateCommand, ObjectGrantsListCommand,
-    ObjectGrantsRevokeCommand, ObjectGrantsSubcommand,
+    ObjectGrantsRevokeCommand, ObjectGrantsSubcommand, ObjectGrantsUpdateCommand,
 };
 pub use history::{
     ObjectDiffOutput, ObjectRestoreOutput, ObjectVersionsCommand, ObjectVersionsGetCommand,
-    ObjectVersionsListCommand, ObjectVersionsSubcommand, ObjectsDiffCommand, ObjectsRestoreCommand,
+    ObjectVersionsListCommand, ObjectVersionsSubcommand, ObjectVersionsWikilinksCommand,
+    ObjectsDiffCommand, ObjectsRestoreCommand,
 };
 use kival_cli::runner::CliContext;
 pub use lifecycle::{

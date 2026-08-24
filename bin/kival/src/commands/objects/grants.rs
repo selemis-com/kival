@@ -4,7 +4,9 @@ use clap::{ArgGroup, Parser, Subcommand};
 use clap_schema::{CommandSchema, schema_handler};
 use eyre::Result;
 use kival_cli::runner::CliContext;
-use kival_sdk::{CreateObjectGrantRequest, ListResponse, ObjectGrant, ObjectRole};
+use kival_sdk::{
+    CreateObjectGrantRequest, ListResponse, ObjectGrant, ObjectRole, UpdateObjectGrantRequest,
+};
 use uuid::Uuid;
 
 use super::ObjectTargetArgs;
@@ -37,6 +39,9 @@ pub enum ObjectGrantsSubcommand {
         after_help = "Examples:\n  kival objects grants create <WORKSPACE_ID> <OBJECT_ID> --user-id <USER_ID> --role viewer\n  kival objects grants create <WORKSPACE_ID> <OBJECT_ID> --group-id <GROUP_ID> --role editor"
     )]
     Create(ObjectGrantsCreateCommand),
+    /// Change an active direct object grant's role.
+    #[command(name = "update")]
+    Update(ObjectGrantsUpdateCommand),
     /// Revoke a direct object grant without deleting its historical record.
     #[command(name = "revoke")]
     Revoke(ObjectGrantsRevokeCommand),
@@ -74,6 +79,20 @@ pub struct ObjectGrantsCreateCommand {
     pub role: CliObjectRole,
 }
 
+/// Arguments for `kival objects grants update`.
+#[derive(Debug, Clone, Copy, Parser)]
+pub struct ObjectGrantsUpdateCommand {
+    /// Object target.
+    #[command(flatten)]
+    pub target: ObjectTargetArgs,
+    /// Grant ID.
+    #[arg(value_name = "GRANT_ID")]
+    pub grant_id: Uuid,
+    /// New object role: viewer, editor, or admin.
+    #[arg(long, value_name = "ROLE", value_enum)]
+    pub role: CliObjectRole,
+}
+
 /// Arguments for `kival objects grants revoke`.
 #[derive(Debug, Clone, Copy, Parser)]
 pub struct ObjectGrantsRevokeCommand {
@@ -97,6 +116,9 @@ impl ObjectGrantsCommand {
                 command.run(ctx, output).await?;
             }
             ObjectGrantsSubcommand::Create(command) => {
+                command.run(ctx, output).await?;
+            }
+            ObjectGrantsSubcommand::Update(command) => {
                 command.run(ctx, output).await?;
             }
             ObjectGrantsSubcommand::Revoke(command) => {
@@ -162,6 +184,28 @@ impl ObjectGrantsCreateCommand {
             )
             .await?;
         print_output(output, &grant, || print_grant_line(&grant, Some("created")))?;
+        Ok(grant)
+    }
+}
+
+#[schema_handler(run)]
+impl ObjectGrantsUpdateCommand {
+    /// Run `kival objects grants update`.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the active grant role cannot be updated.
+    pub async fn run(self, ctx: CliContext, output: OutputMode) -> Result<ObjectGrant> {
+        let client = authenticated_client(&ctx)?;
+        let grant = client
+            .update_object_grant(
+                self.target.workspace_id,
+                self.target.object_id,
+                self.grant_id,
+                UpdateObjectGrantRequest { object_role: self.role.into() },
+            )
+            .await?;
+        print_output(output, &grant, || print_grant_line(&grant, Some("updated")))?;
         Ok(grant)
     }
 }

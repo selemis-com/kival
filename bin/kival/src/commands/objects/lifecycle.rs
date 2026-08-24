@@ -66,6 +66,12 @@ pub struct ObjectsListCommand {
     /// Sort order: creation time or last update time, newest first.
     #[arg(long, value_name = "ORDER", value_enum, default_value = "created")]
     pub order: CliObjectListOrder,
+    /// Restrict by the authenticated user's favorite state.
+    #[arg(long, value_name = "BOOL")]
+    pub favorited: Option<bool>,
+    /// Restrict by the authenticated user's personal pin state.
+    #[arg(long, value_name = "BOOL")]
+    pub pinned: Option<bool>,
     /// Maximum number of objects to return.
     #[arg(long, value_name = "N", default_value = DEFAULT_LIST_LIMIT_HELP)]
     pub limit: Option<i64>,
@@ -270,8 +276,8 @@ impl ObjectsListCommand {
                     cursor: self.cursor,
                     status: self.status.into(),
                     order: self.order.into(),
-                    favorited: None,
-                    pinned: None,
+                    favorited: self.favorited,
+                    pinned: self.pinned,
                 },
             )
             .await?;

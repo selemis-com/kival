@@ -6,7 +6,7 @@ use eyre::Result;
 use kival_cli::runner::CliContext;
 use kival_sdk::{
     CreateGroupMembershipRequest, CreateGroupRequest, Group, GroupListParams, GroupMembership,
-    ListResponse, MembershipRole, PatchField, UpdateGroupRequest,
+    ListResponse, MembershipRole, PatchField, UpdateGroupMembershipRequest, UpdateGroupRequest,
 };
 use serde::Deserialize;
 use uuid::Uuid;
@@ -78,6 +78,9 @@ pub struct GroupsListCommand {
     /// Archive status filter: active, archived, or all.
     #[arg(long, value_name = "STATUS", value_enum, default_value = "active")]
     pub status: CliArchiveListStatus,
+    /// Case-insensitive group name search.
+    #[arg(long, value_name = "QUERY")]
+    pub query: Option<String>,
     /// Maximum number of groups to return.
     #[arg(long, value_name = "N", default_value = DEFAULT_LIST_LIMIT_HELP)]
     pub limit: Option<i64>,
@@ -189,6 +192,10 @@ pub enum GroupMembershipsSubcommand {
     #[command(name = "create")]
     Create(GroupMembershipsCreateCommand),
 
+    /// Change an active group membership's role.
+    #[command(name = "update")]
+    Update(GroupMembershipsUpdateCommand),
+
     /// Revoke a group membership without deleting its historical record.
     ///
     /// Revocation removes access derived through this membership but does not revoke the user's
@@ -225,6 +232,20 @@ pub struct GroupMembershipsCreateCommand {
     pub user_id: Uuid,
 
     /// Group role: member or admin.
+    #[arg(long, value_name = "ROLE", value_enum)]
+    pub role: CliMembershipRole,
+}
+
+/// Arguments for `kival groups memberships update`.
+#[derive(Debug, Clone, Copy, Parser)]
+pub struct GroupMembershipsUpdateCommand {
+    /// Group ID.
+    #[arg(value_name = "GROUP_ID")]
+    pub group_id: Uuid,
+    /// Membership ID.
+    #[arg(value_name = "MEMBERSHIP_ID")]
+    pub membership_id: Uuid,
+    /// New group role: member or admin.
     #[arg(long, value_name = "ROLE", value_enum)]
     pub role: CliMembershipRole,
 }
@@ -292,7 +313,7 @@ impl GroupsListCommand {
                 limit: Some(self.limit.unwrap_or(DEFAULT_LIST_LIMIT)),
                 cursor: self.cursor,
                 status: self.status.into(),
-                q: None,
+                q: self.query,
             })
             .await?;
         print_output(output, &response, || {
@@ -476,6 +497,9 @@ impl GroupMembershipsCommand {
             GroupMembershipsSubcommand::Create(command) => {
                 command.run(ctx, output).await?;
             }
+            GroupMembershipsSubcommand::Update(command) => {
+                command.run(ctx, output).await?;
+            }
             GroupMembershipsSubcommand::Revoke(command) => {
                 command.run(ctx, output).await?;
             }
@@ -538,6 +562,29 @@ impl GroupMembershipsCreateCommand {
             .await?;
         print_output(output, &membership, || {
             print_group_membership_line(&membership, Some("created"));
+        })?;
+        Ok(membership)
+    }
+}
+
+#[schema_handler(run)]
+impl GroupMembershipsUpdateCommand {
+    /// Run `kival groups memberships update`.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the active membership role cannot be updated.
+    pub async fn run(self, ctx: CliContext, output: OutputMode) -> Result<GroupMembership> {
+        let client = authenticated_client(&ctx)?;
+        let membership = client
+            .update_group_membership(
+                self.group_id,
+                self.membership_id,
+                UpdateGroupMembershipRequest { group_role: self.role.into() },
+            )
+            .await?;
+        print_output(output, &membership, || {
+            print_group_membership_line(&membership, Some("updated"));
         })?;
         Ok(membership)
     }
