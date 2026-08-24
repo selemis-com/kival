@@ -7,14 +7,15 @@ export function useWorkspaceSearch(workspaceId: string, query: string, includeHi
   const active = normalizedQuery.length > 0;
   const searchKey = `${workspaceId}:${normalizedQuery}:${includeHistory ? "history" : "current"}`;
   const loadSearchPage = useCallback(
-    async (_cursor: string | null, signal: AbortSignal) => {
+    async (cursor: string | null, signal: AbortSignal) => {
       const response = await kival.searchWorkspace({
         workspaceId,
         q: normalizedQuery,
         ...(includeHistory ? { include_history: true } : {}),
+        ...(cursor ? { cursor } : {}),
         signal,
       });
-      return { items: response.items, nextCursor: null };
+      return { items: response.items, nextCursor: response.next_cursor ?? null };
     },
     [includeHistory, normalizedQuery, workspaceId],
   );
