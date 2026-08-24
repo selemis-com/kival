@@ -203,6 +203,7 @@ fn print_search_hit(hit: &SearchHit) {
     parts.push(format!("object={}", hit.object_id));
     parts.push(format!("version={} number={}", hit.version_id, hit.version_number));
     parts.push(format!("category={}", hit.matched_category));
+    parts.push(format!("status={}", hit.status));
 
     parts.push(format!("title={}", quote_human_string(&hit.title)));
     if let Some(rank) = hit.rank {
@@ -211,4 +212,5 @@ fn print_search_hit(hit: &SearchHit) {
 
     println!("{}", parts.join(" "));
     println!("  {}", hit.snippet);
+    println!("  metadata={}", hit.metadata);
 }

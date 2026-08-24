@@ -1,9 +1,13 @@
 //! Search projection bindings.
 
+use serde_json::Value;
 use sqlx::PgPool;
 use uuid::Uuid;
 
-use crate::{ArchiveListStatus, Result, SearchCategory, SearchMatchKind, SearchMode, parse_stored};
+use crate::{
+    ArchiveListStatus, ArchiveStatus, Result, SearchCategory, SearchMatchKind, SearchMode,
+    parse_stored,
+};
 
 /// Search-document match projected from `PostgreSQL`.
 #[derive(Debug, Clone)]
@@ -18,6 +22,10 @@ pub struct SearchDocumentRow {
     pub version_number: i64,
     /// Object title.
     pub title: String,
+    /// Object lifecycle status.
+    pub status: ArchiveStatus,
+    /// Flat metadata from the matched immutable version.
+    pub metadata: Value,
     /// Search-document category.
     pub category: SearchCategory,
     /// Indexed document text.
@@ -84,6 +92,8 @@ pub async fn search_documents(
         version_id: Uuid,
         version_number: i64,
         title: String,
+        status: String,
+        metadata: Value,
         category: String,
         text: String,
         match_kind: String,
@@ -105,6 +115,8 @@ pub async fn search_documents(
                 sd.version_id,
                 version.title,
                 version.version_number,
+                object.status,
+                version.metadata,
                 sd.category,
                 sd.text,
                 (sd.search_vector @@ search_query.tsq) AS matched_text,
@@ -180,6 +192,8 @@ pub async fn search_documents(
                 version_id,
                 version_number,
                 title,
+                status,
+                metadata,
                 category,
                 text,
                 CASE
@@ -200,6 +214,8 @@ pub async fn search_documents(
                 version_id,
                 version_number,
                 title,
+                status,
+                metadata,
                 category,
                 text,
                 match_kind,
@@ -213,6 +229,8 @@ pub async fn search_documents(
             result.version_id,
             result.version_number,
             result.title,
+            result.status,
+            result.metadata,
             result.category,
             result.text,
             result.match_kind,
@@ -225,6 +243,8 @@ pub async fn search_documents(
                 version_id,
                 version_number,
                 title,
+                status,
+                metadata,
                 category,
                 text,
                 match_kind,
@@ -272,6 +292,8 @@ pub async fn search_documents(
                 version_id: row.version_id,
                 version_number: row.version_number,
                 title: row.title,
+                status: parse_stored("object status", row.status)?,
+                metadata: row.metadata,
                 category: parse_stored("search category", row.category)?,
                 text: row.text,
                 match_kind: parse_stored("search match kind", row.match_kind)?,

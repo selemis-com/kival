@@ -10,7 +10,7 @@ mod tests {
     use kival_tests::{
         TestFixtureExt, TestKival, TestRawResponseExt, TestResponseExt, object_metadata, test_body,
     };
-    use kival_types::SearchCategory;
+    use kival_types::{ArchiveStatus, SearchCategory};
 
     #[sqlx::test(migrations = "../kernel/migrations")]
     async fn search_rejects_users_without_workspace_access(pool: sqlx::PgPool) -> Result<()> {
@@ -736,6 +736,50 @@ mod tests {
                 && hit.matched_category == SearchCategory::Body
                 && hit.match_kind == SearchMatchKind::Text
         }));
+
+        Ok(())
+    }
+
+    #[sqlx::test(migrations = "../kernel/migrations")]
+    async fn search_hits_include_object_status_and_version_metadata(
+        pool: sqlx::PgPool,
+    ) -> Result<()> {
+        let r = TestKival::new(pool).await?;
+        let space = r.object_space("search hit context").await?;
+        let title = "Search Context Unique Title";
+        let object = r
+            .create_object(
+                space.workspace.id,
+                title,
+                &test_body(title, "Body."),
+                serde_json::json!({
+                    "kind": "runbook",
+                    "owner": "Platform",
+                    "sensitivity": "internal",
+                }),
+            )
+            .await?;
+
+        let results: SearchResponse = r
+            .get_json_as(
+                &r.admin,
+                &format!(
+                    "/workspaces/{}/search?q=Search%20Context%20Unique%20Title&categories=title",
+                    space.workspace.id,
+                ),
+            )
+            .await?
+            .into_success()?;
+
+        let hit = results
+            .items
+            .iter()
+            .find(|hit| hit.object_id == object.id)
+            .expect("created object should be searchable");
+        assert_eq!(hit.status, ArchiveStatus::Active);
+        assert_eq!(hit.metadata["kind"], "runbook");
+        assert_eq!(hit.metadata["owner"], "Platform");
+        assert_eq!(hit.metadata["sensitivity"], "internal");
 
         Ok(())
     }

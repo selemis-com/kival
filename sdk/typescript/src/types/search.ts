@@ -1,4 +1,4 @@
-import type { ArchiveListStatus, UUID } from "./common.js";
+import type { ArchiveListStatus, ArchiveStatus, FlatMetadata, UUID } from "./common.js";
 
 /** Search match kind. */
 export type SearchMatchKind = "text" | "literal" | "exact";
@@ -56,6 +56,10 @@ export type SearchHit = {
   version_number: number;
   /** Title of the matched version. */
   title: string;
+  /** Object lifecycle status. */
+  status: ArchiveStatus;
+  /** Flat metadata from the matched immutable version. */
+  metadata: FlatMetadata;
   /** Search category in which the match occurred. */
   matched_category: string;
   /** Match kind. */

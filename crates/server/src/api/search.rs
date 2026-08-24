@@ -137,6 +137,8 @@ impl SearchRowExt for SearchDocumentRow {
             version_id: self.version_id,
             version_number: self.version_number,
             title: self.title,
+            status: self.status,
+            metadata: self.metadata,
             matched_category: self.category,
             match_kind: self.match_kind,
             snippet: snippet(&self.text, search_text, case_sensitive, context),

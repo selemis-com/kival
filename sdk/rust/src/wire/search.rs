@@ -1,8 +1,10 @@
 //! Search wire protocol types.
 
+use kival_types::ArchiveStatus;
 pub use kival_types::{SearchCategory, SearchMatchKind, SearchMode};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
+use serde_json::Value;
 use uuid::Uuid;
 
 use crate::ArchiveListStatus;
@@ -75,6 +77,12 @@ pub struct SearchHit {
 
     /// Title of the matched version.
     pub title: String,
+
+    /// Object lifecycle status.
+    pub status: ArchiveStatus,
+
+    /// Flat metadata from the matched immutable version.
+    pub metadata: Value,
 
     /// Search category in which the match occurred.
     pub matched_category: SearchCategory,
