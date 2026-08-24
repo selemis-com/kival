@@ -5,8 +5,8 @@ mod tests {
     use axum::http::{Method, StatusCode};
     use eyre::Result;
     use kival_sdk::{
-        GraphEdgeKind, GrantPrincipal, MembershipRole, ObjectGraphEdge, ObjectGraphNode, ObjectRole,
-        WorkspaceGraphEdge, WorkspaceGraphNode,
+        GrantPrincipal, GraphEdgeKind, MembershipRole, ObjectGraphEdge, ObjectGraphNode,
+        ObjectRole, WorkspaceGraphEdge, WorkspaceGraphNode,
     };
     use kival_tests::{TestFixtureExt, TestKival, TestRawResponseExt, object_metadata, test_body};
     use uuid::Uuid;
@@ -105,11 +105,11 @@ mod tests {
     }
 
     #[sqlx::test(migrations = "../kernel/migrations")]
-    async fn graphs_project_current_wikilinks_and_merge_explicit_relationships(
+    async fn graphs_project_references_without_counting_them_as_relationships(
         pool: sqlx::PgPool,
     ) -> Result<()> {
         let r = TestKival::new(pool).await?;
-        let workspace = r.create_workspace("wikilink graph").await?;
+        let workspace = r.create_workspace("reference graph").await?;
 
         let target = r
             .create_object(
@@ -140,12 +140,7 @@ mod tests {
             )
             .await?;
         assert_node(&object_graph.nodes, target.id, 1);
-        assert_edge_kind(
-            &object_graph.edges,
-            source.id,
-            target.id,
-            GraphEdgeKind::Wikilink,
-        );
+        assert_edge_kind(&object_graph.edges, source.id, target.id, GraphEdgeKind::Reference);
         assert_eq!(
             object_graph
                 .edges
@@ -155,7 +150,7 @@ mod tests {
                 })
                 .count(),
             1,
-            "repeated wikilinks should project as one graph connection",
+            "repeated references should project as one graph link",
         );
 
         let workspace_graph =
@@ -164,7 +159,7 @@ mod tests {
             &workspace_graph.edges,
             source.id,
             target.id,
-            GraphEdgeKind::Wikilink,
+            GraphEdgeKind::Reference,
         );
         assert_eq!(
             workspace_graph
@@ -173,7 +168,8 @@ mod tests {
                 .find(|node| node.id == source.id)
                 .expect("source node")
                 .out_degree,
-            1,
+            0,
+            "textual references are not formal outgoing relationships",
         );
         assert_eq!(
             workspace_graph
@@ -182,7 +178,21 @@ mod tests {
                 .find(|node| node.id == target.id)
                 .expect("target node")
                 .in_degree,
-            1,
+            0,
+            "textual references are not formal incoming relationships",
+        );
+
+        let connected_only = r
+            .workspace_graph_as(
+                &r.admin,
+                workspace.id,
+                "exclude_isolated=true&limit_nodes=50&limit_edges=50",
+            )
+            .await?;
+        assert!(
+            has_workspace_node(&connected_only.nodes, source.id)
+                && has_workspace_node(&connected_only.nodes, target.id),
+            "reference-only graph links should keep their nodes visible in the graph",
         );
 
         r.create_edge(workspace.id, source.id, target.id).await?;
@@ -192,7 +202,7 @@ mod tests {
             &merged.edges,
             source.id,
             target.id,
-            GraphEdgeKind::RelationshipAndWikilink,
+            GraphEdgeKind::RelationshipAndReference,
         );
         assert_eq!(
             merged
@@ -203,7 +213,12 @@ mod tests {
                 })
                 .count(),
             1,
-            "relationship and wikilink should merge into one projected connection",
+            "relationship and reference should merge into one projected graph link",
+        );
+        assert_eq!(
+            merged.nodes.iter().find(|node| node.id == source.id).expect("source node").out_degree,
+            1,
+            "the explicit relationship should count as one connection",
         );
 
         r.update_object(
@@ -312,12 +327,7 @@ mod tests {
             "admin should see the hidden neighbor",
         );
         assert_edge(&admin_graph.edges, hidden_neighbor.id, root.id);
-        assert_edge_kind(
-            &admin_graph.edges,
-            root.id,
-            hidden_neighbor.id,
-            GraphEdgeKind::Wikilink,
-        );
+        assert_edge_kind(&admin_graph.edges, root.id, hidden_neighbor.id, GraphEdgeKind::Reference);
 
         let reader_graph = r
             .object_graph_as(
@@ -345,7 +355,7 @@ mod tests {
 
         assert!(
             !has_edge(&reader_graph.edges, root.id, hidden_neighbor.id),
-            "reader should not see wikilink connection to unreadable neighbor",
+            "reader should not see reference graph link to unreadable neighbor",
         );
 
         Ok(())

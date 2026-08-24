@@ -63,14 +63,14 @@ export type ObjectGraphNode = {
   updated_at: Timestamp;
   /** Shortest traversal distance from the root. */
   distance: number;
-  /** Visible filtered incoming connection count. */
+  /** Visible filtered incoming explicit-relationship count. */
   incoming_count: number;
-  /** Visible filtered outgoing connection count. */
+  /** Visible filtered outgoing explicit-relationship count. */
   outgoing_count: number;
 };
 
-/** Origin of a connection projected into an object or workspace graph. */
-export type GraphEdgeKind = "relationship" | "wikilink" | "relationship_and_wikilink";
+/** Origin of a graph link projected into an object or workspace graph. */
+export type GraphEdgeKind = "relationship" | "reference" | "relationship_and_reference";
 
 /** Edge in an object-centered graph. */
 export type ObjectGraphEdge = {
@@ -82,7 +82,7 @@ export type ObjectGraphEdge = {
   source_object_id: UUID;
   /** Target-object ID. */
   target_object_id: UUID;
-  /** How this directed connection is represented in Kival. */
+  /** How this directed graph link is represented in Kival. */
   kind: GraphEdgeKind;
   /** User that created the representative relationship or source version. */
   created_by: UUID | null;
@@ -152,9 +152,9 @@ export type WorkspaceGraphNode = {
   created_at: Timestamp;
   /** Last update timestamp. */
   updated_at: Timestamp;
-  /** Incoming connections in the visible filtered graph before edge-response truncation. */
+  /** Incoming explicit relationships in the visible filtered graph before edge-response truncation. */
   in_degree: number;
-  /** Outgoing connections in the visible filtered graph before edge-response truncation. */
+  /** Outgoing explicit relationships in the visible filtered graph before edge-response truncation. */
   out_degree: number;
 };
 
@@ -168,7 +168,7 @@ export type WorkspaceGraphEdge = {
   source_object_id: UUID;
   /** Target-object ID. */
   target_object_id: UUID;
-  /** How this directed connection is represented in Kival. */
+  /** How this directed graph link is represented in Kival. */
   kind: GraphEdgeKind;
   /** User that created the representative relationship or source version. */
   created_by: UUID | null;

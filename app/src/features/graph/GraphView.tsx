@@ -114,6 +114,7 @@ function drawGraphOverlay(
       const tipY = targetPoint.y - uy * 11;
       const size = 5;
 
+      context.globalAlpha = edge.kind === "reference" ? 0.45 : 1;
       context.beginPath();
       context.moveTo(tipX, tipY);
       context.lineTo(tipX - ux * 8 - uy * size, tipY - uy * 8 + ux * size);
@@ -121,6 +122,8 @@ function drawGraphOverlay(
       context.closePath();
       context.fill();
     }
+
+    context.globalAlpha = 1;
   }
 
   for (const node of graph.nodes) {
@@ -170,6 +173,14 @@ function drawGraphOverlay(
 
   context.globalAlpha = 1;
   context.restore();
+}
+
+function referenceCountForNode(graph: PositionedGraph, nodeId: string) {
+  return graph.edges.filter(
+    (edge) =>
+      (edge.source_object_id === nodeId || edge.target_object_id === nodeId) &&
+      (edge.kind === "reference" || edge.kind === "relationship_and_reference"),
+  ).length;
 }
 
 const toolbarStyle = {
@@ -721,6 +732,10 @@ export function GraphView({ workspace, onOpenObject, focusObjectId = null }: Pro
     drawLabels();
   }
 
+  const hoveredReferenceCount = hoveredNode
+    ? referenceCountForNode(graphRef.current, hoveredNode.id)
+    : 0;
+
   return (
     <section style={styles.graphPage}>
       {loading && <LoadingIndicator label="Loading graph…" />}
@@ -814,6 +829,10 @@ export function GraphView({ workspace, onOpenObject, focusObjectId = null }: Pro
               <strong>{hoveredNode.title}</strong>
               <span style={styles.graphTooltipMeta}>
                 {hoveredNode.in_degree + hoveredNode.out_degree} connections
+                {hoveredReferenceCount > 0 &&
+                  ` · ${hoveredReferenceCount} ${
+                    hoveredReferenceCount === 1 ? "reference" : "references"
+                  }`}
               </span>
             </div>
           )}

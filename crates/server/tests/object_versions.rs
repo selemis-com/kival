@@ -41,9 +41,8 @@ mod tests {
             )
             .await?
             .into_success()?;
-        let version = source_response
-            .current_version
-            .expect("created object should have a current version");
+        let version =
+            source_response.current_version.expect("created object should have a current version");
 
         let by_id: ObjectVersionWikilinksResponse = r
             .get_json_as(

@@ -204,14 +204,9 @@ pub(crate) async fn handle_get_version(
     actor: AuthenticatedUser,
     Path((workspace_id, object_id, version)): Path<(Uuid, Uuid, String)>,
 ) -> ApiResult<Json<ObjectVersionResponse>> {
-    let version = fetch_version_identifier(
-        state.as_ref(),
-        actor.id,
-        workspace_id,
-        object_id,
-        &version,
-    )
-    .await?;
+    let version =
+        fetch_version_identifier(state.as_ref(), actor.id, workspace_id, object_id, &version)
+            .await?;
     let mut versions = vec![api_object_version(version)];
     hydrate_version_creators(state.db(), actor.id, workspace_id, object_id, &mut versions).await?;
     let version = versions.pop().expect("one fetched object version");
@@ -225,29 +220,19 @@ pub(crate) async fn handle_get_version_wikilinks(
     actor: AuthenticatedUser,
     Path((workspace_id, object_id, version)): Path<(Uuid, Uuid, String)>,
 ) -> ApiResult<Json<ObjectVersionWikilinksResponse>> {
-    let version = fetch_version_identifier(
-        state.as_ref(),
-        actor.id,
-        workspace_id,
-        object_id,
-        &version,
-    )
-    .await?;
-    let items = list_object_version_wikilinks(
-        state.db(),
-        actor.id,
-        workspace_id,
-        object_id,
-        version.id,
-    )
-    .await?
-    .into_iter()
-    .map(|reference| ObjectVersionWikilink {
-        raw_target: reference.raw_target,
-        display_text: reference.display_text,
-        target_object_id: reference.target_object_id,
-    })
-    .collect();
+    let version =
+        fetch_version_identifier(state.as_ref(), actor.id, workspace_id, object_id, &version)
+            .await?;
+    let items =
+        list_object_version_wikilinks(state.db(), actor.id, workspace_id, object_id, version.id)
+            .await?
+            .into_iter()
+            .map(|reference| ObjectVersionWikilink {
+                raw_target: reference.raw_target,
+                display_text: reference.display_text,
+                target_object_id: reference.target_object_id,
+            })
+            .collect();
 
     Ok(Json(ObjectVersionWikilinksResponse { items }))
 }
@@ -261,14 +246,9 @@ async fn fetch_version_identifier(
     version: &str,
 ) -> ApiResult<ObjectVersion> {
     if let Ok(version_id) = Uuid::parse_str(version) {
-        return Ok(fetch_object_version(
-            state.db(),
-            actor_id,
-            workspace_id,
-            object_id,
-            version_id,
-        )
-        .await?);
+        return Ok(
+            fetch_object_version(state.db(), actor_id, workspace_id, object_id, version_id).await?
+        );
     }
 
     let version_number = version.parse::<i64>().map_err(|_error| {

@@ -322,7 +322,7 @@ export function LocalGraph({ context, onOpenObject, onRevealInGraph }: Props) {
 
   const graph = useMemo(() => createLocalGraph(context), [context]);
   const currentObjectId = context.graph.root_object_id;
-  const hasConnections = graph.nodes.length > 1;
+  const hasGraphLinks = graph.nodes.length > 1;
 
   const drawLabels = useCallback(() => {
     const overlay = overlayRef.current;
@@ -383,7 +383,7 @@ export function LocalGraph({ context, onOpenObject, onRevealInGraph }: Props) {
   }, [currentObjectId, drawLabels]);
 
   useEffect(() => {
-    if (!hasConnections) {
+    if (!hasGraphLinks) {
       return;
     }
 
@@ -409,7 +409,7 @@ export function LocalGraph({ context, onOpenObject, onRevealInGraph }: Props) {
       renderer.destroy();
       rendererRef.current = null;
     };
-  }, [hasConnections, resolvedTheme]);
+  }, [hasGraphLinks, resolvedTheme]);
 
   useEffect(() => {
     rendererRef.current?.setTheme(resolvedTheme);
@@ -579,7 +579,7 @@ export function LocalGraph({ context, onOpenObject, onRevealInGraph }: Props) {
     pointerRef.current = null;
   }
 
-  if (!hasConnections) {
+  if (!hasGraphLinks) {
     return null;
   }
 
@@ -597,7 +597,7 @@ export function LocalGraph({ context, onOpenObject, onRevealInGraph }: Props) {
           ref={containerRef}
           style={styles.localGraphViewport}
           role="application"
-          aria-label="Local graph of direct object connections"
+          aria-label="Local graph of object relationships and references"
           onPointerDown={handlePointerDown}
           onPointerMove={handlePointerMove}
           onPointerUp={handlePointerUp}
@@ -647,7 +647,9 @@ export function LocalGraph({ context, onOpenObject, onRevealInGraph }: Props) {
       )}
 
       {!renderError && (
-        <span style={styles.localGraphHint}>Drag to rearrange · click a neighbour to open</span>
+        <span style={styles.localGraphHint}>
+          Solid lines are relationships · dashed lines are references · drag to rearrange
+        </span>
       )}
     </div>
   );

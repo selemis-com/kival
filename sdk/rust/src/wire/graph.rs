@@ -171,22 +171,22 @@ pub struct ObjectGraphNode {
     pub updated_at: OffsetDateTime,
     /// Shortest traversal distance from the root.
     pub distance: i32,
-    /// Visible filtered incoming connection count.
+    /// Visible filtered incoming explicit-relationship count.
     pub incoming_count: i64,
-    /// Visible filtered outgoing connection count.
+    /// Visible filtered outgoing explicit-relationship count.
     pub outgoing_count: i64,
 }
 
-/// Origin of a connection projected into an object or workspace graph.
+/// Origin of a graph link projected into an object or workspace graph.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum GraphEdgeKind {
     /// Explicit relationship stored in the object-edge model.
     Relationship,
-    /// Resolved wikilink authored in the source object's current version.
-    Wikilink,
-    /// The same directed connection exists both explicitly and as a wikilink.
-    RelationshipAndWikilink,
+    /// Resolved reference authored in the source object's current version.
+    Reference,
+    /// The same directed graph link exists both explicitly and as a reference.
+    RelationshipAndReference,
 }
 
 /// Edge in an object-centered graph.
@@ -200,7 +200,7 @@ pub struct ObjectGraphEdge {
     pub source_object_id: Uuid,
     /// Target object ID.
     pub target_object_id: Uuid,
-    /// How this directed connection is represented in Kival.
+    /// How this directed graph link is represented in Kival.
     pub kind: GraphEdgeKind,
     /// User that created the representative relationship or source version.
     pub created_by: Option<Uuid>,
@@ -288,11 +288,11 @@ pub struct WorkspaceGraphNode {
     #[schemars(with = "String")]
     #[serde(with = "rfc3339")]
     pub updated_at: OffsetDateTime,
-    /// Number of incoming connections in the visible filtered graph before edge response
-    /// truncation.
+    /// Number of incoming explicit relationships in the visible filtered graph before edge
+    /// response truncation.
     pub in_degree: i64,
-    /// Number of outgoing connections in the visible filtered graph before edge response
-    /// truncation.
+    /// Number of outgoing explicit relationships in the visible filtered graph before edge
+    /// response truncation.
     pub out_degree: i64,
 }
 
@@ -307,7 +307,7 @@ pub struct WorkspaceGraphEdge {
     pub source_object_id: Uuid,
     /// Target object ID.
     pub target_object_id: Uuid,
-    /// How this directed connection is represented in Kival.
+    /// How this directed graph link is represented in Kival.
     pub kind: GraphEdgeKind,
     /// User that created the representative relationship or source version.
     pub created_by: Option<Uuid>,

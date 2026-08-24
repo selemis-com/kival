@@ -6,10 +6,9 @@ use uuid::Uuid;
 use crate::{
     ClientError, CreateObjectRequest, KivalClient, ListParams, ListResponse, ObjectAttachment,
     ObjectAttachmentResponse, ObjectBacklinksParams, ObjectBacklinksResponse, ObjectListItem,
-    ObjectListParams, ObjectResponse, ObjectVersion, ObjectVersionResponse,
-    ObjectVersionWikilink, ObjectVersionWikilinksResponse, ReuseObjectAttachmentRequest, Transport,
-    UpdateObjectRequest, UploadObjectAttachmentParams,
-    client::transport::append_list_params,
+    ObjectListParams, ObjectResponse, ObjectVersion, ObjectVersionResponse, ObjectVersionWikilink,
+    ObjectVersionWikilinksResponse, ReuseObjectAttachmentRequest, Transport, UpdateObjectRequest,
+    UploadObjectAttachmentParams, client::transport::append_list_params,
 };
 
 /// Identifier accepted by the object-version read endpoint.
@@ -445,9 +444,7 @@ where
         let version = version.into();
         let request = self.request(
             &Method::GET,
-            &format!(
-                "/workspaces/{workspace_id}/objects/{object_id}/versions/{version}/wikilinks"
-            ),
+            &format!("/workspaces/{workspace_id}/objects/{object_id}/versions/{version}/wikilinks"),
         )?;
         let response = self.send_json::<ObjectVersionWikilinksResponse>(request).await?;
 
