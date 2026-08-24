@@ -157,6 +157,40 @@ pub async fn search_documents(
                 WHEN 'literal' THEN candidates.matched_literal
                 ELSE candidates.matched_text OR candidates.matched_literal
             END
+        ),
+        ranked AS (
+            SELECT
+                workspace_id,
+                object_id,
+                version_id,
+                version_number,
+                title,
+                category,
+                text,
+                CASE
+                    WHEN $5 = 'exact' THEN 'exact'
+                    WHEN $5 = 'literal' THEN 'literal'
+                    WHEN $5 = 'text' THEN 'text'
+                    WHEN matched_exact THEN 'exact'
+                    WHEN matched_literal THEN 'literal'
+                    ELSE 'text'
+                END AS match_kind,
+                category_weight + match_weight + text_rank AS rank
+            FROM matched
+        ),
+        deduplicated AS (
+            SELECT DISTINCT ON (object_id, version_id)
+                workspace_id,
+                object_id,
+                version_id,
+                version_number,
+                title,
+                category,
+                text,
+                match_kind,
+                rank
+            FROM ranked
+            ORDER BY object_id, version_id, rank DESC, category
         )
         SELECT
             result.workspace_id,
@@ -178,18 +212,11 @@ pub async fn search_documents(
                 title,
                 category,
                 text,
-                CASE
-                    WHEN $5 = 'exact' THEN 'exact'
-                    WHEN $5 = 'literal' THEN 'literal'
-                    WHEN $5 = 'text' THEN 'text'
-                    WHEN matched_exact THEN 'exact'
-                    WHEN matched_literal THEN 'literal'
-                    ELSE 'text'
-                END AS match_kind,
-                category_weight + match_weight + text_rank AS rank
-            FROM matched
+                match_kind,
+                rank
+            FROM deduplicated
             WHERE workspace_access.allowed
-            ORDER BY rank DESC, object_id, version_number DESC, category, version_id
+            ORDER BY rank DESC, object_id, version_number DESC, version_id
             LIMIT $9
         ) result
         "#,

@@ -596,6 +596,50 @@ mod tests {
     }
 
     #[sqlx::test(migrations = "../kernel/migrations")]
+    async fn search_returns_one_hit_per_matching_version_before_limit(
+        pool: sqlx::PgPool,
+    ) -> Result<()> {
+        let r = TestKival::new(pool).await?;
+        let space = r.object_space("search deduplicated hits").await?;
+        let query = "Shared Search Phrase";
+
+        let first = r
+            .create_object(
+                space.workspace.id,
+                &format!("{query} Alpha"),
+                &test_body(&format!("{query} Alpha"), "Body."),
+                object_metadata("search-deduplicated-first"),
+            )
+            .await?;
+        let second = r
+            .create_object(
+                space.workspace.id,
+                &format!("{query} Beta"),
+                &test_body(&format!("{query} Beta"), "Body."),
+                object_metadata("search-deduplicated-second"),
+            )
+            .await?;
+
+        let results: SearchResponse = r
+            .get_json_as(
+                &r.admin,
+                &format!(
+                    "/workspaces/{}/search?q=Shared%20Search%20Phrase&limit=2",
+                    space.workspace.id,
+                ),
+            )
+            .await?
+            .into_success()?;
+
+        assert_eq!(results.items.len(), 2);
+        assert!(results.items.iter().any(|hit| hit.object_id == first.id));
+        assert!(results.items.iter().any(|hit| hit.object_id == second.id));
+        assert!(results.items.iter().all(|hit| hit.matched_category == SearchCategory::Title));
+
+        Ok(())
+    }
+
+    #[sqlx::test(migrations = "../kernel/migrations")]
     async fn search_exact_mode_returns_exact_match_kind(pool: sqlx::PgPool) -> Result<()> {
         let r = TestKival::new(pool).await?;
         let space = r.object_space("search exact mode").await?;
