@@ -448,10 +448,7 @@ pub(super) async fn create_workspace_as_operator(
         durable_tasks
             .queue()
             .spawn(PROJECT_NOTIFICATIONS, ())
-            .idempotency_key(format!(
-                "notification-workspace-initialization:{}",
-                workspace.id
-            ))
+            .idempotency_key(format!("notification-workspace-initialization:{}", workspace.id))
             .max_attempts(PROJECTION_MAX_ATTEMPTS)
             .retry_strategy(PROJECTION_RETRY_STRATEGY)
             .submit(&mut tx)
@@ -2234,10 +2231,7 @@ mod tests {
               AND idempotency_key = $1
             "#,
         )
-        .bind(format!(
-            "notification-workspace-initialization:{}",
-            created.workspace_id
-        ))
+        .bind(format!("notification-workspace-initialization:{}", created.workspace_id))
         .fetch_one(&pool)
         .await?;
         assert_eq!(notification_projection_task, "pending");
