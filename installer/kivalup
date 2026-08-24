@@ -1,0 +1,612 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+#     __ __ __            __
+#    / //_//_/_  ______ _/ /
+#   / ,<  / / | / / __ `/ /
+#  / /| |/ /| |/ / /_/ / /
+# /_/ |_/_/ |___/\__,_/_/
+#
+# Kivalup - Kival installer and updater.
+
+KIVALUP_RELEASE_VERSION="${KIVALUP_RELEASE_VERSION:-}"
+REPO="selemis-com/kival"
+BIN_DIR="${KIVAL_BIN_DIR:-$HOME/.kival/bin}"
+
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+NC='\033[0m'
+
+MODE=""
+VERSION=""
+SKIP_ATTESTATION_VERIFICATION=0
+VERIFY_GITHUB_ATTESTATION=0
+
+TMP_DIR=""
+LOCK_DIR=""
+BACKUP_DIR=""
+STAGE_DIR=""
+INSTALL_ACTIVE=0
+INSTALL_FILES=()
+
+print_banner() {
+    cat <<'BANNER'
+    __ __ __            __
+   / //_//_/_  ______ _/ /
+  / ,<  / / | / / __ `/ /
+ / /| |/ /| |/ / /_/ / /
+/_/ |_/_/ |___/\__,_/_/
+BANNER
+}
+
+info() {
+    printf '%binfo%b: %s\n' "$GREEN" "$NC" "$1" >&2
+}
+
+warn() {
+    printf '%bwarn%b: %s\n' "$YELLOW" "$NC" "$1" >&2
+}
+
+error() {
+    printf '%berror%b: %s\n' "$RED" "$NC" "$1" >&2
+    exit 1
+}
+
+check_cmd() {
+    command -v "$1" >/dev/null 2>&1
+}
+
+cleanup() {
+    local status=$?
+    trap - EXIT
+    set +e
+
+    if [[ "$status" -ne 0 && "$INSTALL_ACTIVE" -eq 1 ]]; then
+        rollback_install
+    fi
+
+    [[ -z "$TMP_DIR" ]] || rm -rf -- "$TMP_DIR"
+    [[ -z "$STAGE_DIR" ]] || rm -rf -- "$STAGE_DIR"
+
+    if [[ -n "$LOCK_DIR" ]]; then
+        rm -f "$LOCK_DIR/pid"
+        rmdir "$LOCK_DIR" 2>/dev/null || true
+    fi
+
+    exit "$status"
+}
+
+validate_bin_dir() {
+    [[ "$BIN_DIR" == /* ]] || error "KIVAL_BIN_DIR must be an absolute path."
+    case "$BIN_DIR" in
+        *$'\n'*|*$'\r'*|*:*) error "KIVAL_BIN_DIR contains an unsupported character." ;;
+    esac
+}
+
+acquire_lock() {
+    mkdir -p "$BIN_DIR"
+
+    local lock="$BIN_DIR/.kivalup.lock"
+    if ! mkdir "$lock" 2>/dev/null; then
+        local owner=""
+        [[ ! -L "$lock" && -d "$lock" ]] ||
+            error "Refusing to use unsafe lock path: $lock"
+
+        [[ ! -r "$lock/pid" ]] || owner="$(head -n 1 "$lock/pid" 2>/dev/null || true)"
+
+        if [[ "$owner" =~ ^[0-9]+$ ]] && ! kill -0 "$owner" 2>/dev/null; then
+            rm -f "$lock/pid"
+            rmdir "$lock" 2>/dev/null ||
+                error "Stale kivalup lock contains unexpected files: $lock"
+            mkdir "$lock" || error "Failed to replace stale kivalup lock."
+        elif [[ -n "$owner" ]]; then
+            error "Another kivalup process appears to be running (PID $owner)."
+        else
+            error "Another kivalup process appears to be running."
+        fi
+    fi
+
+    LOCK_DIR="$lock"
+    printf '%s\n' "$$" > "$LOCK_DIR/pid"
+}
+
+start_operation() {
+    validate_bin_dir
+    trap cleanup EXIT
+    preflight_dependencies
+    acquire_lock
+    TMP_DIR="$(mktemp -d 2>/dev/null || mktemp -d -t kivalup)" ||
+        error "Failed to create a temporary directory."
+}
+
+normalize_version() {
+    local version="${1#v}"
+    local stable='^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$'
+    local rc='^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)-rc([1-9][0-9]*)$'
+
+    [[ "$version" =~ $stable || "$version" =~ $rc ]] ||
+        error "Invalid Kival version: $1. Expected v0.1.0 or v0.1.0-rc1."
+
+    printf 'v%s\n' "$version"
+}
+
+download() {
+    local url="$1"
+    local output="$2"
+
+    curl --disable \
+        --proto '=https' \
+        --proto-redir '=https' \
+        --connect-timeout 15 \
+        --max-time 300 \
+        -#fL \
+        "$url" \
+        -o "$output" || error "Failed to download $url"
+}
+
+download_release_asset() {
+    local tag="$1"
+    local name="$2"
+
+    info "Downloading $name..."
+    download "https://github.com/${REPO}/releases/download/${tag}/${name}" "$TMP_DIR/$name"
+}
+
+get_latest_version() {
+    local final_url
+
+    final_url="$(
+        curl --disable \
+            --proto '=https' \
+            --proto-redir '=https' \
+            --connect-timeout 15 \
+            --max-time 60 \
+            -fsSIL \
+            -o /dev/null \
+            -w '%{url_effective}' \
+            "https://github.com/${REPO}/releases/latest"
+    )" || error "Failed to resolve the latest Kival release."
+
+    local tag="${final_url##*/}"
+    [[ "$tag" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]] ||
+        error "Latest GitHub release has an unexpected tag: $tag"
+
+    printf '%s\n' "$tag"
+}
+
+compute_sha256() {
+    if check_cmd sha256sum; then
+        sha256sum "$1" | awk '{print $1}'
+    else
+        shasum -a 256 "$1" | awk '{print $1}'
+    fi
+}
+
+verify_checksum() {
+    local artifact="$1"
+    local checksum_file="$2"
+    local expected_name="$3"
+    local line
+
+    [[ "$(sed '/^[[:space:]]*$/d' "$checksum_file" | wc -l | tr -d ' ')" -eq 1 ]] ||
+        error "Checksum file must contain exactly one entry."
+
+    line="$(sed -n '1p' "$checksum_file" | tr -d '\r')"
+
+    local expected
+    local filename
+    expected="$(awk '{print $1}' <<< "$line" | tr '[:upper:]' '[:lower:]')"
+    filename="$(awk '{print $2}' <<< "$line")"
+    filename="${filename#\*}"
+    filename="${filename#./}"
+
+    [[ "$(awk '{print NF}' <<< "$line")" -eq 2 ]] ||
+        error "Checksum file must contain exactly a digest and filename."
+    [[ "$expected" =~ ^[0-9a-f]{64}$ && "$filename" == "$expected_name" ]] ||
+        error "Checksum file is malformed or refers to an unexpected artifact."
+
+    local actual
+    actual="$(compute_sha256 "$artifact" | tr '[:upper:]' '[:lower:]')"
+    [[ "$actual" == "$expected" ]] || error "Checksum verification failed for $expected_name."
+
+    info "Checksum verified ✓"
+}
+
+github_attestation_available() {
+    [[ "$SKIP_ATTESTATION_VERIFICATION" -eq 0 ]] || return 1
+    check_cmd gh || return 1
+    gh auth status --active --hostname github.com >/dev/null 2>&1 || return 1
+
+    local help
+    help="$(gh attestation verify --help 2>/dev/null)" || return 1
+
+    local flag
+    for flag in --bundle --repo --signer-workflow --source-ref --deny-self-hosted-runners; do
+        [[ "$help" == *"$flag"* ]] || return 1
+    done
+}
+
+configure_attestation_verification() {
+    VERIFY_GITHUB_ATTESTATION=0
+
+    if [[ "$SKIP_ATTESTATION_VERIFICATION" -eq 1 ]]; then
+        warn "GitHub attestation verification was explicitly skipped."
+    elif github_attestation_available; then
+        VERIFY_GITHUB_ATTESTATION=1
+    else
+        warn "GitHub attestation verification is unavailable; SHA-256 verification remains required."
+    fi
+}
+
+verify_attestation() {
+    local artifact="$1"
+    local pointer="$2"
+    local tag="$3"
+
+    [[ "$(sed '/^[[:space:]]*$/d' "$pointer" | wc -l | tr -d ' ')" -eq 1 ]] ||
+        error "Attestation pointer must contain exactly one URL."
+
+    local url
+    local prefix="https://github.com/${REPO}/attestations/"
+    url="$(sed -n '1p' "$pointer" | tr -d '\r')"
+
+    [[ "$url" == "$prefix"* && "${url#"$prefix"}" =~ ^[0-9]+$ ]] ||
+        error "Attestation pointer is invalid."
+
+    local bundle="$TMP_DIR/attestation.jsonl"
+    download "${url}/download" "$bundle"
+
+    info "Verifying GitHub attestation..."
+    gh attestation verify "$artifact" \
+        --bundle "$bundle" \
+        --repo "$REPO" \
+        --signer-workflow "github.com/${REPO}/.github/workflows/release.yml" \
+        --source-ref "refs/tags/${tag}" \
+        --deny-self-hosted-runners >/dev/null ||
+        error "GitHub attestation verification failed. Re-run with --skip-attestation-verification to use checksum verification only."
+
+    info "GitHub attestation verified ✓"
+}
+
+
+download_verified_asset() {
+    local tag="$1"
+    local name="$2"
+    local pointer_name="$3"
+
+    download_release_asset "$tag" "$name"
+    download_release_asset "$tag" "${name}.sha256"
+    verify_checksum "$TMP_DIR/$name" "$TMP_DIR/${name}.sha256" "$name"
+
+    if [[ "$VERIFY_GITHUB_ATTESTATION" -eq 1 ]]; then
+        download_release_asset "$tag" "$pointer_name"
+        verify_attestation "$TMP_DIR/$name" "$TMP_DIR/$pointer_name" "$tag"
+    fi
+}
+
+preflight_dependencies() {
+    check_cmd curl || error "curl not found. Please install curl."
+
+    if ! check_cmd sha256sum && ! check_cmd shasum; then
+        error "sha256sum or shasum not found. Please install one of them."
+    fi
+
+    configure_attestation_verification
+}
+
+detect_target() {
+    local os
+    local arch
+    os="$(uname -s)"
+    arch="$(uname -m)"
+
+    case "$os/$arch" in
+        Linux/x86_64|Linux/amd64) echo "x86_64-unknown-linux-gnu" ;;
+        Linux/aarch64|Linux/arm64) echo "aarch64-unknown-linux-gnu" ;;
+        Darwin/arm64|Darwin/aarch64) echo "aarch64-apple-darwin" ;;
+        Darwin/*) error "Kival requires an Apple Silicon Mac running natively." ;;
+        *) error "Unsupported platform: $os/$arch" ;;
+    esac
+}
+
+validate_archive() {
+    local archive="$1"
+    local entries
+
+    entries="$(tar -tzf "$archive" | sed 's#^\./##' | sed '/^$/d' | LC_ALL=C sort)" ||
+        error "Downloaded release is not a valid tar archive."
+
+    [[ "$entries" == $'kival\nkivald' ]] ||
+        error "Kival release archive must contain exactly kival and kivald."
+
+    tar -tvzf "$archive" |
+        awk 'substr($1, 1, 1) != "-" { exit 1 }' ||
+        error "Kival release archive contains a non-regular entry."
+}
+
+verify_binary() {
+    local path="$1"
+    local name="$2"
+    local expected="$3"
+    local output
+
+    output="$("$path" --version 2>&1)" || error "$name failed to launch."
+
+    local reported="${output#"$name "}"
+    reported="${reported%%[[:space:]]*}"
+
+    [[ "$reported" == "$expected" ]] ||
+        error "$name reports version $reported; expected $expected."
+
+    info "$name verified: ${output%%$'\n'*}"
+}
+
+validate_install_target() {
+    local path="$1"
+    [[ ! -L "$path" ]] || error "Refusing to replace symlink at $path."
+    [[ ! -e "$path" || -f "$path" ]] || error "Cannot replace non-regular path at $path."
+}
+
+rollback_install() {
+    warn "Installation failed; restoring the previous Kival installation."
+
+    local name
+    local restored=1
+    for name in "${INSTALL_FILES[@]}"; do
+        rm -f "$BIN_DIR/$name"
+        if [[ -f "$BACKUP_DIR/$name" ]]; then
+            mv "$BACKUP_DIR/$name" "$BIN_DIR/$name" || {
+                warn "Failed to restore $name; backup remains in $BACKUP_DIR."
+                restored=0
+            }
+        fi
+    done
+
+    if [[ "$restored" -eq 1 ]]; then
+        rmdir "$BACKUP_DIR" 2>/dev/null && BACKUP_DIR=""
+    fi
+    INSTALL_ACTIVE=0
+}
+
+verify_candidate() {
+    local path="$1"
+    local name="$2"
+    local expected_version="$3"
+    local tag="$4"
+
+    case "$name" in
+        kival|kivald)
+            verify_binary "$path" "$name" "$expected_version"
+            ;;
+        kivalup)
+            bash -n "$path" || error "Downloaded kivalup failed shell syntax validation."
+            grep -qF "KIVALUP_RELEASE_VERSION=\"\${KIVALUP_RELEASE_VERSION:-${tag}}\"" "$path" ||
+                error "Downloaded kivalup is not bound to Kival $tag."
+            ;;
+        *)
+            error "Unexpected installation file: $name"
+            ;;
+    esac
+}
+
+install_release() {
+    local source_dir="$1"
+    local expected_version="$2"
+    local tag="$3"
+    shift 3
+    INSTALL_FILES=("$@")
+
+    STAGE_DIR="$(mktemp -d "$BIN_DIR/.kivalup-stage.XXXXXX")" ||
+        error "Failed to create a Kival staging directory."
+
+    local name
+    for name in "${INSTALL_FILES[@]}"; do
+        validate_install_target "$BIN_DIR/$name"
+        cp "$source_dir/$name" "$STAGE_DIR/$name"
+        chmod 0755 "$STAGE_DIR/$name"
+        [[ "$(compute_sha256 "$source_dir/$name")" == "$(compute_sha256 "$STAGE_DIR/$name")" ]] ||
+            error "Staged $name does not match the verified release artifact."
+        verify_candidate "$STAGE_DIR/$name" "$name" "$expected_version" "$tag"
+    done
+
+    BACKUP_DIR="$(mktemp -d "$BIN_DIR/.kivalup-backup.XXXXXX")" ||
+        error "Failed to create a Kival backup directory."
+    for name in "${INSTALL_FILES[@]}"; do
+        [[ ! -e "$BIN_DIR/$name" ]] || cp -p "$BIN_DIR/$name" "$BACKUP_DIR/$name"
+    done
+    INSTALL_ACTIVE=1
+
+    info "Installing ${INSTALL_FILES[*]} to $BIN_DIR..."
+    for name in "${INSTALL_FILES[@]}"; do
+        mv "$STAGE_DIR/$name" "$BIN_DIR/$name"
+    done
+    rmdir "$STAGE_DIR"
+    STAGE_DIR=""
+
+    for name in "${INSTALL_FILES[@]}"; do
+        verify_candidate "$BIN_DIR/$name" "$name" "$expected_version" "$tag"
+    done
+
+    INSTALL_ACTIVE=0
+    rm -rf -- "$BACKUP_DIR"
+    BACKUP_DIR=""
+    INSTALL_FILES=()
+}
+
+current_kival_version() {
+    local binary="$BIN_DIR/kival"
+    [[ -x "$binary" && ! -L "$binary" ]] || return 0
+
+    local output
+    output="$("$binary" --version 2>/dev/null)" || return 0
+    output="${output%%$'\n'*}"
+    output="${output#kival }"
+    output="${output%%[[:space:]]*}"
+
+    [[ "$output" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-rc[1-9][0-9]*)?$ ]] || return 0
+    printf 'v%s\n' "$output"
+}
+
+latest_is_newer() {
+    local latest="${1#v}"
+    local installed="${2#v}"
+    local installed_core="${installed%%-*}"
+    local l_major l_minor l_patch
+    local i_major i_minor i_patch
+
+    IFS=. read -r l_major l_minor l_patch <<< "$latest"
+    IFS=. read -r i_major i_minor i_patch <<< "$installed_core"
+
+    ((l_major > i_major)) && return 0
+    ((l_major < i_major)) && return 1
+    ((l_minor > i_minor)) && return 0
+    ((l_minor < i_minor)) && return 1
+    ((l_patch > i_patch)) && return 0
+    ((l_patch < i_patch)) && return 1
+
+    [[ "$installed" != "$installed_core" ]]
+}
+
+warn_if_new_release_available() {
+    local latest="$1"
+    local installed
+    installed="$(current_kival_version)"
+
+    [[ -n "$installed" ]] || return 0
+    if latest_is_newer "$latest" "$installed"; then
+        warn "A newer Kival release is available: $latest (installed: $installed)."
+    fi
+}
+
+install_kival() {
+    start_operation
+    check_cmd tar || error "tar not found. Please install tar."
+
+    local target tag
+    local refresh_kivalup=0
+    target="$(detect_target)"
+
+    if [[ -n "$VERSION" ]]; then
+        tag="$VERSION"
+    else
+        tag="$(get_latest_version)"
+        warn_if_new_release_available "$tag"
+        refresh_kivalup=1
+    fi
+
+    local base="kival-${tag}-${target}"
+    local archive_name="${base}.tar.gz"
+    info "Installing Kival $tag for $target"
+    download_verified_asset "$tag" "$archive_name" "${base}.attestation.txt"
+
+    unset GZIP TAR_OPTIONS
+    export LC_ALL=C
+    validate_archive "$TMP_DIR/$archive_name"
+
+    local release_dir="$TMP_DIR/release"
+    mkdir "$release_dir"
+    tar -xzf "$TMP_DIR/$archive_name" -C "$release_dir"
+
+    [[ -f "$release_dir/kival" && ! -L "$release_dir/kival" ]] ||
+        error "Downloaded release must contain kival as a regular file."
+    [[ -f "$release_dir/kivald" && ! -L "$release_dir/kivald" ]] ||
+        error "Downloaded release must contain kivald as a regular file."
+
+    local files=(kival kivald)
+    if [[ "$refresh_kivalup" -eq 1 ]]; then
+        download_verified_asset "$tag" "kivalup" "kivalup.attestation.txt"
+        bash -n "$TMP_DIR/kivalup" || error "Downloaded kivalup failed shell syntax validation."
+        cp "$TMP_DIR/kivalup" "$release_dir/kivalup"
+        [[ "$(compute_sha256 "$TMP_DIR/kivalup")" == "$(compute_sha256 "$release_dir/kivalup")" ]] ||
+            error "Staged kivalup does not match the verified release artifact."
+        files+=(kivalup)
+    fi
+
+    install_release "$release_dir" "${tag#v}" "$tag" "${files[@]}"
+
+    echo
+    info "Kival $tag installed successfully."
+    [[ "$refresh_kivalup" -eq 0 ]] || info "kivalup refreshed from Kival $tag."
+    [[ ":$PATH:" == *":$BIN_DIR:"* ]] || warn "$BIN_DIR is not in your PATH."
+}
+
+usage() {
+    print_banner
+    cat <<'EOF'
+
+Kival installer and updater.
+
+USAGE:
+    kivalup [OPTIONS]
+
+OPTIONS:
+    -i, --install <VERSION>   Install a specific stable or RC version.
+    -u, --update              Install the latest stable Kival release and kivalup.
+    -S, --skip-attestation-verification
+                              Require SHA-256 verification only.
+    -v, --version             Print the Kival release for this kivalup.
+    -h, --help                Show this help message.
+
+EXAMPLES:
+    kivalup
+    kivalup --install v0.1.0
+    kivalup --install v0.1.0-rc1
+    kivalup --update
+EOF
+}
+
+while [[ $# -gt 0 ]]; do
+    case "$1" in
+        -i|--install)
+            [[ -z "$MODE" ]] || error "Only one primary operation may be selected."
+            [[ $# -ge 2 ]] || error "--install requires a version."
+            MODE="run"
+            VERSION="$(normalize_version "$2")"
+            shift 2
+            ;;
+        -u|--update)
+            [[ -z "$MODE" ]] || error "Only one primary operation may be selected."
+            MODE="run"
+            shift
+            ;;
+        -v|--version)
+            [[ -z "$MODE" ]] || error "Only one primary operation may be selected."
+            MODE="version"
+            shift
+            ;;
+        -h|--help)
+            [[ -z "$MODE" ]] || error "Only one primary operation may be selected."
+            MODE="help"
+            shift
+            ;;
+        -S|--skip-attestation-verification)
+            [[ "$SKIP_ATTESTATION_VERIFICATION" -eq 0 ]] ||
+                error "--skip-attestation-verification was provided more than once."
+            SKIP_ATTESTATION_VERIFICATION=1
+            shift
+            ;;
+        *)
+            error "Unknown option: $1. Use --help for usage information."
+            ;;
+    esac
+done
+
+case "${MODE:-run}" in
+    version)
+        if [[ -n "$KIVALUP_RELEASE_VERSION" ]]; then
+            printf 'kivalup %s\n' "$KIVALUP_RELEASE_VERSION"
+        else
+            printf 'kivalup development\n'
+        fi
+        exit 0
+        ;;
+    help)
+        usage
+        exit 0
+        ;;
+esac
+
+print_banner
+echo
+install_kival

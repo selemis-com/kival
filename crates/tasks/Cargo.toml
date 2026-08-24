@@ -1,0 +1,27 @@
+[package]
+name = "kival-tasks"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[lints]
+workspace = true
+
+[dependencies]
+# Vendor
+futures-util.workspace = true
+sqlx.workspace = true
+steda.workspace = true
+thiserror.workspace = true
+tokio = { workspace = true, features = [
+    "rt-multi-thread",
+    "sync",
+    "time",
+    "macros",
+] }
+
+# Crates
+kival-metrics.workspace = true
+kival-tracing.workspace = true

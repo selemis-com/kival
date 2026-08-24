@@ -1,0 +1,96 @@
+import type { CSSProperties } from "react";
+import { colors, fontFamilies } from "./constants";
+
+export const eventsStyles: Record<string, CSSProperties> = {
+  eventsPage: {
+    minWidth: 0,
+    flex: 1,
+    overflowY: "auto",
+  },
+  eventsContent: {
+    width: "min(100%, 1040px)",
+    minHeight: "100%",
+    margin: "0 auto",
+    padding: "38px 40px 64px",
+    boxSizing: "border-box",
+  },
+  eventsFilterForm: {
+    display: "flex",
+    flexDirection: "column",
+    gap: 14,
+    marginTop: 28,
+    padding: 18,
+    border: `1px solid ${colors.border}`,
+    borderRadius: 8,
+    background: colors.surface,
+  },
+  eventsFilterGrid: {
+    display: "grid",
+    gridTemplateColumns: "repeat(auto-fit, minmax(210px, 1fr))",
+    gap: 12,
+  },
+  eventsList: {
+    display: "flex",
+    flexDirection: "column",
+    gap: 0,
+    marginTop: 26,
+  },
+  eventCard: {
+    display: "flex",
+    flexDirection: "column",
+    gap: 10,
+    padding: "14px 16px",
+    border: `1px solid ${colors.border}`,
+    borderRadius: 8,
+    background: colors.surface,
+  },
+  eventCardHeader: {
+    display: "flex",
+    alignItems: "flex-start",
+    justifyContent: "space-between",
+    gap: 18,
+  },
+  eventIdentity: {
+    minWidth: 0,
+    display: "flex",
+    flexDirection: "column",
+    gap: 3,
+  },
+  eventMeta: {
+    color: colors.textSubtle,
+    fontFamily: fontFamilies.mono,
+    fontSize: 12,
+  },
+  eventSequence: {
+    flexShrink: 0,
+    color: colors.textSubtle,
+    fontSize: 12,
+    fontFamily: fontFamilies.mono,
+  },
+  eventContext: {
+    display: "flex",
+    flexWrap: "wrap",
+    gap: 6,
+  },
+  eventContextPill: {
+    padding: "3px 7px",
+    borderRadius: 8,
+    border: `1px solid ${colors.border}`,
+    background: colors.surfaceSubtle,
+    color: colors.textMuted,
+    fontSize: 11,
+  },
+  eventPayload: {
+    margin: 0,
+    padding: 10,
+    overflowX: "auto",
+    borderRadius: 8,
+    fontFamily: fontFamilies.mono,
+    background: colors.surfaceSubtle,
+    color: colors.textMuted,
+    fontSize: 11,
+    lineHeight: 1.5,
+    whiteSpace: "pre-wrap",
+    overflowWrap: "anywhere",
+  },
+};

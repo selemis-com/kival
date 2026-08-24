@@ -1,0 +1,11 @@
+//! Shared command-line infrastructure for Kival binaries.
+
+#![cfg_attr(not(test), warn(unused_crate_dependencies))]
+#![cfg_attr(docsrs, feature(doc_cfg))]
+
+pub mod args;
+pub mod commands;
+pub mod dirs;
+pub mod dotenv;
+pub mod runner;
+pub mod sigsegv;

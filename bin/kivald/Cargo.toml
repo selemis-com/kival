@@ -1,0 +1,50 @@
+[package]
+name = "kivald"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish.workspace = true
+default-run = "kivald"
+
+[lints]
+workspace = true
+
+[dependencies]
+# Vendor
+clap = { workspace = true, features = ["derive"] }
+eyre.workspace = true
+serde = { workspace = true, features = ["derive"] }
+sqlx.workspace = true
+tracing.workspace = true
+uuid.workspace = true
+
+# Crates
+kival-cli.workspace = true
+kival-common.workspace = true
+kival-kernel.workspace = true
+kival-config.workspace = true
+kival-metrics.workspace = true
+kival-server.workspace = true
+kival-storage.workspace = true
+kival-tasks.workspace = true
+kival-tracing.workspace = true
+
+[dev-dependencies]
+# Vendor
+tokio = { workspace = true, features = ["macros", "rt-multi-thread"] }
+
+# Crates
+kival-tests.workspace = true
+
+[features]
+default = ["min-trace-logs"]
+min-error-logs = ["tracing/release_max_level_error"]
+min-warn-logs = ["tracing/release_max_level_warn"]
+min-info-logs = ["tracing/release_max_level_info"]
+min-debug-logs = ["tracing/release_max_level_debug"]
+min-trace-logs = ["tracing/release_max_level_trace"]
+
+[[bin]]
+name = "kivald"
+path = "src/main.rs"

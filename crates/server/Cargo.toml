@@ -1,0 +1,60 @@
+[package]
+name = "kival-server"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[lints]
+workspace = true
+
+[dependencies]
+# Vendor
+axum = { workspace = true, features = ["http1", "json", "matched-path", "query", "tokio", "ws"] }
+base64.workspace = true
+ciborium.workspace = true
+coset.workspace = true
+futures-util = { workspace = true, features = ["sink"] }
+hex.workspace = true
+ring.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+sha2.workspace = true
+sqlx.workspace = true
+steda.workspace = true
+time = { workspace = true, features = ["serde-well-known"] }
+tokio = { workspace = true, features = ["macros", "net", "rt", "sync", "time"] }
+tokio-util = { workspace = true, features = ["rt"] }
+tower = { workspace = true, features = ["timeout"] }
+tower-http = { workspace = true, features = [
+    "catch-panic",
+    "request-id",
+    "set-header",
+    "sensitive-headers",
+    "trace",
+] }
+tungstenite.workspace = true
+url.workspace = true
+uuid.workspace = true
+
+# Crates
+kival-common.workspace = true
+kival-kernel.workspace = true
+kival-metrics.workspace = true
+kival-sdk = { workspace = true, default-features = false }
+kival-storage.workspace = true
+kival-tasks.workspace = true
+kival-tracing.workspace = true
+kival-types.workspace = true
+
+[dev-dependencies]
+# Vendor
+eyre.workspace = true
+proptest.workspace = true
+proptest-state-machine.workspace = true
+tokio.workspace = true
+
+# Crates
+kival-tests.workspace = true
+kival-types.workspace = true

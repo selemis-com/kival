@@ -1,0 +1,1208 @@
+name: release
+
+permissions: {}
+
+on:
+  push:
+    tags:
+      - "v*.*.*"
+
+defaults:
+  run:
+    shell: bash
+
+env:
+  CARGO_TERM_COLOR: always
+  CARGO_BUILD_WARNINGS: deny
+  RUST_BACKTRACE: full
+  RUST_PROFILE: release
+  FEATURES: min-debug-logs
+  RELEASE_BINARIES_JSON: '["kival","kivald"]'
+  INSTALLER_PROGRAMS_JSON: '["install","kivalup"]'
+  PLATFORM_ASSETS_JSON: '{"unsigned":["tar.gz","tar.gz.sha256","tar.gz.spdx.json"],"signed":["attestation.txt"]}'
+  RELEASE_TARGETS_JSON: >-
+    [
+      {"runner":"ubuntu-24.04","target":"x86_64-unknown-linux-gnu","container_platform":"linux/amd64"},
+      {"runner":"ubuntu-24.04-arm","target":"aarch64-unknown-linux-gnu","container_platform":"linux/arm64"},
+      {"runner":"macos-15","target":"aarch64-apple-darwin"}
+    ]
+
+concurrency:
+  group: release-${{ github.repository }}-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  prepare:
+    name: Prepare release
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    outputs:
+      image: ${{ steps.configuration.outputs.image }}
+      prerelease: ${{ steps.release.outputs.prerelease }}
+      sha: ${{ steps.source.outputs.sha }}
+      source_date_epoch: ${{ steps.source.outputs.source_date_epoch }}
+      tag: ${{ steps.release.outputs.tag }}
+      target_matrix: ${{ steps.configuration.outputs.target_matrix }}
+
+    steps:
+      - name: Define release configuration
+        id: configuration
+        env:
+          TARGETS_JSON: ${{ env.RELEASE_TARGETS_JSON }}
+        run: |
+          set -euo pipefail
+
+          jq -e '
+            . as $targets
+            | type == "array"
+            and length > 0
+            and all(
+              .[];
+              (.runner | type == "string" and length > 0)
+              and (.target | type == "string" and length > 0)
+              and (
+                (has("container_platform") | not)
+                or (
+                  .container_platform
+                  | type == "string"
+                  and test("^linux/[a-z0-9_]+(/v[0-9]+)?$")
+                )
+              )
+            )
+            and (
+              ($targets | map(.target) | unique | length)
+              == ($targets | length)
+            )
+            and (
+              ($targets | map(select(has("container_platform"))) | map(.container_platform) | unique | length)
+              == ($targets | map(select(has("container_platform"))) | length)
+            )
+            and any(.[]; has("container_platform"))
+          ' <<< "$TARGETS_JSON" >/dev/null
+
+          image="ghcr.io/$(
+            printf '%s' "$GITHUB_REPOSITORY" |
+              tr '[:upper:]' '[:lower:]'
+          )"
+          target_matrix="$(jq -c '{include: .}' <<< "$TARGETS_JSON")"
+
+          {
+            printf 'image=%s\n' "$image"
+            printf 'target_matrix=%s\n' "$target_matrix"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Checkout release commit
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+          ref: ${{ github.sha }}
+
+      - name: Validate release tag
+        id: release
+        env:
+          TAG: ${{ github.ref_name }}
+        run: |
+          set -euo pipefail
+
+          stable_pattern='^v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$'
+          rc_pattern='^v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)-rc([1-9][0-9]*)$'
+
+          if [[ "$TAG" =~ $stable_pattern ]]; then
+            prerelease=false
+          elif [[ "$TAG" =~ $rc_pattern ]]; then
+            prerelease=true
+          else
+            echo "::error::Release tag must be vX.Y.Z or vX.Y.Z-rcN without leading zeroes."
+            exit 1
+          fi
+
+          {
+            printf 'tag=%s\n' "$TAG"
+            printf 'prerelease=%s\n' "$prerelease"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Bind release to event commit
+        id: source
+        env:
+          EXPECTED_SHA: ${{ github.sha }}
+          TAG: ${{ steps.release.outputs.tag }}
+        run: |
+          set -euo pipefail
+
+          head_sha="$(git rev-parse HEAD)"
+          tag_sha="$(git rev-parse "${TAG}^{commit}")"
+
+          if [[ "$head_sha" != "$EXPECTED_SHA" ]]; then
+            echo "::error::Checkout resolved to $head_sha; expected event commit $EXPECTED_SHA."
+            exit 1
+          fi
+
+          if [[ "$tag_sha" != "$EXPECTED_SHA" ]]; then
+            echo "::error::Tag $TAG resolves to $tag_sha; expected event commit $EXPECTED_SHA."
+            exit 1
+          fi
+
+          source_date_epoch="$(git show -s --format=%ct "$EXPECTED_SHA")"
+          if [[ ! "$source_date_epoch" =~ ^[0-9]+$ ]]; then
+            echo "::error::Could not determine the release commit timestamp."
+            exit 1
+          fi
+
+          {
+            printf 'sha=%s\n' "$EXPECTED_SHA"
+            printf 'source_date_epoch=%s\n' "$source_date_epoch"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Install stable Rust toolchain
+        uses: dtolnay/rust-toolchain@2c7215f132e9ebf062739d9130488b56d53c060c # v1.94.1
+        with:
+          toolchain: stable
+
+      - name: Verify Cargo version matches tag
+        env:
+          PRERELEASE: ${{ steps.release.outputs.prerelease }}
+          TAG: ${{ steps.release.outputs.tag }}
+        run: |
+          set -euo pipefail
+
+          tag_version="${TAG#v}"
+
+          cargo_version="$(
+            cargo metadata \
+              --locked \
+              --no-deps \
+              --format-version 1 |
+              jq -r '
+                [
+                  .packages[]
+                  | select(.name == "kival")
+                  | .version
+                ]
+                | unique
+                | if length == 1 then .[0] else empty end
+              '
+          )"
+
+          if [[ -z "$cargo_version" ]]; then
+            echo "::error::Could not determine a unique version for the kival package."
+            exit 1
+          fi
+
+          if [[ "$PRERELEASE" == "true" ]]; then
+            expected_version="${tag_version%%-rc*}"
+          else
+            expected_version="$tag_version"
+          fi
+
+          if [[ "$cargo_version" != "$expected_version" ]]; then
+            echo "::error::Tag $TAG does not match Cargo version $cargo_version."
+            exit 1
+          fi
+
+          echo "Cargo version $cargo_version matches release tag $TAG."
+
+  build:
+    name: Build ${{ matrix.target }}
+    runs-on: ${{ matrix.runner }}
+    needs: prepare
+    timeout-minutes: 30
+    permissions:
+      contents: read
+    env:
+      ARCHIVE: kival-${{ needs.prepare.outputs.tag }}-${{ matrix.target }}.tar.gz
+      SOURCE_DATE_EPOCH: ${{ needs.prepare.outputs.source_date_epoch }}
+      TAG: ${{ needs.prepare.outputs.tag }}
+      TARGET: ${{ matrix.target }}
+
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJSON(needs.prepare.outputs.target_matrix) }}
+
+    steps:
+      - name: Checkout release commit
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+          ref: ${{ needs.prepare.outputs.sha }}
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6.0.10
+        with:
+          version: 11.20.0
+          run_install: false
+
+      - name: Set up Node
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version-file: "app/.nvmrc"
+          cache: "pnpm"
+          cache-dependency-path: pnpm-lock.yaml
+
+      - name: Install frontend dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build frontend
+        run: pnpm run build
+
+      - name: Install stable Rust toolchain
+        uses: dtolnay/rust-toolchain@2c7215f132e9ebf062739d9130488b56d53c060c # v1.94.1
+        with:
+          toolchain: stable
+          targets: ${{ matrix.target }}
+
+      - name: Build release binaries
+        run: |
+          set -euo pipefail
+
+          export KIVAL_RELEASE_VERSION="${TAG#v}"
+
+          cargo build \
+            --workspace \
+            --bins \
+            --profile "$RUST_PROFILE" \
+            --features "$FEATURES" \
+            --target "$TARGET" \
+            --locked
+
+      - name: Inspect release binaries
+        run: |
+          set -euo pipefail
+
+          out_dir="target/$TARGET/$RUST_PROFILE"
+          expected_version="${TAG#v}"
+          mapfile -t binaries < <(
+            jq -r '.[]' <<< "$RELEASE_BINARIES_JSON"
+          )
+
+          for binary in "${binaries[@]}"; do
+            file "$out_dir/$binary"
+            du -h "$out_dir/$binary"
+
+            version_output="$("$out_dir/$binary" --version)"
+            printf '%s\n' "$version_output"
+
+            reported_version="${version_output#"$binary "}"
+            reported_version="${reported_version%% *}"
+
+            if [[ "$reported_version" != "$expected_version" ]]; then
+              echo "::error::$binary reports version $reported_version; expected $expected_version."
+              exit 1
+            fi
+          done
+
+      - name: Archive release binaries
+        id: archive
+        run: |
+          set -euo pipefail
+
+          out_dir="target/$TARGET/$RUST_PROFILE"
+          mapfile -t binaries < <(
+            jq -r '.[]' <<< "$RELEASE_BINARIES_JSON"
+          )
+
+          mkdir -p dist
+          tar -czf "dist/$ARCHIVE" \
+            -C "$out_dir" \
+            "${binaries[@]}"
+
+          {
+            printf 'archive=%s\n' "$ARCHIVE"
+            printf 'archive_path=dist/%s\n' "$ARCHIVE"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Validate archive contract
+        run: |
+          set -euo pipefail
+
+          entries="$(tar -tzf "dist/$ARCHIVE" | LC_ALL=C sort)"
+          expected="$(
+            jq -r '.[]' <<< "$RELEASE_BINARIES_JSON" |
+              LC_ALL=C sort
+          )"
+
+          if [[ "$entries" != "$expected" ]]; then
+            echo "::error::Release archive contents do not match RELEASE_BINARIES_JSON."
+            printf 'Expected:\n%s\n' "$expected"
+            printf 'Found:\n%s\n' "$entries"
+            exit 1
+          fi
+
+          if ! tar -tvzf "dist/$ARCHIVE" | awk 'substr($1, 1, 1) != "-" { exit 1 }'; then
+            echo "::error::Release archive contains a non-regular entry."
+            exit 1
+          fi
+
+      - name: Generate SPDX SBOM
+        uses: anchore/sbom-action@e22c389904149dbc22b58101806040fa8d37a610 # v0.24.0
+        with:
+          file: ${{ steps.archive.outputs.archive_path }}
+          format: spdx-json
+          output-file: dist/${{ steps.archive.outputs.archive }}.spdx.json
+          upload-artifact: false
+          upload-release-assets: false
+
+      - name: Validate SBOM
+        run: |
+          set -euo pipefail
+
+          jq -e '
+            (.spdxVersion | type == "string" and startswith("SPDX-"))
+            and (.packages | type == "array")
+          ' "dist/$ARCHIVE.spdx.json" >/dev/null
+
+      - name: Generate archive checksum
+        run: |
+          set -euo pipefail
+
+          (
+            cd dist
+            shasum -a 256 "$ARCHIVE" > "$ARCHIVE.sha256"
+            shasum -a 256 -c "$ARCHIVE.sha256"
+          )
+
+      - name: Upload unsigned release artifact
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: kival-build-${{ matrix.target }}
+          path: dist/
+          if-no-files-found: error
+          retention-days: 1
+
+  attest:
+    name: Attest ${{ matrix.target }}
+    runs-on: ubuntu-24.04
+    needs:
+      - prepare
+      - build
+    timeout-minutes: 10
+    permissions:
+      actions: read
+      contents: read
+      id-token: write
+      attestations: write
+    env:
+      ARCHIVE: kival-${{ needs.prepare.outputs.tag }}-${{ matrix.target }}.tar.gz
+      TAG: ${{ needs.prepare.outputs.tag }}
+      TARGET: ${{ matrix.target }}
+
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJSON(needs.prepare.outputs.target_matrix) }}
+
+    steps:
+      - name: Download exact build artifact
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: kival-build-${{ matrix.target }}
+          path: dist
+
+      - name: Revalidate artifact before signing
+        run: |
+          set -euo pipefail
+
+          base="${ARCHIVE%.tar.gz}"
+          mapfile -t suffixes < <(
+            jq -r '.unsigned[]' <<< "$PLATFORM_ASSETS_JSON"
+          )
+          expected=()
+          for suffix in "${suffixes[@]}"; do
+            expected+=("${base}.${suffix}")
+          done
+
+          mapfile -t actual < <(
+            find dist -maxdepth 1 -type f -printf '%f\n' | sort
+          )
+          mapfile -t sorted_expected < <(
+            printf '%s\n' "${expected[@]}" | sort
+          )
+
+          if [[ "${actual[*]}" != "${sorted_expected[*]}" ]]; then
+            echo "::error::Unexpected unsigned platform artifact set."
+            printf 'Expected: %s\n' "${sorted_expected[@]}"
+            printf 'Found: %s\n' "${actual[@]}"
+            exit 1
+          fi
+
+          (
+            cd dist
+            shasum -a 256 -c "$ARCHIVE.sha256"
+          )
+
+          entries="$(tar -tzf "dist/$ARCHIVE" | LC_ALL=C sort)"
+          expected_entries="$(
+            jq -r '.[]' <<< "$RELEASE_BINARIES_JSON" |
+              LC_ALL=C sort
+          )"
+          [[ "$entries" == "$expected_entries" ]] || {
+            echo "::error::Archive contract changed before signing."
+            exit 1
+          }
+
+          if ! tar -tvzf "dist/$ARCHIVE" | awk 'substr($1, 1, 1) != "-" { exit 1 }'; then
+            echo "::error::Archive contains a non-regular entry before signing."
+            exit 1
+          fi
+
+          jq -e '
+            (.spdxVersion | type == "string" and startswith("SPDX-"))
+            and (.packages | type == "array")
+          ' "dist/$ARCHIVE.spdx.json" >/dev/null
+
+      - name: Attest SBOM
+        uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6 # v4.2.2
+        with:
+          subject-checksums: dist/${{ env.ARCHIVE }}.sha256
+          sbom-path: dist/${{ env.ARCHIVE }}.spdx.json
+
+      - name: Attest build provenance
+        id: provenance
+        uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6 # v4.2.2
+        with:
+          subject-checksums: dist/${{ env.ARCHIVE }}.sha256
+
+      - name: Record provenance attestation
+        env:
+          ATTESTATION_URL: ${{ steps.provenance.outputs.attestation-url }}
+        run: |
+          printf '%s\n' "$ATTESTATION_URL" \
+            > "dist/${ARCHIVE%.tar.gz}.attestation.txt"
+
+      - name: Upload signed release artifact
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: kival-release-${{ matrix.target }}
+          path: dist/
+          if-no-files-found: error
+          retention-days: 1
+
+  installer:
+    name: Package installer
+    runs-on: ubuntu-24.04
+    needs: prepare
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    env:
+      TAG: ${{ needs.prepare.outputs.tag }}
+
+    steps:
+      - name: Checkout release commit
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          ref: ${{ needs.prepare.outputs.sha }}
+
+      - name: Stage version-bound installer assets
+        run: |
+          set -euo pipefail
+
+          mkdir -p dist
+          mapfile -t programs < <(
+            jq -r '.[]' <<< "$INSTALLER_PROGRAMS_JSON"
+          )
+
+          for program in "${programs[@]}"; do
+            install -m 0755 "installer/$program" "dist/$program"
+          done
+
+          python3 - <<'PY'
+          import os
+          from pathlib import Path
+
+          tag = os.environ["TAG"]
+          replacements = {
+              Path("dist/install"): (
+                  'KIVAL_BOOTSTRAP_VERSION="${KIVAL_BOOTSTRAP_VERSION:-}"',
+                  'KIVAL_BOOTSTRAP_VERSION="${KIVAL_BOOTSTRAP_VERSION:-' + tag + '}"',
+              ),
+              Path("dist/kivalup"): (
+                  'KIVALUP_RELEASE_VERSION="${KIVALUP_RELEASE_VERSION:-}"',
+                  'KIVALUP_RELEASE_VERSION="${KIVALUP_RELEASE_VERSION:-' + tag + '}"',
+              ),
+          }
+
+          for path, (old, new) in replacements.items():
+              source = path.read_text()
+              if source.count(old) != 1:
+                  raise SystemExit(f"version marker is missing or ambiguous in {path}")
+              path.write_text(source.replace(old, new))
+          PY
+
+          installer_paths=()
+          for program in "${programs[@]}"; do
+            installer_paths+=("dist/$program")
+          done
+          bash -n "${installer_paths[@]}"
+          grep -qF "KIVAL_BOOTSTRAP_VERSION=\"\${KIVAL_BOOTSTRAP_VERSION:-${TAG}}\"" dist/install
+          grep -qF "KIVALUP_RELEASE_VERSION=\"\${KIVALUP_RELEASE_VERSION:-${TAG}}\"" dist/kivalup
+
+          (
+            cd dist
+            for program in "${programs[@]}"; do
+              shasum -a 256 "$program" > "$program.sha256"
+              shasum -a 256 -c "$program.sha256"
+            done
+          )
+
+      - name: Upload unsigned installer artifact
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: kival-installer-unsigned
+          path: dist/
+          if-no-files-found: error
+          retention-days: 1
+
+  attest-installer:
+    name: Attest installer
+    runs-on: ubuntu-24.04
+    needs:
+      - prepare
+      - installer
+    timeout-minutes: 10
+    permissions:
+      actions: read
+      contents: read
+      id-token: write
+      attestations: write
+    env:
+      TAG: ${{ needs.prepare.outputs.tag }}
+
+    steps:
+      - name: Download exact installer artifact
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: kival-installer-unsigned
+          path: dist
+
+      - name: Revalidate installer artifact before signing
+        run: |
+          set -euo pipefail
+
+          mapfile -t programs < <(
+            jq -r '.[]' <<< "$INSTALLER_PROGRAMS_JSON"
+          )
+          expected=()
+          program_paths=()
+          for program in "${programs[@]}"; do
+            expected+=("$program" "$program.sha256")
+            program_paths+=("dist/$program")
+          done
+
+          mapfile -t actual < <(
+            find dist -maxdepth 1 -type f -printf '%f\n' | sort
+          )
+          mapfile -t sorted_expected < <(
+            printf '%s\n' "${expected[@]}" | sort
+          )
+
+          if [[ "${actual[*]}" != "${sorted_expected[*]}" ]]; then
+            echo "::error::Unexpected unsigned installer artifact set."
+            printf 'Expected: %s\n' "${sorted_expected[@]}"
+            printf 'Found: %s\n' "${actual[@]}"
+            exit 1
+          fi
+
+          bash -n "${program_paths[@]}"
+          grep -qF "KIVAL_BOOTSTRAP_VERSION=\"\${KIVAL_BOOTSTRAP_VERSION:-${TAG}}\"" dist/install
+          grep -qF "KIVALUP_RELEASE_VERSION=\"\${KIVALUP_RELEASE_VERSION:-${TAG}}\"" dist/kivalup
+
+          (
+            cd dist
+            for program in "${programs[@]}"; do
+              shasum -a 256 -c "$program.sha256"
+            done
+          )
+
+          shasum -a 256 "${program_paths[@]}" \
+            > dist/installer-subjects.sha256
+
+      - name: Attest installer provenance
+        id: provenance
+        uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6 # v4.2.2
+        with:
+          subject-checksums: dist/installer-subjects.sha256
+
+      - name: Record installer provenance attestation
+        env:
+          ATTESTATION_URL: ${{ steps.provenance.outputs.attestation-url }}
+        run: |
+          mapfile -t programs < <(
+            jq -r '.[]' <<< "$INSTALLER_PROGRAMS_JSON"
+          )
+          for program in "${programs[@]}"; do
+            printf '%s\n' "$ATTESTATION_URL" \
+              > "dist/$program.attestation.txt"
+          done
+          rm dist/installer-subjects.sha256
+
+      - name: Upload signed installer artifact
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: kival-installer
+          path: dist/
+          if-no-files-found: error
+          retention-days: 1
+
+  publish:
+    name: Create draft release
+    runs-on: ubuntu-24.04
+    needs:
+      - prepare
+      - attest
+      - attest-installer
+    timeout-minutes: 15
+    permissions:
+      actions: read
+      attestations: read
+      contents: write
+    env:
+      EXPECTED_SHA: ${{ needs.prepare.outputs.sha }}
+      TAG: ${{ needs.prepare.outputs.tag }}
+      TARGET_MATRIX: ${{ needs.prepare.outputs.target_matrix }}
+
+    steps:
+      - name: Download platform release artifacts
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          pattern: kival-release-*
+          path: incoming/releases
+          merge-multiple: true
+
+      - name: Download installer artifact
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: kival-installer
+          path: incoming/installer
+
+      - name: Assemble and verify release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+
+          mkdir -p release
+          cp incoming/releases/* release/
+          cp incoming/installer/* release/
+
+          mapfile -t targets < <(
+            jq -r '.include[].target' <<< "$TARGET_MATRIX"
+          )
+          mapfile -t suffixes < <(
+            jq -r '.unsigned[], .signed[]' <<< "$PLATFORM_ASSETS_JSON"
+          )
+          mapfile -t programs < <(
+            jq -r '.[]' <<< "$INSTALLER_PROGRAMS_JSON"
+          )
+
+          expected=()
+          for target in "${targets[@]}"; do
+            base="kival-${TAG}-${target}"
+            for suffix in "${suffixes[@]}"; do
+              expected+=("${base}.${suffix}")
+            done
+          done
+          for program in "${programs[@]}"; do
+            expected+=(
+              "$program"
+              "$program.sha256"
+              "$program.attestation.txt"
+            )
+          done
+
+          mapfile -t actual < <(
+            find release -maxdepth 1 -type f -printf '%f\n' | sort
+          )
+          mapfile -t sorted_expected < <(
+            printf '%s\n' "${expected[@]}" | sort
+          )
+
+          if [[ "${actual[*]}" != "${sorted_expected[*]}" ]]; then
+            echo "::error::Release asset set does not exactly match the contract."
+            printf 'Expected: %s\n' "${sorted_expected[@]}"
+            printf 'Found: %s\n' "${actual[@]}"
+            exit 1
+          fi
+
+          (
+            cd release
+            for target in "${targets[@]}"; do
+              shasum -a 256 -c "kival-${TAG}-${target}.tar.gz.sha256"
+            done
+            for program in "${programs[@]}"; do
+              shasum -a 256 -c "$program.sha256"
+            done
+          )
+
+          validate_pointer() {
+            local pointer="$1"
+            local prefix="https://github.com/${GITHUB_REPOSITORY}/attestations/"
+            local url
+            local attestation_id
+
+            if [[ "$(sed '/^[[:space:]]*$/d' "$pointer" | wc -l | tr -d ' ')" -ne 1 ]]; then
+              echo "::error::Attestation pointer must contain exactly one URL: $pointer"
+              exit 1
+            fi
+
+            url="$(sed -n '1p' "$pointer" | tr -d '\r')"
+            [[ "$url" == "$prefix"* ]] || {
+              echo "::error::Unexpected attestation URL in $pointer: $url"
+              exit 1
+            }
+
+            attestation_id="${url#"$prefix"}"
+            [[ "$attestation_id" =~ ^[0-9]+$ ]] || {
+              echo "::error::Unexpected attestation ID in $pointer: $attestation_id"
+              exit 1
+            }
+          }
+
+          verify_attestation() {
+            local artifact="$1"
+
+            gh attestation verify "$artifact" \
+              --hostname github.com \
+              --repo "$GITHUB_REPOSITORY" \
+              --predicate-type "https://slsa.dev/provenance/v1" \
+              --signer-workflow "github.com/$GITHUB_REPOSITORY/.github/workflows/release.yml" \
+              --source-ref "refs/tags/$TAG" \
+              --source-digest "$EXPECTED_SHA" \
+              --deny-self-hosted-runners
+          }
+
+          for target in "${targets[@]}"; do
+            base="kival-${TAG}-${target}"
+            validate_pointer "release/${base}.attestation.txt"
+            verify_attestation "release/${base}.tar.gz"
+          done
+          for program in "${programs[@]}"; do
+            validate_pointer "release/$program.attestation.txt"
+            verify_attestation "release/$program"
+          done
+
+          echo "All release artifacts and provenance attestations verified."
+
+      - name: Verify remote tag still targets release commit
+        run: |
+          set -euo pipefail
+
+          remote="$(
+            git ls-remote \
+              "https://github.com/$GITHUB_REPOSITORY.git" \
+              "refs/tags/$TAG" \
+              "refs/tags/$TAG^{}"
+          )"
+
+          direct_sha="$(
+            awk -v ref="refs/tags/$TAG" \
+              '$2 == ref { print $1 }' \
+              <<< "$remote"
+          )"
+          peeled_sha="$(
+            awk -v ref="refs/tags/$TAG^{}" \
+              '$2 == ref { print $1 }' \
+              <<< "$remote"
+          )"
+          tag_sha="${peeled_sha:-$direct_sha}"
+
+          if [[ -z "$tag_sha" || "$tag_sha" != "$EXPECTED_SHA" ]]; then
+            echo "::error::Remote tag $TAG resolves to ${tag_sha:-nothing}; expected $EXPECTED_SHA."
+            exit 1
+          fi
+
+          echo "Remote tag $TAG still targets $EXPECTED_SHA."
+
+      - name: Create or replace draft release assets
+        env:
+          EXPECTED_PRERELEASE: ${{ needs.prepare.outputs.prerelease }}
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+
+          flags=(
+            --verify-tag
+            --draft
+            --generate-notes
+            --title "Kival $TAG"
+          )
+
+          if [[ "$EXPECTED_PRERELEASE" == "true" ]]; then
+            flags+=(--prerelease --latest=false)
+          fi
+
+          if release_state="$(
+            gh release view "$TAG" \
+              --json isDraft,isPrerelease \
+              --jq '[.isDraft, .isPrerelease] | @tsv' \
+              2>/dev/null
+          )"; then
+            read -r is_draft is_prerelease <<< "$release_state"
+
+            if [[ "$is_draft" != "true" ]]; then
+              echo "::error::Release $TAG has already been published."
+              exit 1
+            fi
+
+            if [[ "$is_prerelease" != "$EXPECTED_PRERELEASE" ]]; then
+              echo "::error::Draft release $TAG has prerelease=$is_prerelease; expected $EXPECTED_PRERELEASE."
+              exit 1
+            fi
+
+            mapfile -t existing_assets < <(
+              gh release view "$TAG" --json assets --jq '.assets[].name'
+            )
+
+            for asset in "${existing_assets[@]}"; do
+              gh release delete-asset "$TAG" "$asset" --yes
+            done
+
+            gh release upload "$TAG" release/*
+            echo "Replaced all assets in existing draft release $TAG."
+          else
+            gh release create "$TAG" \
+              "${flags[@]}" \
+              release/*
+
+            echo "Created draft release $TAG."
+          fi
+
+          mapfile -t local_assets < <(
+            find release -maxdepth 1 -type f -printf '%f\n' | sort
+          )
+          mapfile -t remote_assets < <(
+            gh release view "$TAG" --json assets --jq '.assets[].name' | sort
+          )
+
+          if [[ "${local_assets[*]}" != "${remote_assets[*]}" ]]; then
+            echo "::error::Draft release asset set differs from the locally verified set."
+            printf 'Local: %s\n' "${local_assets[@]}"
+            printf 'Remote: %s\n' "${remote_assets[@]}"
+            exit 1
+          fi
+
+  image:
+    name: Build, sign, and stage GHCR image
+    runs-on: ubuntu-24.04
+    needs:
+      - prepare
+      - publish
+    timeout-minutes: 20
+    permissions:
+      actions: read
+      attestations: write
+      artifact-metadata: write
+      contents: read
+      id-token: write
+      packages: write
+    outputs:
+      digest: ${{ steps.select.outputs.digest }}
+    env:
+      IMAGE: ${{ needs.prepare.outputs.image }}
+      TAG: ${{ needs.prepare.outputs.tag }}
+      TARGET_MATRIX: ${{ needs.prepare.outputs.target_matrix }}
+
+    steps:
+      - name: Log in to GHCR
+        uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ github.token }}
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@37fe631027851001ddb9b187196cc803df7f5f0e # v4.3.0
+
+      - name: Download signed platform artifacts
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          pattern: kival-release-*
+          path: dist
+          merge-multiple: true
+
+      - name: Prepare multi-platform container context
+        id: context
+        run: |
+          set -euo pipefail
+
+          mapfile -t container_targets < <(
+            jq -r '
+              .include[]
+              | select(has("container_platform"))
+              | [.target, .container_platform]
+              | @tsv
+            ' <<< "$TARGET_MATRIX"
+          )
+          mapfile -t binaries < <(
+            jq -r '.[]' <<< "$RELEASE_BINARIES_JSON"
+          )
+
+          platforms=()
+          : > binary-set.sha256
+          for entry in "${container_targets[@]}"; do
+            IFS=$'\t' read -r target platform <<< "$entry"
+            archive="kival-${TAG}-${target}.tar.gz"
+
+            (
+              cd dist
+              shasum -a 256 -c "$archive.sha256"
+            )
+
+            mkdir -p "image-context/$platform"
+            tar -xzf "dist/$archive" -C "image-context/$platform"
+
+            for binary in "${binaries[@]}"; do
+              digest="$(
+                shasum -a 256 "image-context/$platform/$binary" |
+                  awk '{ print $1 }'
+              )"
+              printf '%s  %s/%s\n' "$digest" "$target" "$binary" \
+                >> binary-set.sha256
+            done
+
+            platforms+=("$platform")
+          done
+
+          LC_ALL=C sort -o binary-set.sha256 binary-set.sha256
+          binary_set_digest="sha256:$(
+            shasum -a 256 binary-set.sha256 |
+              awk '{ print $1 }'
+          )"
+
+          cat > image-context/Dockerfile <<'DOCKERFILE'
+          FROM ubuntu:24.04
+          ARG TARGETPLATFORM
+          COPY --chmod=0755 ${TARGETPLATFORM}/ /usr/local/bin/
+          ENTRYPOINT ["/usr/local/bin/kivald"]
+          CMD ["serve"]
+          DOCKERFILE
+
+          {
+            printf 'binary_set_digest=%s\n' "$binary_set_digest"
+            printf 'platforms=%s\n' "$(
+              IFS=,
+              printf '%s' "${platforms[*]}"
+            )"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Extract Docker metadata
+        id: meta
+        uses: docker/metadata-action@dc802804100637a589fabce1cb79ff13a1411302 # v6.2.0
+        with:
+          images: ${{ needs.prepare.outputs.image }}
+          tags: |
+            type=raw,value=${{ needs.prepare.outputs.tag }}
+          labels: |
+            org.opencontainers.image.title=Kival
+            org.opencontainers.image.revision=${{ needs.prepare.outputs.sha }}
+            org.opencontainers.image.version=${{ needs.prepare.outputs.tag }}
+            com.selemis.kival.binary-set-digest=${{ steps.context.outputs.binary_set_digest }}
+
+      - name: Check for an already staged exact image
+        id: existing
+        run: |
+          set -euo pipefail
+
+          inspect_error="$(mktemp)"
+          if digest="$(
+            docker buildx imagetools inspect "$IMAGE:$TAG" \
+              --format '{{json .Manifest.Digest}}' \
+              2>"$inspect_error" |
+              tr -d '"'
+          )"; then
+            if [[ ! "$digest" =~ ^sha256:[0-9a-f]{64}$ ]]; then
+              echo "::error::Exact tag $TAG has invalid digest $digest."
+              exit 1
+            fi
+            {
+              printf 'exists=true\n'
+              printf 'digest=%s\n' "$digest"
+            } >> "$GITHUB_OUTPUT"
+          elif grep -Eiq 'manifest unknown|not found' "$inspect_error"; then
+            printf 'exists=false\n' >> "$GITHUB_OUTPUT"
+          else
+            cat "$inspect_error" >&2
+            echo "::error::Could not determine whether exact tag $TAG exists."
+            exit 1
+          fi
+
+      - name: Build and push multi-platform image
+        id: build
+        if: steps.existing.outputs.exists != 'true'
+        uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a # v7.3.0
+        with:
+          context: image-context
+          file: image-context/Dockerfile
+          labels: ${{ steps.meta.outputs.labels }}
+          platforms: ${{ steps.context.outputs.platforms }}
+          outputs: type=image,name=${{ needs.prepare.outputs.image }},push-by-digest=true,name-canonical=true,push=true
+          no-cache: true
+          provenance: mode=max
+          sbom: true
+
+      - name: Select and inspect image digest
+        id: select
+        env:
+          BUILT_DIGEST: ${{ steps.build.outputs.digest }}
+          EXISTING_DIGEST: ${{ steps.existing.outputs.digest }}
+        run: |
+          set -euo pipefail
+
+          digest="${EXISTING_DIGEST:-$BUILT_DIGEST}"
+          if [[ ! "$digest" =~ ^sha256:[0-9a-f]{64}$ ]]; then
+            echo "::error::Invalid image digest: $digest"
+            exit 1
+          fi
+
+          docker buildx imagetools inspect "$IMAGE@$digest"
+          printf 'digest=%s\n' "$digest" >> "$GITHUB_OUTPUT"
+
+      - name: Install cosign
+        uses: sigstore/cosign-installer@6f9f17788090df1f26f669e9d70d6ae9567deba6 # v4.1.2
+
+      - name: Sign image with cosign
+        if: steps.existing.outputs.exists != 'true'
+        env:
+          DIGEST: ${{ steps.select.outputs.digest }}
+        run: |
+          set -euo pipefail
+          cosign sign --yes "$IMAGE@$DIGEST"
+
+      - name: Attest image build provenance
+        if: steps.existing.outputs.exists != 'true'
+        uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6 # v4.2.2
+        with:
+          subject-name: ${{ needs.prepare.outputs.image }}
+          subject-digest: ${{ steps.select.outputs.digest }}
+          push-to-registry: true
+
+      - name: Stage exact Docker tag
+        if: steps.existing.outputs.exists != 'true'
+        env:
+          DIGEST: ${{ steps.select.outputs.digest }}
+        run: |
+          set -euo pipefail
+
+          inspect_error="$(mktemp)"
+          if existing="$(
+            docker buildx imagetools inspect "$IMAGE:$TAG" \
+              --format '{{json .Manifest.Digest}}' \
+              2>"$inspect_error" |
+              tr -d '"'
+          )"; then
+            if [[ "$existing" != "$DIGEST" ]]; then
+              echo "::error::Exact tag $TAG already resolves to conflicting digest $existing."
+              exit 1
+            fi
+            echo "Exact tag $TAG already staged at $DIGEST."
+          elif grep -Eiq 'manifest unknown|not found' "$inspect_error"; then
+            docker buildx imagetools create \
+              --tag "$IMAGE:$TAG" \
+              "$IMAGE@$DIGEST"
+          else
+            cat "$inspect_error" >&2
+            echo "::error::Could not determine whether exact tag $TAG exists."
+            exit 1
+          fi
+
+      - name: Verify staged image
+        env:
+          BINARY_SET_DIGEST: ${{ steps.context.outputs.binary_set_digest }}
+          DIGEST: ${{ steps.select.outputs.digest }}
+          EXPECTED_PLATFORMS: ${{ steps.context.outputs.platforms }}
+          EXPECTED_REVISION: ${{ needs.prepare.outputs.sha }}
+          GH_TOKEN: ${{ github.token }}
+          REPOSITORY: ${{ github.repository }}
+          SOURCE_REF: ${{ github.ref }}
+        run: |
+          set -euo pipefail
+
+          actual_digest="$(
+            docker buildx imagetools inspect "$IMAGE:$TAG" \
+              --format '{{json .Manifest.Digest}}' |
+              tr -d '"'
+          )"
+          if [[ "$actual_digest" != "$DIGEST" ]]; then
+            echo "::error::Exact tag $TAG resolves to $actual_digest; expected $DIGEST."
+            exit 1
+          fi
+
+          image_data="$(
+            docker buildx imagetools inspect "$IMAGE@$DIGEST" \
+              --format '{{json .Image}}'
+          )"
+          metadata="$(
+            jq -er '
+              [
+                to_entries[].value.config.Labels
+                | [
+                    .["org.opencontainers.image.revision"],
+                    .["com.selemis.kival.binary-set-digest"]
+                  ]
+              ]
+              | unique
+              | if length == 1 then .[0] | @tsv else empty end
+            ' <<< "$image_data"
+          )"
+          IFS=$'\t' read -r revision binary_set_digest <<< "$metadata"
+
+          if [[ "$revision" != "$EXPECTED_REVISION" ]]; then
+            echo "::error::Image revision $revision does not match $EXPECTED_REVISION."
+            exit 1
+          fi
+          if [[ "$binary_set_digest" != "$BINARY_SET_DIGEST" ]]; then
+            echo "::error::Image binary set $binary_set_digest does not match $BINARY_SET_DIGEST."
+            exit 1
+          fi
+
+          expected_platforms="$(
+            tr ',' '\n' <<< "$EXPECTED_PLATFORMS" |
+              LC_ALL=C sort
+          )"
+          actual_platforms="$(
+            docker buildx imagetools inspect "$IMAGE@$DIGEST" --raw |
+              jq -r '
+                .manifests[]
+                | select(.platform.os != "unknown")
+                | .platform.os + "/" + .platform.architecture
+                  + (if .platform.variant then "/" + .platform.variant else "" end)
+              ' |
+              LC_ALL=C sort
+          )"
+          if [[ "$actual_platforms" != "$expected_platforms" ]]; then
+            echo "::error::Published image platform set differs from the release contract."
+            printf 'Expected:\n%s\n' "$expected_platforms"
+            printf 'Found:\n%s\n' "$actual_platforms"
+            exit 1
+          fi
+
+          workflow_identity="https://github.com/${REPOSITORY}/.github/workflows/release.yml@${SOURCE_REF}"
+          cosign verify \
+            --certificate-identity "$workflow_identity" \
+            --certificate-oidc-issuer https://token.actions.githubusercontent.com \
+            "$IMAGE@$DIGEST"
+
+          gh attestation verify "oci://$IMAGE@$DIGEST" \
+            --repo "$REPOSITORY" \
+            --signer-workflow "$REPOSITORY/.github/workflows/release.yml" \
+            --source-ref "$SOURCE_REF" \
+            --source-digest "$EXPECTED_REVISION"
+
+          echo "Staged and verified $IMAGE:$TAG at $DIGEST."
+
+      - name: Record immutable image digest
+        env:
+          DIGEST: ${{ steps.select.outputs.digest }}
+        run: printf '%s\n' "$DIGEST" > release-image-digest.txt
+
+      - name: Upload immutable image digest
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: release-image-digest
+          path: release-image-digest.txt
+          if-no-files-found: error
+          retention-days: 90

@@ -1,0 +1,39 @@
+[package]
+name = "kival-sdk"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license = "MIT OR Apache-2.0"
+description = "Rust SDK for Kival"
+repository = "https://github.com/selemis-com/kival"
+homepage = "https://selemis.com"
+documentation = "https://docs.rs/kival-sdk"
+readme = "README.md"
+keywords = ["kival", "sdk", "knowledge", "tower"]
+categories = ["api-bindings", "web-programming::http-client"]
+
+[lints]
+workspace = true
+
+[features]
+default = ["client"]
+client = ["dep:reqwest", "dep:thiserror", "dep:tower", "dep:url"]
+
+[dependencies]
+# Vendor
+reqwest = { workspace = true, optional = true, features = ["json", "rustls", "stream"] }
+schemars.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+thiserror = { workspace = true, optional = true }
+tower = { workspace = true, optional = true, features = ["timeout", "util"] }
+time = { workspace = true, features = ["serde-well-known"] }
+url = { workspace = true, optional = true }
+uuid.workspace = true
+
+# Crates
+kival-types = { workspace = true, features = ["wire"] }
+
+[dev-dependencies]
+http.workspace = true
+tokio = { workspace = true, features = ["macros", "rt-multi-thread", "time"] }

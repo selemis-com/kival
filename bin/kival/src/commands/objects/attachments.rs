@@ -1,0 +1,400 @@
+//! Object attachment commands.
+
+use std::path::{Path, PathBuf};
+
+use clap::{Parser, Subcommand};
+use clap_schema::{CommandSchema, schema_handler};
+use eyre::Result;
+use kival_cli::runner::CliContext;
+use kival_sdk::{
+    ListResponse, ObjectAttachment, ReuseObjectAttachmentRequest, UploadObjectAttachmentParams,
+};
+use schemars::JsonSchema;
+use serde::Serialize;
+use uuid::Uuid;
+
+use super::{
+    ObjectTargetArgs,
+    io::{ensure_output_available, write_output_file},
+};
+use crate::utils::{
+    args::{DEFAULT_LIST_LIMIT_HELP, list_params, metadata_value},
+    credentials::authenticated_client,
+    error::CliError,
+    output::{
+        OutputMode, format_human_timestamp, print_empty_list, print_output,
+        push_optional_uuid_field, quote_human_string,
+    },
+};
+
+/// Arguments for `kival objects attachments`.
+#[derive(Debug, Parser, CommandSchema)]
+pub struct ObjectAttachmentsCommand {
+    /// The attachment command to run.
+    #[command(subcommand)]
+    pub command: ObjectAttachmentsSubcommand,
+}
+
+/// The available `kival objects attachments` commands.
+#[derive(Debug, Subcommand, CommandSchema)]
+pub enum ObjectAttachmentsSubcommand {
+    /// List object attachments, newest first.
+    #[command(name = "list")]
+    List(ObjectAttachmentsListCommand),
+    /// Upload a file and create an attachment record on an object.
+    ///
+    /// `--version-id` associates the attachment with a specific version of the target object; omit
+    /// it for an object-level attachment.
+    #[command(name = "upload")]
+    Upload(ObjectAttachmentsUploadCommand),
+    /// Reuse accessible attachment content on another object without re-uploading it.
+    ///
+    /// The source attachment must be inspectable by the current user, and the target object must be
+    /// editable. Reuse creates a new attachment record on the target that references the existing
+    /// stored content and records the source attachment as provenance.
+    #[command(name = "reuse")]
+    Reuse(ObjectAttachmentsReuseCommand),
+    /// Get object attachment metadata.
+    ///
+    /// This command returns the attachment record only; it does not download the attachment bytes.
+    #[command(name = "get")]
+    Get(ObjectAttachmentsGetCommand),
+    /// Get object attachment content and write it to a file.
+    #[command(name = "content")]
+    Content(ObjectAttachmentsContentCommand),
+}
+
+/// Arguments for `kival objects attachments list`.
+#[derive(Debug, Parser)]
+pub struct ObjectAttachmentsListCommand {
+    /// Object target.
+    #[command(flatten)]
+    pub target: ObjectTargetArgs,
+    /// Maximum number of attachments to return.
+    #[arg(long, value_name = "N", default_value = DEFAULT_LIST_LIMIT_HELP)]
+    pub limit: Option<i64>,
+    /// Opaque `response.next_cursor` from the previous page; reuse it with the same filters.
+    #[arg(long, value_name = "CURSOR")]
+    pub cursor: Option<String>,
+}
+
+/// Arguments for `kival objects attachments upload`.
+#[derive(Debug, Parser)]
+pub struct ObjectAttachmentsUploadCommand {
+    /// Object target.
+    #[command(flatten)]
+    pub target: ObjectTargetArgs,
+    /// File to upload.
+    #[arg(long, value_name = "FILE")]
+    pub file: PathBuf,
+    /// Associate the attachment with this version of the target object.
+    #[arg(long, value_name = "VERSION_ID")]
+    pub version_id: Option<Uuid>,
+    /// Optional attachment display name. Defaults to the file name.
+    #[arg(long, value_name = "NAME")]
+    pub name: Option<String>,
+    /// Optional media type.
+    #[arg(long, value_name = "MEDIA_TYPE")]
+    pub media_type: Option<String>,
+    /// Attachment metadata as a flat JSON object with scalar or scalar-list values.
+    #[arg(long, value_name = "JSON")]
+    pub metadata: Option<String>,
+}
+
+/// Arguments for kival objects attachments reuse.
+#[derive(Debug, Clone, Copy, Parser)]
+pub struct ObjectAttachmentsReuseCommand {
+    /// Target object.
+    #[command(flatten)]
+    pub target: ObjectTargetArgs,
+    /// Source attachment ID whose content the current user is authorized to inspect.
+    #[arg(value_name = "SOURCE_ATTACHMENT_ID")]
+    pub source_attachment_id: Uuid,
+    /// Associate the new attachment record with this version of the target object.
+    #[arg(long, value_name = "VERSION_ID")]
+    pub version_id: Option<Uuid>,
+}
+
+/// Arguments for `kival objects attachments content`.
+#[derive(Debug, Parser)]
+pub struct ObjectAttachmentsContentCommand {
+    /// Object target.
+    #[command(flatten)]
+    pub target: ObjectTargetArgs,
+    /// Attachment ID.
+    #[arg(value_name = "ATTACHMENT_ID")]
+    pub attachment_id: Uuid,
+    /// File to write the attachment content to.
+    #[arg(long, value_name = "FILE")]
+    pub output: PathBuf,
+    /// Overwrite the output file if it already exists.
+    #[arg(long)]
+    pub force: bool,
+}
+
+/// Successful attachment content result.
+#[derive(Debug, Serialize, JsonSchema)]
+pub struct ObjectAttachmentContentOutput {
+    /// Attachment ID that was fetched.
+    pub attachment_id: Uuid,
+    /// Local output path.
+    pub output: String,
+    /// Number of bytes written.
+    pub bytes_written: usize,
+}
+
+/// Arguments for `kival objects attachments get`.
+#[derive(Debug, Clone, Copy, Parser)]
+pub struct ObjectAttachmentsGetCommand {
+    /// Object target.
+    #[command(flatten)]
+    pub target: ObjectTargetArgs,
+    /// Attachment ID.
+    #[arg(value_name = "ATTACHMENT_ID")]
+    pub attachment_id: Uuid,
+}
+
+impl ObjectAttachmentsCommand {
+    /// Run `kival objects attachments`.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the selected attachment command fails.
+    pub async fn run(self, ctx: CliContext, output: OutputMode) -> Result<()> {
+        match self.command {
+            ObjectAttachmentsSubcommand::List(command) => {
+                command.run(ctx, output).await?;
+            }
+            ObjectAttachmentsSubcommand::Upload(command) => {
+                command.run(ctx, output).await?;
+            }
+            ObjectAttachmentsSubcommand::Reuse(command) => {
+                command.run(ctx, output).await?;
+            }
+            ObjectAttachmentsSubcommand::Get(command) => {
+                command.run(ctx, output).await?;
+            }
+            ObjectAttachmentsSubcommand::Content(command) => {
+                command.run(ctx, output).await?;
+            }
+        }
+        Ok(())
+    }
+}
+
+#[schema_handler(run)]
+impl ObjectAttachmentsListCommand {
+    /// Run `kival objects attachments list`.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if attachments cannot be listed.
+    pub async fn run(
+        self,
+        ctx: CliContext,
+        output: OutputMode,
+    ) -> Result<ListResponse<ObjectAttachment>> {
+        let client = authenticated_client(&ctx)?;
+        let response = client
+            .list_object_attachments(
+                self.target.workspace_id,
+                self.target.object_id,
+                &list_params(self.limit, self.cursor),
+            )
+            .await?;
+        print_output(output, &response, || {
+            if response.items.is_empty() {
+                print_empty_list("attachments");
+            } else {
+                for attachment in &response.items {
+                    print_attachment_line(attachment, None);
+                }
+            }
+            if let Some(cursor) = &response.next_cursor {
+                println!("\nNext cursor: {cursor}");
+            }
+        })?;
+        Ok(response)
+    }
+}
+
+#[schema_handler(run)]
+impl ObjectAttachmentsUploadCommand {
+    /// Run `kival objects attachments upload`.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the file cannot be uploaded.
+    pub async fn run(self, ctx: CliContext, output: OutputMode) -> Result<ObjectAttachment> {
+        let name = match self.name.as_deref().map(str::trim) {
+            Some("") => return Err(CliError::invalid_argument("name must not be empty").into()),
+            Some(name) => Some(name.to_owned()),
+            None => self
+                .file
+                .file_name()
+                .map(|name| name.to_string_lossy().into_owned())
+                .filter(|name| !name.trim().is_empty()),
+        };
+        let media_type = resolve_media_type(&self.file, self.media_type.as_deref())?;
+        let metadata = metadata_value(self.metadata.as_deref())?;
+        let bytes = std::fs::read(&self.file)?;
+        let client = authenticated_client(&ctx)?;
+        let attachment = client
+            .upload_object_attachment(
+                self.target.workspace_id,
+                self.target.object_id,
+                &UploadObjectAttachmentParams {
+                    version_id: self.version_id,
+                    name,
+                    media_type,
+                    metadata: Some(metadata.to_string()),
+                },
+                bytes,
+            )
+            .await?;
+        print_output(output, &attachment, || {
+            print_attachment_line(&attachment, Some("uploaded"));
+        })?;
+        Ok(attachment)
+    }
+}
+
+/// Returns an explicit media type or infers one from the file extension.
+fn resolve_media_type(path: &Path, media_type: Option<&str>) -> Result<Option<String>> {
+    match media_type.map(str::trim) {
+        Some("") => Err(CliError::invalid_argument("--media-type must not be empty").into()),
+        Some(media_type) => Ok(Some(media_type.to_owned())),
+        None => Ok(infer_media_type_from_path(path).map(str::to_owned)),
+    }
+}
+
+/// Infers a media type from a small set of common file extensions.
+///
+/// This is convenience metadata only. It must not be used as a security
+/// boundary or as proof of file contents.
+fn infer_media_type_from_path(path: &Path) -> Option<&'static str> {
+    let extension = path.extension()?.to_str()?.to_ascii_lowercase();
+
+    match extension.as_str() {
+        "pdf" => Some("application/pdf"),
+        "md" | "markdown" => Some("text/markdown"),
+        "txt" => Some("text/plain"),
+        "json" => Some("application/json"),
+        "csv" => Some("text/csv"),
+        "jpg" | "jpeg" => Some("image/jpeg"),
+        "png" => Some("image/png"),
+        _ => None,
+    }
+}
+
+#[schema_handler(run)]
+impl ObjectAttachmentsReuseCommand {
+    /// Runs attachment reuse.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the source attachment cannot be authorized or reused.
+    pub async fn run(self, ctx: CliContext, output: OutputMode) -> Result<ObjectAttachment> {
+        let client = authenticated_client(&ctx)?;
+        let attachment = client
+            .reuse_object_attachment(
+                self.target.workspace_id,
+                self.target.object_id,
+                ReuseObjectAttachmentRequest {
+                    source_attachment_id: self.source_attachment_id,
+                    version_id: self.version_id,
+                },
+            )
+            .await?;
+        print_output(output, &attachment, || {
+            print_attachment_line(&attachment, Some("reused"));
+        })?;
+        Ok(attachment)
+    }
+}
+
+#[schema_handler(run)]
+impl ObjectAttachmentsContentCommand {
+    /// Run `kival objects attachments content`.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the attachment cannot be fetched or the output file cannot be written.
+    pub async fn run(
+        self,
+        ctx: CliContext,
+        output: OutputMode,
+    ) -> Result<ObjectAttachmentContentOutput> {
+        ensure_output_available(&self.output, self.force)?;
+
+        let client = authenticated_client(&ctx)?;
+        let bytes = client
+            .get_object_attachment_content(
+                self.target.workspace_id,
+                self.target.object_id,
+                self.attachment_id,
+            )
+            .await?;
+
+        write_output_file(&self.output, &bytes, self.force)?;
+
+        let result = ObjectAttachmentContentOutput {
+            attachment_id: self.attachment_id,
+            output: self.output.display().to_string(),
+            bytes_written: bytes.len(),
+        };
+        print_output(output, &result, || {
+            println!(
+                "{} action=written output={} bytes_written={}",
+                result.attachment_id,
+                quote_human_string(&result.output),
+                result.bytes_written,
+            );
+        })?;
+        Ok(result)
+    }
+}
+
+#[schema_handler(run)]
+impl ObjectAttachmentsGetCommand {
+    /// Run `kival objects attachments get`.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the attachment cannot be fetched.
+    pub async fn run(self, ctx: CliContext, output: OutputMode) -> Result<ObjectAttachment> {
+        let client = authenticated_client(&ctx)?;
+        let attachment = client
+            .get_object_attachment(
+                self.target.workspace_id,
+                self.target.object_id,
+                self.attachment_id,
+            )
+            .await?;
+        print_output(output, &attachment, || print_attachment_line(&attachment, None))?;
+        Ok(attachment)
+    }
+}
+
+/// Prints a compact attachment line.
+fn print_attachment_line(attachment: &ObjectAttachment, action: Option<&str>) {
+    let mut fields = vec![attachment.id.to_string()];
+    if let Some(action) = action {
+        fields.push(format!("action={action}"));
+    }
+    fields.extend([
+        format!("object={}", attachment.object_id),
+        format!("created={}", format_human_timestamp(attachment.created_at)),
+    ]);
+
+    push_optional_uuid_field(&mut fields, "version", attachment.version_id);
+    push_optional_uuid_field(&mut fields, "source_attachment", attachment.source_attachment_id);
+    if let Some(name) = &attachment.name {
+        fields.push(format!("name={}", quote_human_string(name)));
+    }
+    if let Some(media_type) = &attachment.media_type {
+        fields.push(format!("media_type={media_type}"));
+    }
+
+    println!("{}", fields.join(" "));
+}

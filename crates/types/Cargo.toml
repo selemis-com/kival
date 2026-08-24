@@ -1,0 +1,27 @@
+[package]
+name = "kival-types"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish = true
+description = "Canonical Rust types for Kival."
+repository = "https://github.com/selemis-com/kival"
+homepage = "https://selemis.com"
+documentation = "https://docs.rs/kival-types"
+readme = "README.md"
+keywords = ["kival", "knowledge", "types"]
+categories = ["data-structures"]
+
+[lints]
+workspace = true
+
+[features]
+default = []
+wire = ["dep:schemars", "dep:serde"]
+
+[dependencies]
+# Vendor
+schemars = { workspace = true, optional = true }
+serde = { workspace = true, optional = true }
+uuid.workspace = true

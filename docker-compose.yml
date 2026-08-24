@@ -1,0 +1,29 @@
+services:
+  postgres:
+    image: postgres:18
+    container_name: kival
+    init: true
+    restart: "no"
+
+    environment:
+      POSTGRES_USER: kival
+      POSTGRES_PASSWORD: kival
+      POSTGRES_DB: kival
+      PGDATA: /var/lib/postgresql/18/docker
+
+    ports:
+      - "127.0.0.1:5432:5432"
+
+    volumes:
+      - kival-data:/var/lib/postgresql
+
+    command:
+      [
+        "postgres",
+        "-c", "log_connections=on",
+        "-c", "log_disconnections=on",
+        "-c", "log_min_duration_statement=250ms"
+      ]
+
+volumes:
+  kival-data:
