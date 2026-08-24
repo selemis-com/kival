@@ -6,7 +6,7 @@ use eyre::Result;
 use kival_cli::runner::CliContext;
 use kival_sdk::{
     ArchiveStatus, KivalClient, ListResponse, ObjectResponse, ObjectRole, ObjectVersion,
-    UpdateObjectRequest,
+    ObjectVersionWikilinksResponse, UpdateObjectRequest,
 };
 use schemars::JsonSchema;
 use serde::Serialize;
@@ -22,7 +22,7 @@ use crate::utils::{
     credentials::authenticated_client,
     diff::unified_diff,
     error::{CliError, CliErrorCode},
-    output::{OutputMode, print_empty_list, print_output},
+    output::{OutputMode, print_empty_list, print_output, quote_human_string},
 };
 
 /// Number of unchanged lines included around each unified-diff change.
@@ -111,6 +111,9 @@ pub enum ObjectVersionsSubcommand {
     /// Get an object version.
     #[command(name = "get")]
     Get(ObjectVersionsGetCommand),
+    /// List server-resolved wikilinks authored in an immutable object version.
+    #[command(name = "wikilinks")]
+    Wikilinks(ObjectVersionsWikilinksCommand),
 }
 
 /// Arguments for `kival objects versions list`.
@@ -130,6 +133,17 @@ pub struct ObjectVersionsListCommand {
 /// Arguments for `kival objects versions get`.
 #[derive(Debug, Clone, Copy, Parser)]
 pub struct ObjectVersionsGetCommand {
+    /// Object target.
+    #[command(flatten)]
+    pub target: ObjectTargetArgs,
+    /// Version ID.
+    #[arg(value_name = "VERSION_ID")]
+    pub version_id: Uuid,
+}
+
+/// Arguments for `kival objects versions wikilinks`.
+#[derive(Debug, Clone, Copy, Parser)]
+pub struct ObjectVersionsWikilinksCommand {
     /// Object target.
     #[command(flatten)]
     pub target: ObjectTargetArgs,
@@ -460,6 +474,9 @@ impl ObjectVersionsCommand {
             ObjectVersionsSubcommand::Get(command) => {
                 command.run(ctx, output).await?;
             }
+            ObjectVersionsSubcommand::Wikilinks(command) => {
+                command.run(ctx, output).await?;
+            }
         }
         Ok(())
     }
@@ -515,6 +532,54 @@ impl ObjectVersionsGetCommand {
             .await?;
         print_output(output, &version, || print_version_response(&version))?;
         Ok(version)
+    }
+}
+
+#[schema_handler(run)]
+impl ObjectVersionsWikilinksCommand {
+    /// Run `kival objects versions wikilinks`.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the version's server-resolved wikilinks cannot be fetched.
+    pub async fn run(
+        self,
+        ctx: CliContext,
+        output: OutputMode,
+    ) -> Result<ObjectVersionWikilinksResponse> {
+        let client = authenticated_client(&ctx)?;
+        let items = client
+            .get_object_version_wikilinks(
+                self.target.workspace_id,
+                self.target.object_id,
+                self.version_id,
+            )
+            .await?;
+        let response = ObjectVersionWikilinksResponse { items };
+        print_output(output, &response, || {
+            if response.items.is_empty() {
+                print_empty_list("wikilinks");
+            } else {
+                for wikilink in &response.items {
+                    let display = wikilink
+                        .display_text
+                        .as_deref()
+                        .map(|value| format!(" display_text={}", quote_human_string(value)))
+                        .unwrap_or_default();
+                    let target = wikilink
+                        .target_object_id
+                        .map(|id| format!(" target_object_id={id}"))
+                        .unwrap_or_else(|| " target_object_id=unresolved".to_owned());
+                    println!(
+                        "raw_target={}{}{}",
+                        quote_human_string(&wikilink.raw_target),
+                        display,
+                        target,
+                    );
+                }
+            }
+        })?;
+        Ok(response)
     }
 }
 

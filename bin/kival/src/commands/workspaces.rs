@@ -8,9 +8,10 @@ use eyre::Result;
 use kival_cli::runner::CliContext;
 use kival_sdk::{
     CreateWorkspaceGroupRequest, CreateWorkspaceMembershipRequest, Event, ListResponse,
-    MembershipRole, PatchField, UpdateWorkspaceRequest, Workspace, WorkspaceGraphEdge,
-    WorkspaceGraphNode, WorkspaceGraphParams, WorkspaceGraphResponse, WorkspaceGroup,
-    WorkspaceGroupListParams, WorkspaceListParams, WorkspaceMembership,
+    MembershipRole, PatchField, UpdateWorkspaceMembershipRequest, UpdateWorkspaceRequest,
+    Workspace, WorkspaceGraphEdge, WorkspaceGraphNode, WorkspaceGraphParams,
+    WorkspaceGraphResponse, WorkspaceGroup, WorkspaceGroupListParams, WorkspaceListParams,
+    WorkspaceMembership,
 };
 use serde::Deserialize;
 use uuid::Uuid;
@@ -101,6 +102,14 @@ pub struct WorkspacesListCommand {
     /// Archive status filter: active, archived, or all.
     #[arg(long, value_name = "STATUS", value_enum, default_value = "active")]
     pub status: CliArchiveListStatus,
+
+    /// Case-insensitive workspace name search.
+    #[arg(long, value_name = "QUERY")]
+    pub query: Option<String>,
+
+    /// Restrict by the authenticated user's personal pin state.
+    #[arg(long, value_name = "BOOL")]
+    pub pinned: Option<bool>,
 
     /// Maximum number of workspaces to return.
     #[arg(long, value_name = "N", default_value = DEFAULT_LIST_LIMIT_HELP)]
@@ -236,6 +245,9 @@ pub enum WorkspaceMembershipsSubcommand {
     /// group.
     #[command(name = "create")]
     Create(WorkspaceMembershipsCreateCommand),
+    /// Change an active direct workspace membership's role.
+    #[command(name = "update")]
+    Update(WorkspaceMembershipsUpdateCommand),
     /// Revoke a direct workspace membership without deleting its historical record.
     ///
     /// This revokes only the selected direct membership; other access paths may still authorize the
@@ -272,6 +284,20 @@ pub struct WorkspaceMembershipsCreateCommand {
     pub role: CliMembershipRole,
 }
 
+/// Arguments for `kival workspaces memberships update`.
+#[derive(Debug, Clone, Copy, Parser)]
+pub struct WorkspaceMembershipsUpdateCommand {
+    /// Workspace ID.
+    #[arg(value_name = "WORKSPACE_ID")]
+    pub workspace_id: Uuid,
+    /// Membership ID.
+    #[arg(value_name = "MEMBERSHIP_ID")]
+    pub membership_id: Uuid,
+    /// New workspace role: member or admin.
+    #[arg(long, value_name = "ROLE", value_enum)]
+    pub role: CliMembershipRole,
+}
+
 /// Arguments for `kival workspaces memberships revoke`.
 #[derive(Debug, Clone, Copy, Parser)]
 pub struct WorkspaceMembershipsRevokeCommand {
@@ -294,11 +320,11 @@ pub struct WorkspaceGroupsCommand {
 /// The available `kival workspaces groups` commands.
 #[derive(Debug, Subcommand, CommandSchema)]
 pub enum WorkspaceGroupsSubcommand {
-    /// List active groups linked to a workspace, newest links first.
+    /// List groups linked to a workspace, newest links first.
     ///
-    /// A workspace-group link makes the group eligible for group-based object access in that
-    /// workspace; it does not create or modify the group itself. Archived links and archived groups
-    /// are excluded.
+    /// Active links are returned by default. Use `--status` to select archived links or both
+    /// lifecycle states. A workspace-group link makes the group eligible for group-based object
+    /// access in that workspace; it does not create or modify the group itself.
     #[command(name = "list")]
     List(WorkspaceGroupsListCommand),
     /// Link an existing group to a workspace.
@@ -327,6 +353,9 @@ pub struct WorkspaceGroupsListCommand {
     /// Workspace ID.
     #[arg(value_name = "WORKSPACE_ID")]
     pub workspace_id: Uuid,
+    /// Archive status filter: active, archived, or all.
+    #[arg(long, value_name = "STATUS", value_enum, default_value = "active")]
+    pub status: CliArchiveListStatus,
     /// Maximum number of group links to return.
     #[arg(long, value_name = "N", default_value = DEFAULT_LIST_LIMIT_HELP)]
     pub limit: Option<i64>,
@@ -534,8 +563,8 @@ impl WorkspacesListCommand {
                 limit: Some(self.limit.unwrap_or(DEFAULT_LIST_LIMIT)),
                 cursor: self.cursor,
                 status: self.status.into(),
-                q: None,
-                pinned: None,
+                q: self.query,
+                pinned: self.pinned,
             })
             .await?;
 
@@ -736,6 +765,9 @@ impl WorkspaceMembershipsCommand {
             WorkspaceMembershipsSubcommand::Create(command) => {
                 command.run(ctx, output).await?;
             }
+            WorkspaceMembershipsSubcommand::Update(command) => {
+                command.run(ctx, output).await?;
+            }
             WorkspaceMembershipsSubcommand::Revoke(command) => {
                 command.run(ctx, output).await?;
             }
@@ -804,6 +836,29 @@ impl WorkspaceMembershipsCreateCommand {
 }
 
 #[schema_handler(run)]
+impl WorkspaceMembershipsUpdateCommand {
+    /// Run `kival workspaces memberships update`.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the active membership role cannot be updated.
+    pub async fn run(self, ctx: CliContext, output: OutputMode) -> Result<WorkspaceMembership> {
+        let client = authenticated_client(&ctx)?;
+        let membership = client
+            .update_workspace_membership(
+                self.workspace_id,
+                self.membership_id,
+                UpdateWorkspaceMembershipRequest { workspace_role: self.role.into() },
+            )
+            .await?;
+        print_output(output, &membership, || {
+            print_membership_line(&membership, Some("updated"));
+        })?;
+        Ok(membership)
+    }
+}
+
+#[schema_handler(run)]
 impl WorkspaceMembershipsRevokeCommand {
     /// Run `kival workspaces memberships revoke`.
     ///
@@ -865,7 +920,7 @@ impl WorkspaceGroupsListCommand {
                 &WorkspaceGroupListParams {
                     limit: self.limit,
                     cursor: self.cursor,
-                    ..WorkspaceGroupListParams::default()
+                    status: self.status.into(),
                 },
             )
             .await?;

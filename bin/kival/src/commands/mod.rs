@@ -1,6 +1,7 @@
 //! Commands for the Kival Client CLI.
 
 pub mod admin;
+pub mod comments;
 pub mod completions;
 pub mod events;
 pub mod groups;

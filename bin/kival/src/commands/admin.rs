@@ -78,6 +78,10 @@ pub struct AdminUsersListCommand {
     #[arg(long)]
     pub all: bool,
 
+    /// Case-insensitive username or display-name search.
+    #[arg(long, value_name = "QUERY")]
+    pub query: Option<String>,
+
     /// Maximum number of users to return.
     #[arg(long, value_name = "N", default_value = DEFAULT_LIST_LIMIT_HELP)]
     pub limit: Option<i64>,
@@ -197,7 +201,7 @@ impl AdminUsersListCommand {
                 } else {
                     UserListStatus::Active
                 },
-                q: None,
+                q: self.query,
             })
             .await?;
 

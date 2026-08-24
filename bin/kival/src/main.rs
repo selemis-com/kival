@@ -13,9 +13,9 @@ use url::Url;
 
 use crate::{
     commands::{
-        admin::AdminCommand, completions::CompletionsCommand, events::EventsCommand,
-        groups::GroupsCommand, objects::ObjectsCommand, schema::SchemaCommand,
-        search::SearchCommand, server::ServerCommand, whoami::WhoamiCommand,
+        admin::AdminCommand, comments::CommentsCommand, completions::CompletionsCommand,
+        events::EventsCommand, groups::GroupsCommand, objects::ObjectsCommand,
+        schema::SchemaCommand, search::SearchCommand, server::ServerCommand, whoami::WhoamiCommand,
         workspaces::WorkspacesCommand,
     },
     utils::{
@@ -73,6 +73,10 @@ pub enum Commands {
     /// Manage workspace objects, versions, relationships, attachments, and access.
     #[command(name = "objects")]
     Objects(ObjectsCommand),
+
+    /// Participate in object comments and discussion threads.
+    #[command(name = "comments")]
+    Comments(CommentsCommand),
 
     /// Manage reusable access groups and their memberships.
     #[command(name = "groups")]
@@ -218,6 +222,9 @@ impl Cli {
                         })?)
                     }
                     Commands::Admin(command) => {
+                        Ok(runner.run_command_until_ctrl_c(|ctx| command.run(ctx, output))?)
+                    }
+                    Commands::Comments(command) => {
                         Ok(runner.run_command_until_ctrl_c(|ctx| command.run(ctx, output))?)
                     }
                     Commands::Events(command) => {
