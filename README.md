@@ -100,14 +100,20 @@ realtime listener normally occupies one pool connection, so `kivald serve` requi
 
 During shutdown, Kival stops accepting new HTTP connections and lets in-flight requests drain for up to `KIVAL_GRACEFUL_SHUTDOWN_TIMEOUT_SECONDS` seconds (30 by default).
 
-In the web application, create your first workspace.
+To explore Kival with a populated fictional company workspace, create the built-in ACME demo:
+
+```sh
+kivald admin workspaces create --name "ACME" --demo acme
+```
+
+The demo is fully synthetic and includes engineering, hiring, people operations, marketing, growth, partnerships, launch planning, company operations, discussions, access boundaries, and shared agent skills. It is useful for exploring search, graph navigation, history, permissions, and agent workflows before adding your own knowledge.
+
+To start from scratch instead, create a workspace in the web application.
 
 To invite another user, create their account from the server:
 
 ```sh
-kivald admin users create \
-  --username alice \
-  --display-name "Alice"
+kivald admin users create --username alice --display-name "Alice"
 ```
 
 The command prints a one-time enrollment link. Send it to the user so they can register a passkey and complete their account setup.
@@ -158,9 +164,7 @@ kival workspaces list
 Create an object:
 
 ```sh
-kival objects create <WORKSPACE_ID> \
-  --title "Database migration" \
-  --body-file migration.md
+kival objects create <WORKSPACE_ID> --title "Database migration" --body-file migration.md
 ```
 
 Edit it using your local editor:
