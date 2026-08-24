@@ -8,6 +8,7 @@ mod tests {
         CommentResponse, CommentThreadResponse, CreateCommentRequest, GrantPrincipal, InboxEntry,
         InboxUnreadCountResponse, ListResponse, MembershipRole, ObjectGrantResponse,
         ObjectNotificationPreference, ObjectRole, UpdateObjectNotificationPreferenceRequest,
+        UserResponse,
     };
     use kival_tests::{
         TestFixtureExt, TestKival, TestRawResponseExt, TestResponseExt, object_metadata, test_body,
@@ -151,6 +152,73 @@ mod tests {
         let second_page: ListResponse<InboxEntry> =
             r.get_json_as(&viewer, "/inbox").await?.into_success()?;
         assert_eq!(second_page.items.len(), 1);
+
+        Ok(())
+    }
+
+    #[sqlx::test(migrations = "../kernel/migrations")]
+    async fn inbox_preserves_attribution_after_actor_is_disabled(
+        pool: sqlx::PgPool,
+    ) -> Result<()> {
+        let r = TestKival::new(pool).await?;
+        let space = r.object_space("disabled notification actor").await?;
+        let object = r
+            .create_object(
+                space.workspace.id,
+                "Disabled Notification Actor",
+                &test_body("Disabled Notification Actor", "Version one."),
+                object_metadata("disabled-notification-actor-v1"),
+            )
+            .await?;
+        let editor = r
+            .create_object_actor(
+                space.workspace.id,
+                object.id,
+                "disabled-notification-editor",
+                MembershipRole::Member,
+                ObjectRole::Editor,
+            )
+            .await?;
+        let viewer = r
+            .create_object_actor(
+                space.workspace.id,
+                object.id,
+                "disabled-notification-viewer",
+                MembershipRole::Member,
+                ObjectRole::Viewer,
+            )
+            .await?;
+        clear_setup_notifications(&r, viewer.id).await?;
+
+        r.update_object_as(
+            &editor,
+            space.workspace.id,
+            object.id,
+            Some("Disabled Notification Actor v2"),
+            None,
+            None,
+        )
+        .await?;
+        let _: UserResponse = r
+            .empty_json_as(
+                &r.admin,
+                Method::POST,
+                &format!("/users/{}/disable", editor.id),
+            )
+            .await?
+            .into_success()?;
+
+        project_notifications(&r).await?;
+
+        let inbox: ListResponse<InboxEntry> =
+            r.get_json_as(&viewer, "/inbox").await?.into_success()?;
+        let activity = inbox
+            .items
+            .iter()
+            .find(|entry| entry.reason == "object_activity")
+            .expect("object activity notification");
+        assert_eq!(activity.actor_user_id, Some(editor.id));
+        assert_eq!(activity.actor_username.as_deref(), Some(editor.username.as_str()));
 
         Ok(())
     }
