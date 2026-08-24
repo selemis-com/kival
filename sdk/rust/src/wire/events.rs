@@ -64,7 +64,7 @@ pub struct Event {
     pub payload: Value,
 
     /// Creation timestamp.
-    #[schemars(with = "String")]
+    #[schemars(with = "String", extend("format" = "date-time"))]
     #[serde(with = "rfc3339")]
     pub created_at: OffsetDateTime,
 }

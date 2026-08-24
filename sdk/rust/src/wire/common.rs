@@ -18,7 +18,7 @@ pub struct PinState {
     pub pinned: bool,
 
     /// Time at which the resource entered its current pinned position.
-    #[schemars(with = "Option<String>")]
+    #[schemars(with = "Option<String>", extend("format" = "date-time"))]
     #[serde(with = "rfc3339::option")]
     pub pinned_at: Option<OffsetDateTime>,
 }

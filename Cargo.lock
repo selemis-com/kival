@@ -395,9 +395,9 @@ checksum = "c8d4a3bb8b1e0c1050499d1815f5ab16d04f0959b233085fb31653fbfc9d98f9"
 
 [[package]]
 name = "clap_schema"
-version = "0.1.0"
+version = "0.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6a717407ed702a81216c6a3b84db1ee113420ce9fd1584ae52497da754e9c917"
+checksum = "2fdd936da40dda67856ec1a49eb702daa25bb3ba405daf66a3ba1266c5459858"
 dependencies = [
  "clap",
  "clap_schema_derive",
@@ -409,9 +409,9 @@ dependencies = [
 
 [[package]]
 name = "clap_schema_derive"
-version = "0.1.0"
+version = "0.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "59d6f360180efbe1b861e8dead10d82e3cc6cfa18532aaabd42b7280c9f388fa"
+checksum = "4dfc6223e0d7db356a4ffa66b9596678664289cbab17090d478fe26466406c96"
 dependencies = [
  "proc-macro-crate",
  "proc-macro2",

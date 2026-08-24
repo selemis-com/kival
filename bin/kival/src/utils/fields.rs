@@ -292,7 +292,7 @@ fn unknown_field_error(schema: &Value, field: &str) -> eyre::Report {
 
 #[cfg(test)]
 mod tests {
-    use kival_sdk::ObjectResponse;
+    use clap_schema::CliSchema;
     use serde_json::json;
 
     use super::*;
@@ -446,7 +446,12 @@ mod tests {
 
     #[test]
     fn validates_actual_object_response_schema() {
-        let schema = crate::commands::schema::schema_for::<ObjectResponse>();
+        let contract = crate::Cli::schema().expect("CLI schema should build");
+        let schema = contract
+            .command(&["objects", "get"])
+            .expect("objects get should be discoverable")
+            .output
+            .expect("objects get has JSON output");
         let projection =
             parse_projection(&fields(&["object.id", "current_version.id"])).unwrap().unwrap();
 

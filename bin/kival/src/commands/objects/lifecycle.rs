@@ -133,7 +133,7 @@ pub struct ObjectBodyOutput {
 }
 
 /// Semantic input for creating an object.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct CreateObjectInput {
     /// Workspace ID.
@@ -149,7 +149,7 @@ pub struct CreateObjectInput {
 }
 
 /// Semantic input for updating object metadata.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct UpdateObjectInput {
     /// Exact current version the update was based on.
