@@ -123,12 +123,18 @@ pub struct WorkspacesGetCommand {
 /// Semantic input for updating a workspace.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
+#[schemars(extend("allOf" = [{"anyOf": [
+    {"required": ["name"]},
+    {"required": ["description"]}
+]}]))]
 pub struct UpdateWorkspaceInput {
     /// New workspace name.
     #[serde(default, deserialize_with = "deserialize_optional_non_null")]
+    #[schemars(with = "String", length(min = 1), regex(pattern = r"\S"))]
     pub name: Option<String>,
     /// New workspace description, or null to clear it.
     #[serde(default, deserialize_with = "deserialize_optional_nullable")]
+    #[schemars(length(min = 1), regex(pattern = r"\S"))]
     pub description: Option<Option<String>>,
 }
 

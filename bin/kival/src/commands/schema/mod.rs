@@ -1,6 +1,5 @@
 //! Machine-readable command discovery for Kival.
 
-mod constraints;
 mod normalize;
 
 use clap::Parser;
@@ -11,24 +10,25 @@ use schemars::JsonSchema;
 use serde::Serialize;
 use serde_json::Value;
 
-use self::{
-    constraints::apply_structured_input_constraints,
-    normalize::{close_object_schemas, normalize_schema},
-};
+use self::normalize::normalize_schema;
 use crate::{
     Cli,
     commands::{
+        admin::UpdateUserInput,
         groups::{CreateGroupInput, UpdateGroupInput},
         objects::{CreateObjectInput, UpdateObjectInput},
         workspaces::UpdateWorkspaceInput,
     },
-    utils::error::{CliError, CliErrorResponse},
+    utils::{
+        error::{CliError, CliErrorResponse},
+        output::{OutputMode, print_output},
+    },
 };
 
 /// Arguments for `kival schema`.
 #[derive(Debug, Parser)]
 #[command(after_long_help = "\
-Examples:\n  kival schema\n  kival schema objects\n  kival schema objects get\n  kival schema workspaces list\n  kival schema workspaces update\n\nOmit the command path to inspect the root command. Pass a command group path to inspect\nthat group and its immediate children, or pass an executable command path to inspect its\ncomplete contract. Use --full to resolve the complete visible subtree recursively.")]
+Examples:\n  kival schema\n  kival schema objects\n  kival schema objects get\n  kival schema workspaces list\n  kival schema workspaces update\n\nOmit the command path to inspect the root command. Pass a command group path to inspect\nthat group and its immediate children, or pass an executable command path to inspect its\ncomplete contract. Use --full to resolve the complete command subtree recursively.")]
 pub struct SchemaCommand {
     /// Return the complete recursive schema tree below the selected command.
     #[arg(long)]
@@ -97,9 +97,10 @@ impl SchemaCommand {
     /// # Errors
     ///
     /// Returns an error if the requested schema path does not exist or output fails.
-    pub fn run(self) -> Result<SchemaDocument> {
+    pub fn run(self, output: OutputMode) -> Result<SchemaDocument> {
         let document = schema_for_path_with_options(&self.command_path, self.full)?;
-        println!("{}", serde_json::to_string(&document)?);
+        let compact = serde_json::to_string(&document)?;
+        print_output(output, &document, || println!("{compact}"))?;
         Ok(document)
     }
 }
@@ -108,7 +109,7 @@ impl SchemaCommand {
 ///
 /// # Errors
 ///
-/// Returns an invalid command path error for unknown or hidden paths, or an internal schema error
+/// Returns an invalid command path error for unknown paths, or an internal schema error
 /// when the Clap command tree and compile-time registrations disagree.
 pub fn schema_for_path(path: &[String]) -> Result<SchemaDocument> {
     schema_for_path_with_options(path, false)
@@ -118,12 +119,12 @@ pub fn schema_for_path(path: &[String]) -> Result<SchemaDocument> {
 ///
 /// # Errors
 ///
-/// Returns an invalid command path error for unknown, hidden, or non-executable paths.
+/// Returns an invalid command path error for unknown or non-executable paths.
 pub fn output_schema_for_path(path: &[String]) -> Result<Option<Value>> {
     let contract = Cli::schema()?;
     let path_refs = path.iter().map(String::as_str).collect::<Vec<_>>();
     let command = contract.command(&path_refs).map_err(map_schema_path_error)?;
-    if !command.executable {
+    if !command.invocable {
         return Err(CliError::invalid_command_path(format!(
             "command path is not executable: {}",
             path.join(" ")
@@ -137,7 +138,7 @@ pub fn output_schema_for_path(path: &[String]) -> Result<Option<Value>> {
 ///
 /// # Errors
 ///
-/// Returns an invalid command path error for unknown or hidden paths, or an internal schema error
+/// Returns an invalid command path error for unknown paths, or an internal schema error
 /// when the Clap command tree and compile-time registrations disagree.
 pub fn schema_for_path_with_options(path: &[String], full: bool) -> Result<SchemaDocument> {
     let contract = Cli::schema()?;
@@ -184,9 +185,14 @@ fn map_schema_path_error(error: clap_schema::Error) -> eyre::Report {
     error.into()
 }
 
-/// Returns Kival's application-specific structured JSON input contract for a visible command.
+/// Returns Kival's application-specific structured JSON input contract for a command.
+///
+/// `clap_schema` reflects `--input` as a path-valued CLI option. The JSON document read from that
+/// path is a Kival-owned deserialization contract, so its semantic Rust type is associated here.
 fn structured_input_schema(path: &[String]) -> Option<StructuredInputSchema> {
-    let mut schema = if path == ["groups", "create"] {
+    let schema = if path == ["admin", "users", "update"] {
+        schema_for::<UpdateUserInput>()
+    } else if path == ["groups", "create"] {
         schema_for::<CreateGroupInput>()
     } else if path == ["groups", "update"] {
         schema_for::<UpdateGroupInput>()
@@ -199,9 +205,6 @@ fn structured_input_schema(path: &[String]) -> Option<StructuredInputSchema> {
     } else {
         return None;
     };
-
-    close_object_schemas(&mut schema);
-    apply_structured_input_constraints(&mut schema, path);
 
     Some(StructuredInputSchema { option: "--input", format: "json", stdin: "-", schema })
 }
@@ -231,7 +234,7 @@ mod tests {
             .expect("objects get schema should build");
 
         assert_eq!(document.discovery.command.path, ["objects", "get"]);
-        assert!(document.discovery.command.executable);
+        assert!(document.discovery.command.invocable);
         assert!(document.discovery.command.output.is_some());
         assert!(document.discovery.structured_input.is_none());
     }
@@ -253,15 +256,10 @@ mod tests {
     fn config_command_has_no_output_schema_and_includes_shared_arguments() {
         let document = schema_for_path(&["config".to_owned()]).expect("config schema should build");
 
-        assert!(document.discovery.command.executable);
+        assert!(document.discovery.command.invocable);
         assert!(document.discovery.command.output.is_none());
         assert!(
-            document
-                .discovery
-                .command
-                .options
-                .iter()
-                .any(|argument| argument.long.as_deref() == Some("config"))
+            document.discovery.command.options.iter().any(|argument| argument.name == "--config")
         );
     }
 
@@ -332,10 +330,22 @@ mod tests {
     }
 
     #[test]
-    fn hidden_admin_commands_are_not_discoverable() {
-        let error = schema_for_path(&["admin".to_owned()]).unwrap_err();
-        let body = crate::utils::error::CliErrorBody::from_report(&error);
-        assert_eq!(body.code, CliErrorCode::InvalidCommandPath);
+    fn admin_commands_are_discoverable() {
+        let root = schema_for_path(&[]).expect("root schema should build");
+        assert!(root.discovery.subcommands.iter().any(|command| match command {
+            SchemaSubcommand::Summary(summary) => summary.path == ["admin"],
+            SchemaSubcommand::Resolved(child) => child.command.path == ["admin"],
+        }));
+
+        let get = schema_for_path(&["admin".to_owned(), "users".to_owned(), "get".to_owned()])
+            .expect("admin users get schema should build");
+        assert!(get.discovery.command.invocable);
+        assert!(get.discovery.command.output.is_some());
+
+        let update =
+            schema_for_path(&["admin".to_owned(), "users".to_owned(), "update".to_owned()])
+                .expect("admin users update schema should build");
+        assert!(update.discovery.structured_input.is_some());
     }
 
     #[test]

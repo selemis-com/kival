@@ -7807,8 +7807,8 @@ Apache License 2.0
 - [android_system_properties]( https://github.com/nical/android_system_properties ) 0.1.5
 - [async-trait]( https://github.com/dtolnay/async-trait ) 0.1.89
 - [aws-lc-sys]( https://github.com/aws/aws-lc-rs ) 0.41.0
-- [clap_schema]( https://github.com/selemis-com/clap_schema ) 0.1.0
-- [clap_schema_derive]( https://github.com/selemis-com/clap_schema ) 0.1.0
+- [clap_schema]( https://github.com/selemis-com/clap_schema ) 0.2.0
+- [clap_schema_derive]( https://github.com/selemis-com/clap_schema ) 0.2.0
 - [document-features]( https://github.com/slint-ui/document-features ) 0.2.12
 - [dunce]( https://gitlab.com/kornelski/dunce ) 1.0.5
 - [dyn-clone]( https://github.com/dtolnay/dyn-clone ) 1.0.20

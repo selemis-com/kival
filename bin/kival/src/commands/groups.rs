@@ -100,21 +100,29 @@ pub struct GroupsGetCommand {
 #[serde(deny_unknown_fields)]
 pub struct CreateGroupInput {
     /// Group name.
+    #[schemars(length(min = 1), regex(pattern = r"\S"))]
     pub name: String,
     /// Group description.
     #[serde(default)]
+    #[schemars(length(min = 1), regex(pattern = r"\S"))]
     pub description: Option<String>,
 }
 
 /// Semantic input for updating a group.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
+#[schemars(extend("allOf" = [{"anyOf": [
+    {"required": ["name"]},
+    {"required": ["description"]}
+]}]))]
 pub struct UpdateGroupInput {
     /// New group name.
     #[serde(default, deserialize_with = "deserialize_optional_non_null")]
+    #[schemars(with = "String", length(min = 1), regex(pattern = r"\S"))]
     pub name: Option<String>,
     /// New group description, or null to clear it.
     #[serde(default, deserialize_with = "deserialize_optional_nullable")]
+    #[schemars(length(min = 1), regex(pattern = r"\S"))]
     pub description: Option<Option<String>>,
 }
 

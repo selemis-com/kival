@@ -44,26 +44,6 @@ pub(super) fn normalize_schema(mut value: Value) -> Value {
     value
 }
 
-/// Returns a mutable object schema for a named top-level property.
-pub(super) fn property_schema_mut<'a>(
-    schema: &'a mut Value,
-    name: &str,
-) -> Option<&'a mut serde_json::Map<String, Value>> {
-    schema.get_mut("properties")?.as_object_mut()?.get_mut(name)?.as_object_mut()
-}
-
-/// Rejects unknown properties in Kival's structured JSON input objects.
-pub(super) fn close_object_schemas(schema: &mut Value) {
-    walk_schema_mut(schema, &mut |node| {
-        if let Value::Object(object) = node
-            && (matches!(object.get("type"), Some(Value::String(kind)) if kind == "object")
-                || object.contains_key("properties"))
-        {
-            object.entry("additionalProperties").or_insert(Value::Bool(false));
-        }
-    });
-}
-
 /// Emits known metadata output fields as JSON objects rather than unconstrained values.
 fn add_metadata_object_types(value: &mut Value) {
     for path in METADATA_OBJECT_SCHEMA_PATHS {

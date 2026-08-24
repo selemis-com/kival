@@ -208,7 +208,7 @@ impl Cli {
         match command {
             Commands::Completions(command) => command.run(&output),
             Commands::Schema(command) => {
-                command.run()?;
+                command.run(output)?;
                 Ok(())
             }
 
@@ -275,10 +275,6 @@ fn validate_output_projection(
     let Some(projection) = projection else {
         return Ok(());
     };
-
-    if selected_command_path == ["schema"] {
-        return Ok(());
-    }
 
     let schema = output_schema_for_path(selected_command_path)?.ok_or_else(|| {
         CliError::invalid_projection(
@@ -407,7 +403,11 @@ mod tests {
 
     use crate::{
         Cli, command_path_from_args, json_flag_requested,
-        utils::error::{CliErrorBody, CliErrorCode},
+        utils::{
+            error::{CliErrorBody, CliErrorCode},
+            fields::parse_projection,
+        },
+        validate_output_projection,
     };
 
     #[test]
@@ -433,6 +433,18 @@ mod tests {
         let body = CliErrorBody::from_clap_error(&error);
 
         assert_eq!(body.code, CliErrorCode::InvalidArgument);
+    }
+
+    #[test]
+    fn schema_fields_are_validated_against_its_output_contract() {
+        let path = ["schema".to_owned()];
+        let valid = parse_projection(&["path".to_owned()]).unwrap().unwrap();
+        validate_output_projection(&path, Some(&valid)).expect("schema path is projectable");
+
+        let invalid = parse_projection(&["does_not_exist".to_owned()]).unwrap().unwrap();
+        let error = validate_output_projection(&path, Some(&invalid)).unwrap_err();
+        let body = CliErrorBody::from_report(&error);
+        assert_eq!(body.code, CliErrorCode::InvalidField);
     }
 
     #[test]
