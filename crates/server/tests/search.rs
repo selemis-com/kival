@@ -959,10 +959,7 @@ mod tests {
         let first: SearchResponse = r
             .get_json_as(
                 &r.admin,
-                &format!(
-                    "/workspaces/{}/search?q=Cursor%20Binding&limit=1",
-                    space.workspace.id,
-                ),
+                &format!("/workspaces/{}/search?q=Cursor%20Binding&limit=1", space.workspace.id,),
             )
             .await?
             .into_success()?;

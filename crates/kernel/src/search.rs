@@ -337,9 +337,9 @@ fn auto_fallback_query(query: &str, mode: SearchMode) -> Option<String> {
 
     let terms = query.split_whitespace().collect::<Vec<_>>();
     if terms.len() < 2
-        || terms.iter().any(|term| {
-            term.eq_ignore_ascii_case("or") || !term.chars().all(char::is_alphanumeric)
-        })
+        || terms
+            .iter()
+            .any(|term| term.eq_ignore_ascii_case("or") || !term.chars().all(char::is_alphanumeric))
     {
         return None;
     }
