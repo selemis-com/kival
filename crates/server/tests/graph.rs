@@ -346,12 +346,7 @@ mod tests {
 
         let graph =
             r.workspace_graph_as(&r.admin, workspace.id, "limit_nodes=50&limit_edges=50").await?;
-        assert_workspace_edge_kind(
-            &graph.edges,
-            source.id,
-            target.id,
-            GraphEdgeKind::Reference,
-        );
+        assert_workspace_edge_kind(&graph.edges, source.id, target.id, GraphEdgeKind::Reference);
 
         Ok(())
     }
