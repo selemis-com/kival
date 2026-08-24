@@ -6,7 +6,7 @@ use axum::{
     Json,
     extract::{Path, State},
 };
-use kival_kernel::{SearchDocumentRow, SearchDocuments, search_documents};
+use kival_kernel::{SearchDocumentCursor, SearchDocumentRow, SearchDocuments, search_documents};
 use kival_sdk::{DEFAULT_LIMIT, MAX_LIMIT, SearchHit, SearchParams, SearchResponse};
 use kival_types::{ArchiveListStatus, SearchCategory, SearchMode};
 use uuid::Uuid;
@@ -17,6 +17,7 @@ use crate::{
         auth::AuthenticatedUser,
         error::{ApiError, ApiResult},
         metrics::SearchMetrics,
+        pagination::{decode_search, filtered_kind, search_page},
         query::QueryParams,
     },
 };
@@ -46,6 +47,14 @@ pub(crate) async fn handle_search_workspace(
     let status = params.status.unwrap_or(ArchiveListStatus::Active);
     let case_sensitive = params.case_sensitive.unwrap_or(false);
     let include_history = params.include_history.unwrap_or(false);
+    let mut category_names =
+        categories.iter().copied().map(SearchCategory::as_str).collect::<Vec<_>>();
+    category_names.sort_unstable();
+    let cursor_kind = filtered_kind(
+        "search",
+        &(q, &category_names, status.as_str(), mode.as_str(), case_sensitive, include_history),
+    )?;
+    let cursor = decode_search(params.cursor.as_deref(), &cursor_kind, workspace_id)?;
     let search_scope = if include_history { "history" } else { "current" };
     let mut metrics = SearchMetrics::start(mode.as_str(), status.as_str(), search_scope);
 
@@ -60,19 +69,30 @@ pub(crate) async fn handle_search_workspace(
             case_sensitive,
             status,
             include_history,
-            limit,
+            cursor: cursor.map(|cursor| SearchDocumentCursor {
+                rank: cursor.rank,
+                object_id: cursor.object_id,
+                version_number: cursor.version_number,
+                version_id: cursor.version_id,
+            }),
+            limit: limit.saturating_add(1),
         },
     )
     .await?;
 
+    let page = search_page(rows, limit, &cursor_kind, workspace_id, |row| {
+        (row.rank, row.object_id, row.version_number, row.version_id)
+    })?;
     let context = params.context.unwrap_or(80).min(MAX_CONTEXT);
-
-    let items =
-        rows.into_iter().map(|row| row.into_hit(q, case_sensitive, context)).collect::<Vec<_>>();
+    let items = page
+        .items
+        .into_iter()
+        .map(|row| row.into_hit(q, case_sensitive, context))
+        .collect::<Vec<_>>();
 
     metrics.complete(items.len());
 
-    Ok(Json(SearchResponse { items }))
+    Ok(Json(SearchResponse { items, next_cursor: page.next_cursor }))
 }
 
 /// Normalizes the comma-separated search categories accepted by the CLI and API.
@@ -120,7 +140,7 @@ impl SearchRowExt for SearchDocumentRow {
             matched_category: self.category,
             match_kind: self.match_kind,
             snippet: snippet(&self.text, search_text, case_sensitive, context),
-            rank: self.rank,
+            rank: Some(self.rank),
         }
     }
 }

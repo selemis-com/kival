@@ -178,7 +178,7 @@ pub use realtime::{
     realtime_api_key_active, realtime_api_key_object_authorized, realtime_object_authorized,
     realtime_session_active, realtime_workspace_authorized,
 };
-pub use search::{SearchDocumentRow, SearchDocuments, search_documents};
+pub use search::{SearchDocumentCursor, SearchDocumentRow, SearchDocuments, search_documents};
 pub use sessions::{
     AuthenticatedSession, FreshAuthenticationSessionRotation, SessionRow, active_session_csrf_hash,
     authenticate_session, create_session, current_session_id, list_active_sessions,

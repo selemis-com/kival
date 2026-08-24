@@ -25,8 +25,11 @@ pub struct SearchParams {
     /// Archive status filter. Defaults to active content.
     pub status: Option<ArchiveListStatus>,
 
-    /// Maximum number of hits to return.
+    /// Maximum number of hits to return per page.
     pub limit: Option<i64>,
+
+    /// Opaque pagination cursor from a previous `response.next_cursor`.
+    pub cursor: Option<String>,
 
     /// Matching model. Defaults to `auto`.
     pub mode: Option<SearchMode>,
@@ -49,6 +52,10 @@ pub struct SearchParams {
 pub struct SearchResponse {
     /// Search hits.
     pub items: Vec<SearchHit>,
+
+    /// Opaque cursor for the next page. Omitted on the final page.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub next_cursor: Option<String>,
 }
 
 /// One actionable search hit.

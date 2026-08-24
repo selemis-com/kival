@@ -24,8 +24,21 @@ pub struct SearchDocumentRow {
     pub text: String,
     /// Classification of the strongest match.
     pub match_kind: SearchMatchKind,
-    /// Computed search rank, when available.
-    pub rank: Option<f32>,
+    /// Computed search rank.
+    pub rank: f32,
+}
+
+/// Stable boundary for continuing a ranked search page.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct SearchDocumentCursor {
+    /// Rank at the page boundary.
+    pub rank: f32,
+    /// Object identifier at the page boundary.
+    pub object_id: Uuid,
+    /// Version number at the page boundary.
+    pub version_number: i64,
+    /// Version identifier at the page boundary.
+    pub version_id: Uuid,
 }
 
 /// Parameters for a workspace search query.
@@ -47,6 +60,8 @@ pub struct SearchDocuments<'a> {
     pub status: ArchiveListStatus,
     /// Whether historical object versions are eligible.
     pub include_history: bool,
+    /// Optional ranked continuation boundary.
+    pub cursor: Option<SearchDocumentCursor>,
     /// Maximum number of rows to return.
     pub limit: i64,
 }
@@ -72,7 +87,7 @@ pub async fn search_documents(
         category: String,
         text: String,
         match_kind: String,
-        rank: Option<f32>,
+        rank: f32,
     }
 
     let rows = sqlx::query_as::<_, StoredSearchDocumentRow>(
@@ -216,6 +231,18 @@ pub async fn search_documents(
                 rank
             FROM deduplicated
             WHERE workspace_access.allowed
+                AND (
+                    $10::real IS NULL
+                    OR rank < $10
+                    OR (rank = $10 AND object_id > $11)
+                    OR (rank = $10 AND object_id = $11 AND version_number < $12)
+                    OR (
+                        rank = $10
+                        AND object_id = $11
+                        AND version_number = $12
+                        AND version_id > $13
+                    )
+                )
             ORDER BY rank DESC, object_id, version_number DESC, version_id
             LIMIT $9
         ) result
@@ -230,6 +257,10 @@ pub async fn search_documents(
     .bind(input.status.as_str())
     .bind(input.include_history)
     .bind(input.limit)
+    .bind(input.cursor.map(|cursor| cursor.rank))
+    .bind(input.cursor.map(|cursor| cursor.object_id))
+    .bind(input.cursor.map(|cursor| cursor.version_number))
+    .bind(input.cursor.map(|cursor| cursor.version_id))
     .fetch_all(pool)
     .await?;
 

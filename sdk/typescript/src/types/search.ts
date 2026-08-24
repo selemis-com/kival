@@ -26,8 +26,10 @@ export type SearchParams = {
   categories?: string | null;
   /** Archive status filter. Defaults to active content. */
   status?: ArchiveListStatus | null;
-  /** Maximum hits to return. */
+  /** Maximum hits to return per page. */
   limit?: number | null;
+  /** Opaque pagination cursor from a previous `next_cursor`. */
+  cursor?: string | null;
   /** Matching model. Defaults to `auto`. */
   mode?: SearchMode | null;
   /**
@@ -65,4 +67,8 @@ export type SearchHit = {
 };
 
 /** Search response envelope. */
-export type SearchResponse = { items: SearchHit[] };
+export type SearchResponse = {
+  items: SearchHit[];
+  /** Opaque cursor for the next page. Omitted on the final page. */
+  next_cursor?: string;
+};

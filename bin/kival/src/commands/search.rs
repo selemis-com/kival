@@ -79,9 +79,13 @@ pub struct SearchCommand {
     #[arg(long, value_name = "STATUS", value_enum)]
     pub status: Option<CliArchiveListStatus>,
 
-    /// Maximum number of hits to return.
+    /// Maximum number of hits to return per page.
     #[arg(long, value_name = "N")]
     pub limit: Option<i64>,
+
+    /// Opaque `response.next_cursor` from the previous page; reuse it with the same search.
+    #[arg(long, value_name = "CURSOR")]
+    pub cursor: Option<String>,
 
     /// Matching model. Defaults to `auto`. See the mode descriptions for matching semantics.
     #[arg(long, value_name = "MODE", value_enum, help = "Select the search matching model")]
@@ -166,6 +170,7 @@ impl SearchCommand {
             categories: self.categories,
             status: self.status.map(Into::into),
             limit: self.limit,
+            cursor: self.cursor,
             mode: self.mode.map(SearchMode::from),
             case_sensitive: Some(self.case_sensitive).filter(|value| *value),
             context: self.context,
@@ -182,6 +187,9 @@ impl SearchCommand {
                 for hit in &response.items {
                     print_search_hit(hit);
                 }
+            }
+            if let Some(cursor) = &response.next_cursor {
+                println!("\nNext cursor: {cursor}");
             }
         })?;
         Ok(response)

@@ -741,6 +741,104 @@ mod tests {
     }
 
     #[sqlx::test(migrations = "../kernel/migrations")]
+    async fn search_paginates_ranked_results_without_overlap(pool: sqlx::PgPool) -> Result<()> {
+        let r = TestKival::new(pool).await?;
+        let space = r.object_space("search pagination").await?;
+        let query = "Pagination Needle";
+        let mut expected_ids = Vec::new();
+
+        for suffix in ["Alpha", "Beta", "Gamma"] {
+            let object = r
+                .create_object(
+                    space.workspace.id,
+                    &format!("{query} {suffix}"),
+                    &test_body(&format!("{query} {suffix}"), "Body."),
+                    object_metadata(&format!("search-pagination-{suffix}")),
+                )
+                .await?;
+            expected_ids.push(object.id);
+        }
+
+        let first: SearchResponse = r
+            .get_json_as(
+                &r.admin,
+                &format!(
+                    "/workspaces/{}/search?q=Pagination%20Needle&limit=2",
+                    space.workspace.id,
+                ),
+            )
+            .await?
+            .into_success()?;
+        assert_eq!(first.items.len(), 2);
+        let cursor = first.next_cursor.expect("first page should have a continuation cursor");
+
+        let second: SearchResponse = r
+            .get_json_as(
+                &r.admin,
+                &format!(
+                    "/workspaces/{}/search?q=Pagination%20Needle&limit=2&cursor={cursor}",
+                    space.workspace.id,
+                ),
+            )
+            .await?
+            .into_success()?;
+        assert_eq!(second.items.len(), 1);
+        assert!(second.next_cursor.is_none());
+
+        let mut actual_ids = first.items.iter().map(|hit| hit.object_id).collect::<Vec<_>>();
+        actual_ids.extend(second.items.iter().map(|hit| hit.object_id));
+        actual_ids.sort_unstable();
+        expected_ids.sort_unstable();
+        assert_eq!(actual_ids, expected_ids);
+
+        Ok(())
+    }
+
+    #[sqlx::test(migrations = "../kernel/migrations")]
+    async fn search_rejects_cursor_reuse_with_different_query(pool: sqlx::PgPool) -> Result<()> {
+        let r = TestKival::new(pool).await?;
+        let space = r.object_space("search cursor query binding").await?;
+
+        for suffix in ["Alpha", "Beta"] {
+            r.create_object(
+                space.workspace.id,
+                &format!("Cursor Binding {suffix}"),
+                &test_body(&format!("Cursor Binding {suffix}"), "Body."),
+                object_metadata(&format!("search-cursor-binding-{suffix}")),
+            )
+            .await?;
+        }
+
+        let first: SearchResponse = r
+            .get_json_as(
+                &r.admin,
+                &format!(
+                    "/workspaces/{}/search?q=Cursor%20Binding&limit=1",
+                    space.workspace.id,
+                ),
+            )
+            .await?
+            .into_success()?;
+        let cursor = first.next_cursor.expect("first page should have a continuation cursor");
+
+        let response = r
+            .request(
+                Some(&r.admin),
+                Method::GET,
+                &format!(
+                    "/workspaces/{}/search?q=Different%20Query&limit=1&cursor={cursor}",
+                    space.workspace.id,
+                ),
+                None,
+            )
+            .await?;
+
+        response.assert_status(StatusCode::BAD_REQUEST);
+
+        Ok(())
+    }
+
+    #[sqlx::test(migrations = "../kernel/migrations")]
     async fn search_clamps_large_limit(pool: sqlx::PgPool) -> Result<()> {
         let r = TestKival::new(pool).await?;
         let space = r.object_space("search large limit").await?;

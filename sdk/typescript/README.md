@@ -270,7 +270,8 @@ Search modes have distinct matching behavior:
 * `exact` matches the complete stored category value.
 
 Literal and exact matching can be case-sensitive. Full-text matching remains case-insensitive.
-The `context` option changes snippet length without changing which values match.
+The `context` option changes snippet length without changing which values match. Search results are
+cursor-paginated; pass `next_cursor` back as `cursor` with the same query and filters to continue.
 
 ## Custom fetch implementations
 

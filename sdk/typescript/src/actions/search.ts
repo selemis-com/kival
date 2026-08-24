@@ -23,6 +23,7 @@ export function searchWorkspace(
   setString(params, "categories", options.categories);
   setString(params, "status", options.status);
   setNumber(params, "limit", options.limit);
+  setString(params, "cursor", options.cursor);
   setString(params, "mode", options.mode);
   setBoolean(params, "case_sensitive", options.case_sensitive);
   setNumber(params, "context", options.context);

@@ -34,6 +34,9 @@ where
             if let Some(limit) = params.limit {
                 pairs.append_pair("limit", &limit.to_string());
             }
+            if let Some(cursor) = &params.cursor {
+                pairs.append_pair("cursor", cursor);
+            }
             if let Some(mode) = params.mode {
                 pairs.append_pair("mode", mode.as_str());
             }
