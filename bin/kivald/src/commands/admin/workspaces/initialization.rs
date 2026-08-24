@@ -8,6 +8,7 @@
 use std::{
     collections::{BTreeMap, HashMap, HashSet},
     fmt,
+    time::Duration,
 };
 
 use eyre::{Context, Result, bail, eyre};
@@ -21,15 +22,24 @@ use kival_kernel::{
     set_thread_resolved, set_user_disabled_as_operator, touch_comment_thread,
     update_object_version,
 };
+use kival_tasks::DurableTasks;
 use serde::Deserialize;
 use serde_json::{Value, json};
 use sqlx::{PgPool, Postgres, Transaction};
+use steda::{RetryStrategy, Task};
 use uuid::Uuid;
 
 /// Schema version understood by the bundled initializer catalog parser.
 const SCHEMA_VERSION: u32 = 4;
 /// Bundled JSON catalog containing reusable templates and demo scenarios.
 const CATALOG: &str = include_str!("catalog.json");
+/// Stable durable task contract consumed by the server notification projector.
+const PROJECT_NOTIFICATIONS: Task<(), ()> = Task::new("project-notifications");
+/// Retry budget matching the server notification projector.
+const PROJECTION_MAX_ATTEMPTS: u32 = 100;
+/// Retry policy matching the server notification projector.
+const PROJECTION_RETRY_STRATEGY: RetryStrategy =
+    RetryStrategy::exponential(Duration::from_secs(1), 2.0, Some(Duration::from_secs(60)));
 
 /// Semantic kind of one bundled initializer.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -387,6 +397,15 @@ pub(super) async fn create_workspace_as_operator(
     let catalog = load_catalog()?;
     validate_catalog(&catalog)?;
     let resolved = resolve_initializer(&catalog, initializer)?;
+    let durable_tasks = if resolved.is_some() {
+        Some(
+            DurableTasks::bootstrap(pool.clone())
+                .await
+                .wrap_err("failed to initialize durable task queue")?,
+        )
+    } else {
+        None
+    };
 
     let mut tx = pool.begin().await.wrap_err("failed to begin workspace creation transaction")?;
     lock_admin_provisioning(&mut tx).await.wrap_err("failed to acquire admin provisioning lock")?;
@@ -423,6 +442,21 @@ pub(super) async fn create_workspace_as_operator(
         Some(ResolvedInitializer::Demo(recipe)) => {
             execute_demo(&mut tx, workspace.id, owner_user_id, recipe).await?;
         }
+    }
+
+    if let Some(durable_tasks) = durable_tasks {
+        durable_tasks
+            .queue()
+            .spawn(PROJECT_NOTIFICATIONS, ())
+            .idempotency_key(format!(
+                "notification-workspace-initialization:{}",
+                workspace.id
+            ))
+            .max_attempts(PROJECTION_MAX_ATTEMPTS)
+            .retry_strategy(PROJECTION_RETRY_STRATEGY)
+            .submit(&mut tx)
+            .await
+            .wrap_err("failed to enqueue initialized workspace notification projection")?;
     }
 
     tx.commit().await.wrap_err("failed to commit workspace creation transaction")?;
@@ -2191,6 +2225,22 @@ mod tests {
         .fetch_one(&pool)
         .await?;
         assert_eq!(comment_author_count, 12);
+
+        let notification_projection_task: String = sqlx::query_scalar(
+            r#"
+            SELECT state
+            FROM steda.tasks_kival
+            WHERE name = 'project-notifications'
+              AND idempotency_key = $1
+            "#,
+        )
+        .bind(format!(
+            "notification-workspace-initialization:{}",
+            created.workspace_id
+        ))
+        .fetch_one(&pool)
+        .await?;
+        assert_eq!(notification_projection_task, "pending");
 
         Ok(())
     }
