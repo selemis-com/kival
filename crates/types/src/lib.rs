@@ -473,7 +473,8 @@ pub enum CommentStatus {
 #[cfg_attr(feature = "wire", derive(serde::Serialize, serde::Deserialize, schemars::JsonSchema))]
 #[cfg_attr(feature = "wire", serde(rename_all = "snake_case"))]
 pub enum SearchMode {
-    /// Full-text or literal matching with automatic classification.
+    /// Full-text or literal matching, with low-ranked partial-term fallback for plain multi-word
+    /// queries.
     Auto,
     /// `PostgreSQL` web-search full-text matching.
     Text,

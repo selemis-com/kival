@@ -30,9 +30,9 @@ import { CommandPalette } from "./components/CommandPalette";
 import { WorkspaceMembersPanel } from "./components/WorkspaceMembersPanel";
 import { useWorkspaceSearch } from "./hooks/useWorkspaceSearch";
 import {
-  type GroupedSearchResult,
-  groupWorkspaceSearchResults,
   HighlightedSearchText,
+  mapWorkspaceSearchResults,
+  type WorkspaceSearchResult,
 } from "./search";
 import { WorkspaceSettings } from "./WorkspaceSettings";
 
@@ -239,7 +239,7 @@ export function WorkspaceView({
   const searchLoading = search.loading;
   const searchLoadingMore = search.loadingMore;
   const searchError = search.error;
-  const groupedSearchResults = groupWorkspaceSearchResults(searchResults);
+  const searchDisplayResults = mapWorkspaceSearchResults(searchResults);
   const visiblePinnedObjects = [...pinnedObjects].sort(comparePinOrder);
   const pinnedFavoriteIds = new Set(pinnedFavoriteObjects.map((object) => object.id));
   const visibleFavoriteObjects = [
@@ -331,17 +331,17 @@ export function WorkspaceView({
     setSearchSelectionIndex(0);
   }, [includeSearchHistory, normalizedSearchQuery]);
 
-  const handleOpenSearchResultRef = useRef<(result: GroupedSearchResult) => void>(() => {});
+  const handleOpenSearchResultRef = useRef<(result: WorkspaceSearchResult) => void>(() => {});
 
   useEffect(() => {
-    if (!isSearching || groupedSearchResults.length === 0) {
+    if (!isSearching || searchDisplayResults.length === 0) {
       return;
     }
 
     function handleSearchNavigation(event: KeyboardEvent) {
       if (event.key === "ArrowDown") {
         event.preventDefault();
-        setSearchSelectionIndex((index) => Math.min(index + 1, groupedSearchResults.length - 1));
+        setSearchSelectionIndex((index) => Math.min(index + 1, searchDisplayResults.length - 1));
       } else if (event.key === "ArrowUp") {
         event.preventDefault();
         setSearchSelectionIndex((index) => Math.max(index - 1, 0));
@@ -351,13 +351,13 @@ export function WorkspaceView({
         event.target.type === "search"
       ) {
         event.preventDefault();
-        handleOpenSearchResultRef.current(groupedSearchResults[searchSelectionIndex]);
+        handleOpenSearchResultRef.current(searchDisplayResults[searchSelectionIndex]);
       }
     }
 
     document.addEventListener("keydown", handleSearchNavigation);
     return () => document.removeEventListener("keydown", handleSearchNavigation);
-  }, [groupedSearchResults, isSearching, searchSelectionIndex]);
+  }, [searchDisplayResults, isSearching, searchSelectionIndex]);
 
   // biome-ignore lint/correctness/useExhaustiveDependencies: Recent loading is route-keyed.
   useEffect(() => {
@@ -390,7 +390,7 @@ export function WorkspaceView({
     requestNavigation(() => onOpenArchivedObject(objectId));
   }
 
-  function handleOpenSearchResult(result: GroupedSearchResult) {
+  function handleOpenSearchResult(result: WorkspaceSearchResult) {
     guardedOpenObject(result.objectId, result.versionId);
   }
 
@@ -580,10 +580,8 @@ export function WorkspaceView({
 
                       <div style={styles.sectionActions}>
                         <span style={styles.muted}>
-                          {groupedSearchResults.length}{" "}
-                          {groupedSearchResults.length === 1 ? "item" : "items"}
-                          {searchResults.length !== groupedSearchResults.length &&
-                            ` · ${searchResults.length} matches`}
+                          {searchDisplayResults.length}{" "}
+                          {searchDisplayResults.length === 1 ? "item" : "items"}
                         </span>
 
                         <button
@@ -605,7 +603,7 @@ export function WorkspaceView({
                     </div>
 
                     <div className="kival-row-list kival-object-list" style={styles.objectList}>
-                      {groupedSearchResults.map((result, index) => (
+                      {searchDisplayResults.map((result, index) => (
                         <button
                           key={`${result.objectId}:${result.versionId}`}
                           type="button"
@@ -622,24 +620,30 @@ export function WorkspaceView({
                               <HighlightedSearchText
                                 value={result.title}
                                 query={normalizedSearchQuery}
+                                matchedTerms={result.termCoverage?.matched_terms}
                               />
                             </strong>
 
                             <span style={styles.objectMeta}>
                               {[
                                 includeSearchHistory ? `v${result.versionNumber}` : null,
-                                result.matchCount > 1 ? `${result.matchCount} matches` : null,
-                                ...result.categories,
+                                result.termCoverage &&
+                                result.termCoverage.matched_terms.length <
+                                  result.termCoverage.query_term_count
+                                  ? `${result.termCoverage.matched_terms.length}/${result.termCoverage.query_term_count} terms`
+                                  : null,
+                                result.category,
                               ]
                                 .filter(Boolean)
                                 .join(" · ")}
                             </span>
 
-                            {result.snippets[0] && (
+                            {result.snippet && (
                               <span style={styles.searchSnippet}>
                                 <HighlightedSearchText
-                                  value={result.snippets[0]}
+                                  value={result.snippet}
                                   query={normalizedSearchQuery}
+                                  matchedTerms={result.termCoverage?.matched_terms}
                                 />
                               </span>
                             )}
@@ -647,7 +651,7 @@ export function WorkspaceView({
                         </button>
                       ))}
 
-                      {groupedSearchResults.length === 0 && (
+                      {searchDisplayResults.length === 0 && (
                         <div style={styles.emptyState}>
                           <strong>No matches found</strong>
 

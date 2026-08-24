@@ -6,8 +6,10 @@ use axum::{
     Json,
     extract::{Path, State},
 };
-use kival_kernel::{SearchDocumentRow, SearchDocuments, search_documents};
-use kival_sdk::{DEFAULT_LIMIT, MAX_LIMIT, SearchHit, SearchParams, SearchResponse};
+use kival_kernel::{SearchDocumentCursor, SearchDocumentRow, SearchDocuments, search_documents};
+use kival_sdk::{
+    DEFAULT_LIMIT, MAX_LIMIT, SearchHit, SearchParams, SearchResponse, SearchTermCoverage,
+};
 use kival_types::{ArchiveListStatus, SearchCategory, SearchMode};
 use uuid::Uuid;
 
@@ -17,6 +19,7 @@ use crate::{
         auth::AuthenticatedUser,
         error::{ApiError, ApiResult},
         metrics::SearchMetrics,
+        pagination::{decode_search, filtered_kind, search_page},
         query::QueryParams,
     },
 };
@@ -46,6 +49,14 @@ pub(crate) async fn handle_search_workspace(
     let status = params.status.unwrap_or(ArchiveListStatus::Active);
     let case_sensitive = params.case_sensitive.unwrap_or(false);
     let include_history = params.include_history.unwrap_or(false);
+    let mut category_names =
+        categories.iter().copied().map(SearchCategory::as_str).collect::<Vec<_>>();
+    category_names.sort_unstable();
+    let cursor_kind = filtered_kind(
+        "search",
+        &(q, &category_names, status.as_str(), mode.as_str(), case_sensitive, include_history),
+    )?;
+    let cursor = decode_search(params.cursor.as_deref(), &cursor_kind, workspace_id)?;
     let search_scope = if include_history { "history" } else { "current" };
     let mut metrics = SearchMetrics::start(mode.as_str(), status.as_str(), search_scope);
 
@@ -60,19 +71,30 @@ pub(crate) async fn handle_search_workspace(
             case_sensitive,
             status,
             include_history,
-            limit,
+            cursor: cursor.map(|cursor| SearchDocumentCursor {
+                rank: cursor.rank,
+                object_id: cursor.object_id,
+                version_number: cursor.version_number,
+                version_id: cursor.version_id,
+            }),
+            limit: limit.saturating_add(1),
         },
     )
     .await?;
 
+    let page = search_page(rows, limit, &cursor_kind, workspace_id, |row| {
+        (row.rank, row.object_id, row.version_number, row.version_id)
+    })?;
     let context = params.context.unwrap_or(80).min(MAX_CONTEXT);
-
-    let items =
-        rows.into_iter().map(|row| row.into_hit(q, case_sensitive, context)).collect::<Vec<_>>();
+    let items = page
+        .items
+        .into_iter()
+        .map(|row| row.into_hit(q, case_sensitive, context))
+        .collect::<Vec<_>>();
 
     metrics.complete(items.len());
 
-    Ok(Json(SearchResponse { items }))
+    Ok(Json(SearchResponse { items, next_cursor: page.next_cursor }))
 }
 
 /// Normalizes the comma-separated search categories accepted by the CLI and API.
@@ -111,33 +133,70 @@ trait SearchRowExt {
 impl SearchRowExt for SearchDocumentRow {
     /// Converts this row into a wire hit.
     fn into_hit(self, search_text: &str, case_sensitive: bool, context: usize) -> SearchHit {
+        let query_term_count = self.query_term_count;
+        let term_coverage = self.matched_terms.map(|matched_terms| SearchTermCoverage {
+            matched_terms,
+            query_term_count: query_term_count.expect("matched terms require a query term count"),
+        });
+        let snippet_terms = term_coverage
+            .as_ref()
+            .map(|coverage| coverage.matched_terms.as_slice())
+            .unwrap_or_default();
+        let snippet = snippet(&self.text, search_text, snippet_terms, case_sensitive, context);
+
         SearchHit {
             workspace_id: self.workspace_id,
             object_id: self.object_id,
             version_id: self.version_id,
             version_number: self.version_number,
             title: self.title,
+            status: self.status,
+            metadata: self.metadata,
             matched_category: self.category,
             match_kind: self.match_kind,
-            snippet: snippet(&self.text, search_text, case_sensitive, context),
-            rank: self.rank,
+            term_coverage,
+            snippet,
+            rank: Some(self.rank),
         }
     }
 }
 
 /// Builds a compact context snippet around the first literal search-term occurrence.
-fn snippet(text: &str, search_text: &str, case_sensitive: bool, context: usize) -> String {
+fn snippet(
+    text: &str,
+    search_text: &str,
+    matched_terms: &[String],
+    case_sensitive: bool,
+    context: usize,
+) -> String {
     if search_text.is_empty() {
         return truncate_on_char_boundary(text, context.saturating_mul(2));
     }
 
-    if !case_sensitive && (!text.is_ascii() || !search_text.is_ascii()) {
+    if !case_sensitive
+        && (!text.is_ascii()
+            || !search_text.is_ascii()
+            || matched_terms.iter().any(|term| !term.is_ascii()))
+    {
         return truncate_on_char_boundary(text, context.saturating_mul(2));
     }
 
     let haystack = if case_sensitive { text.to_owned() } else { text.to_lowercase() };
-    let needle = if case_sensitive { search_text.to_owned() } else { search_text.to_lowercase() };
-    let Some(byte_index) = haystack.find(&needle) else {
+    let search_needle =
+        if case_sensitive { search_text.to_owned() } else { search_text.to_lowercase() };
+    let matched_term = haystack.find(&search_needle).map_or_else(
+        || {
+            matched_terms
+                .iter()
+                .filter_map(|term| {
+                    let needle = if case_sensitive { term.clone() } else { term.to_lowercase() };
+                    haystack.find(&needle).map(|byte_index| (byte_index, term.len()))
+                })
+                .min_by_key(|(byte_index, _)| *byte_index)
+        },
+        |byte_index| Some((byte_index, search_text.len())),
+    );
+    let Some((byte_index, match_len)) = matched_term else {
         return truncate_on_char_boundary(text, context.saturating_mul(2));
     };
 
@@ -146,7 +205,7 @@ fn snippet(text: &str, search_text: &str, case_sensitive: bool, context: usize) 
     } else {
         text[..byte_index].char_indices().rev().nth(context - 1).map_or(0, |(idx, _)| idx)
     };
-    let end_seed = byte_index.saturating_add(search_text.len()).min(text.len());
+    let end_seed = byte_index.saturating_add(match_len).min(text.len());
     let end = if context == 0 {
         end_seed
     } else {

@@ -1,8 +1,10 @@
 //! Search wire protocol types.
 
+use kival_types::ArchiveStatus;
 pub use kival_types::{SearchCategory, SearchMatchKind, SearchMode};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
+use serde_json::Value;
 use uuid::Uuid;
 
 use crate::ArchiveListStatus;
@@ -25,10 +27,14 @@ pub struct SearchParams {
     /// Archive status filter. Defaults to active content.
     pub status: Option<ArchiveListStatus>,
 
-    /// Maximum number of hits to return.
+    /// Maximum number of hits to return per page.
     pub limit: Option<i64>,
 
-    /// Matching model. Defaults to `auto`.
+    /// Opaque pagination cursor from a previous `response.next_cursor`.
+    pub cursor: Option<String>,
+
+    /// Matching model. Defaults to `auto`. Plain multi-word `auto` queries may include
+    /// lower-ranked partial-term full-text matches.
     pub mode: Option<SearchMode>,
 
     /// Case-sensitive literal and exact comparisons.
@@ -49,6 +55,20 @@ pub struct SearchParams {
 pub struct SearchResponse {
     /// Search hits.
     pub items: Vec<SearchHit>,
+
+    /// Opaque cursor for the next page. Omitted on the final page.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub next_cursor: Option<String>,
+}
+
+/// Term coverage for a plain multi-term `auto` search.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+pub struct SearchTermCoverage {
+    /// Query terms matched by the selected search document.
+    pub matched_terms: Vec<String>,
+
+    /// Number of terms in the broadened query.
+    pub query_term_count: usize,
 }
 
 /// One actionable search hit.
@@ -69,11 +89,23 @@ pub struct SearchHit {
     /// Title of the matched version.
     pub title: String,
 
+    /// Object lifecycle status.
+    pub status: ArchiveStatus,
+
+    /// Flat metadata from the matched immutable version.
+    pub metadata: Value,
+
     /// Search category in which the match occurred.
     pub matched_category: SearchCategory,
 
     /// Match kind.
     pub match_kind: SearchMatchKind,
+
+    /// Term coverage for plain multi-term `auto` searches.
+    ///
+    /// Omitted for strict modes and queries that do not use the partial-term fallback.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub term_coverage: Option<SearchTermCoverage>,
 
     /// Context snippet.
     pub snippet: String,

@@ -44,6 +44,19 @@ pub(crate) struct VersionCursor {
     pub(crate) version_number: i64,
 }
 
+/// Decoded cursor for ranked workspace search pagination.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub(crate) struct SearchCursor {
+    /// Search rank at the page boundary.
+    pub(crate) rank: f32,
+    /// Object identifier at the page boundary.
+    pub(crate) object_id: Uuid,
+    /// Version number at the page boundary.
+    pub(crate) version_number: i64,
+    /// Version identifier at the page boundary.
+    pub(crate) version_id: Uuid,
+}
+
 /// Serialized pagination cursor variants.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(tag = "type", rename_all = "snake_case")]
@@ -89,6 +102,21 @@ enum Cursor {
         scope: Uuid,
         /// Version number at the page boundary.
         version_number: i64,
+    },
+    /// Cursor for ranked search results.
+    Search {
+        /// Search kind including the normalized filter fingerprint.
+        kind: String,
+        /// Workspace scope this cursor is valid for.
+        scope: Uuid,
+        /// IEEE-754 bits for the rank at the page boundary.
+        rank_bits: u32,
+        /// Object identifier at the page boundary.
+        object_id: Uuid,
+        /// Version number at the page boundary.
+        version_number: i64,
+        /// Version identifier at the page boundary.
+        version_id: Uuid,
     },
 }
 
@@ -195,6 +223,66 @@ pub(crate) fn decode_version(
         }
         _ => Err(ApiError::bad_request("invalid pagination cursor")),
     }
+}
+
+/// Decodes and validates a ranked search pagination cursor.
+pub(crate) fn decode_search(
+    cursor: Option<&str>,
+    kind: &str,
+    scope: Uuid,
+) -> ApiResult<Option<SearchCursor>> {
+    let Some(cursor) = decode(cursor)? else {
+        return Ok(None);
+    };
+
+    match cursor {
+        Cursor::Search {
+            kind: cursor_kind,
+            scope: cursor_scope,
+            rank_bits,
+            object_id,
+            version_number,
+            version_id,
+        } if cursor_kind == kind && cursor_scope == scope => {
+            let rank = f32::from_bits(rank_bits);
+            if !rank.is_finite() {
+                return Err(ApiError::bad_request("invalid pagination cursor"));
+            }
+            Ok(Some(SearchCursor { rank, object_id, version_number, version_id }))
+        }
+        _ => Err(ApiError::bad_request("invalid pagination cursor")),
+    }
+}
+
+/// Builds a paginated response for ranked workspace search results.
+pub(crate) fn search_page<T>(
+    mut items: Vec<T>,
+    limit: i64,
+    kind: &str,
+    scope: Uuid,
+    cursor_of: impl Fn(&T) -> (f32, Uuid, i64, Uuid),
+) -> ApiResult<ListResponse<T>> {
+    let has_next = items.len() > limit as usize;
+    if has_next {
+        items.truncate(limit as usize);
+    }
+
+    let next_cursor = if has_next {
+        let (rank, object_id, version_number, version_id) =
+            cursor_of(items.last().ok_or_else(|| ApiError::internal("empty pagination page"))?);
+        Some(encode(&Cursor::Search {
+            kind: kind.to_owned(),
+            scope,
+            rank_bits: rank.to_bits(),
+            object_id,
+            version_number,
+            version_id,
+        })?)
+    } else {
+        None
+    };
+
+    Ok(ListResponse { items, next_cursor })
 }
 
 /// Builds a paginated response for created-at ordered items.

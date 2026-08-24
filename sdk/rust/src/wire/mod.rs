@@ -60,6 +60,7 @@ pub use objects::{
 pub use pagination::{DEFAULT_LIMIT, ListParams, ListResponse, MAX_LIMIT};
 pub use search::{
     SearchCategory, SearchHit, SearchMatchKind, SearchMode, SearchParams, SearchResponse,
+    SearchTermCoverage,
 };
 pub use status::{Status, StatusResponse};
 pub use users::{

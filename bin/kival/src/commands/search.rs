@@ -28,9 +28,10 @@ Every mode searches the same selected categories. Omit --categories to search ev
 category. Metadata paths such as metadata.kind are not supported.
 
 Search modes:
-  auto     Match normalized full-text tokens or a literal substring. Classify each hit as exact
-           for complete-value equality, otherwise literal for a substring, otherwise text. This is
-           the default.
+  auto     Match normalized full-text tokens or a literal substring. Plain multi-word queries also
+           admit lower-ranked results matching only some terms. Classify each hit as exact for
+           complete-value equality, otherwise literal for a substring, otherwise text. This is the
+           default.
   text     Match normalized tokens using PostgreSQL web-search syntax and the simple text-search
            configuration. Quoted phrases, OR, and -term use PostgreSQL web-search syntax. Matching
            is case-insensitive, does not stem words, and does not match arbitrary substrings inside
@@ -79,9 +80,13 @@ pub struct SearchCommand {
     #[arg(long, value_name = "STATUS", value_enum)]
     pub status: Option<CliArchiveListStatus>,
 
-    /// Maximum number of hits to return.
+    /// Maximum number of hits to return per page.
     #[arg(long, value_name = "N")]
     pub limit: Option<i64>,
+
+    /// Opaque `response.next_cursor` from the previous page; reuse it with the same search.
+    #[arg(long, value_name = "CURSOR")]
+    pub cursor: Option<String>,
 
     /// Matching model. Defaults to `auto`. See the mode descriptions for matching semantics.
     #[arg(long, value_name = "MODE", value_enum, help = "Select the search matching model")]
@@ -110,8 +115,9 @@ pub struct SearchCommand {
 pub enum CliSearchMode {
     /// Match normalized full-text tokens or a literal substring.
     ///
-    /// Each hit is classified as exact for complete-value equality, otherwise literal for a
-    /// substring, otherwise text. Case sensitivity affects only the literal and exact checks.
+    /// Plain multi-word queries also admit lower-ranked results matching only some terms. Each hit
+    /// is classified as exact for complete-value equality, otherwise literal for a substring,
+    /// otherwise text. Case sensitivity affects only the literal and exact checks.
     Auto,
 
     /// Match normalized tokens using `PostgreSQL` web-search syntax.
@@ -166,6 +172,7 @@ impl SearchCommand {
             categories: self.categories,
             status: self.status.map(Into::into),
             limit: self.limit,
+            cursor: self.cursor,
             mode: self.mode.map(SearchMode::from),
             case_sensitive: Some(self.case_sensitive).filter(|value| *value),
             context: self.context,
@@ -183,6 +190,9 @@ impl SearchCommand {
                     print_search_hit(hit);
                 }
             }
+            if let Some(cursor) = &response.next_cursor {
+                println!("\nNext cursor: {cursor}");
+            }
         })?;
         Ok(response)
     }
@@ -195,6 +205,10 @@ fn print_search_hit(hit: &SearchHit) {
     parts.push(format!("object={}", hit.object_id));
     parts.push(format!("version={} number={}", hit.version_id, hit.version_number));
     parts.push(format!("category={}", hit.matched_category));
+    parts.push(format!("status={}", hit.status));
+    if let Some(coverage) = &hit.term_coverage {
+        parts.push(format!("terms={}/{}", coverage.matched_terms.len(), coverage.query_term_count));
+    }
 
     parts.push(format!("title={}", quote_human_string(&hit.title)));
     if let Some(rank) = hit.rank {
@@ -203,4 +217,5 @@ fn print_search_hit(hit: &SearchHit) {
 
     println!("{}", parts.join(" "));
     println!("  {}", hit.snippet);
+    println!("  metadata={}", hit.metadata);
 }

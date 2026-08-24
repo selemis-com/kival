@@ -10,7 +10,7 @@ mod tests {
     use kival_tests::{
         TestFixtureExt, TestKival, TestRawResponseExt, TestResponseExt, object_metadata, test_body,
     };
-    use kival_types::SearchCategory;
+    use kival_types::{ArchiveStatus, SearchCategory};
 
     #[sqlx::test(migrations = "../kernel/migrations")]
     async fn search_rejects_users_without_workspace_access(pool: sqlx::PgPool) -> Result<()> {
@@ -596,6 +596,50 @@ mod tests {
     }
 
     #[sqlx::test(migrations = "../kernel/migrations")]
+    async fn search_returns_one_hit_per_matching_version_before_limit(
+        pool: sqlx::PgPool,
+    ) -> Result<()> {
+        let r = TestKival::new(pool).await?;
+        let space = r.object_space("search deduplicated hits").await?;
+        let query = "Shared Search Phrase";
+
+        let first = r
+            .create_object(
+                space.workspace.id,
+                &format!("{query} Alpha"),
+                &test_body(&format!("{query} Alpha"), "Body."),
+                object_metadata("search-deduplicated-first"),
+            )
+            .await?;
+        let second = r
+            .create_object(
+                space.workspace.id,
+                &format!("{query} Beta"),
+                &test_body(&format!("{query} Beta"), "Body."),
+                object_metadata("search-deduplicated-second"),
+            )
+            .await?;
+
+        let results: SearchResponse = r
+            .get_json_as(
+                &r.admin,
+                &format!(
+                    "/workspaces/{}/search?q=Shared%20Search%20Phrase&limit=2",
+                    space.workspace.id,
+                ),
+            )
+            .await?
+            .into_success()?;
+
+        assert_eq!(results.items.len(), 2);
+        assert!(results.items.iter().any(|hit| hit.object_id == first.id));
+        assert!(results.items.iter().any(|hit| hit.object_id == second.id));
+        assert!(results.items.iter().all(|hit| hit.matched_category == SearchCategory::Title));
+
+        Ok(())
+    }
+
+    #[sqlx::test(migrations = "../kernel/migrations")]
     async fn search_exact_mode_returns_exact_match_kind(pool: sqlx::PgPool) -> Result<()> {
         let r = TestKival::new(pool).await?;
         let space = r.object_space("search exact mode").await?;
@@ -664,6 +708,128 @@ mod tests {
     }
 
     #[sqlx::test(migrations = "../kernel/migrations")]
+    async fn search_auto_mode_includes_lower_ranked_partial_term_matches(
+        pool: sqlx::PgPool,
+    ) -> Result<()> {
+        let r = TestKival::new(pool).await?;
+        let space = r.object_space("search auto partial terms").await?;
+
+        let strict = r
+            .create_object(
+                space.workspace.id,
+                "Security Incident Policy",
+                &test_body("Security Incident Policy", "Policy body."),
+                object_metadata("search-auto-strict"),
+            )
+            .await?;
+        let partial = r
+            .create_object(
+                space.workspace.id,
+                "Checkout Incident Review",
+                &test_body("Checkout Incident Review", "Concrete production incident."),
+                object_metadata("search-auto-partial"),
+            )
+            .await?;
+
+        let results: SearchResponse = r
+            .get_json_as(
+                &r.admin,
+                &format!(
+                    "/workspaces/{}/search?q=security%20incident&categories=title",
+                    space.workspace.id,
+                ),
+            )
+            .await?
+            .into_success()?;
+
+        let strict_index = results
+            .items
+            .iter()
+            .position(|hit| hit.object_id == strict.id)
+            .expect("full-query match should be returned");
+        let partial_index = results
+            .items
+            .iter()
+            .position(|hit| hit.object_id == partial.id)
+            .expect("partial-term auto fallback should be returned");
+        assert!(strict_index < partial_index, "full-query matches must rank before fallback hits");
+        assert!(results.items[partial_index].rank < results.items[strict_index].rank);
+
+        let strict_coverage = results.items[strict_index]
+            .term_coverage
+            .as_ref()
+            .expect("plain multi-term auto results should expose term coverage");
+        assert_eq!(
+            strict_coverage.matched_terms,
+            vec!["security".to_owned(), "incident".to_owned()]
+        );
+        assert_eq!(strict_coverage.query_term_count, 2);
+
+        let partial_hit = &results.items[partial_index];
+        let partial_coverage = partial_hit
+            .term_coverage
+            .as_ref()
+            .expect("partial auto results should expose term coverage");
+        assert_eq!(partial_coverage.matched_terms, vec!["incident".to_owned()]);
+        assert_eq!(partial_coverage.query_term_count, 2);
+        assert!(partial_hit.snippet.to_lowercase().contains("incident"));
+
+        Ok(())
+    }
+
+    #[sqlx::test(migrations = "../kernel/migrations")]
+    async fn search_auto_mode_broadens_plain_multi_term_discovery(
+        pool: sqlx::PgPool,
+    ) -> Result<()> {
+        let r = TestKival::new(pool).await?;
+        let space = r.object_space("search auto discovery").await?;
+
+        let company = r
+            .create_object(
+                space.workspace.id,
+                "Company Handbook",
+                &test_body("Company Handbook", "Organization information."),
+                object_metadata("search-auto-company"),
+            )
+            .await?;
+        let overview = r
+            .create_object(
+                space.workspace.id,
+                "Quarterly Overview",
+                &test_body("Quarterly Overview", "Current priorities."),
+                object_metadata("search-auto-overview"),
+            )
+            .await?;
+
+        let auto_results: SearchResponse = r
+            .get_json_as(
+                &r.admin,
+                &format!(
+                    "/workspaces/{}/search?q=company%20overview&categories=title",
+                    space.workspace.id,
+                ),
+            )
+            .await?
+            .into_success()?;
+        assert!(auto_results.items.iter().any(|hit| hit.object_id == company.id));
+        assert!(auto_results.items.iter().any(|hit| hit.object_id == overview.id));
+
+        let text_results: SearchResponse = r
+            .get_json_as(
+                &r.admin,
+                &format!(
+                    "/workspaces/{}/search?q=company%20overview&categories=title&mode=text",
+                    space.workspace.id,
+                ),
+            )
+            .await?
+            .into_success()?;
+        assert!(text_results.items.is_empty(), "text mode must keep strict full-query semantics");
+
+        Ok(())
+    }
+
+    #[sqlx::test(migrations = "../kernel/migrations")]
     async fn search_text_mode_returns_text_match_kind(pool: sqlx::PgPool) -> Result<()> {
         let r = TestKival::new(pool).await?;
         let space = r.object_space("search text mode").await?;
@@ -692,6 +858,145 @@ mod tests {
                 && hit.matched_category == SearchCategory::Body
                 && hit.match_kind == SearchMatchKind::Text
         }));
+
+        Ok(())
+    }
+
+    #[sqlx::test(migrations = "../kernel/migrations")]
+    async fn search_hits_include_object_status_and_version_metadata(
+        pool: sqlx::PgPool,
+    ) -> Result<()> {
+        let r = TestKival::new(pool).await?;
+        let space = r.object_space("search hit context").await?;
+        let title = "Search Context Unique Title";
+        let object = r
+            .create_object(
+                space.workspace.id,
+                title,
+                &test_body(title, "Body."),
+                serde_json::json!({
+                    "kind": "runbook",
+                    "owner": "Platform",
+                    "sensitivity": "internal",
+                }),
+            )
+            .await?;
+
+        let results: SearchResponse = r
+            .get_json_as(
+                &r.admin,
+                &format!(
+                    "/workspaces/{}/search?q=Search%20Context%20Unique%20Title&categories=title",
+                    space.workspace.id,
+                ),
+            )
+            .await?
+            .into_success()?;
+
+        let hit = results
+            .items
+            .iter()
+            .find(|hit| hit.object_id == object.id)
+            .expect("created object should be searchable");
+        assert_eq!(hit.status, ArchiveStatus::Active);
+        assert_eq!(hit.metadata["kind"], "runbook");
+        assert_eq!(hit.metadata["owner"], "Platform");
+        assert_eq!(hit.metadata["sensitivity"], "internal");
+
+        Ok(())
+    }
+
+    #[sqlx::test(migrations = "../kernel/migrations")]
+    async fn search_paginates_ranked_results_without_overlap(pool: sqlx::PgPool) -> Result<()> {
+        let r = TestKival::new(pool).await?;
+        let space = r.object_space("search pagination").await?;
+        let query = "Pagination Needle";
+        let mut expected_ids = Vec::new();
+
+        for suffix in ["Alpha", "Beta", "Gamma"] {
+            let object = r
+                .create_object(
+                    space.workspace.id,
+                    &format!("{query} {suffix}"),
+                    &test_body(&format!("{query} {suffix}"), "Body."),
+                    object_metadata(&format!("search-pagination-{suffix}")),
+                )
+                .await?;
+            expected_ids.push(object.id);
+        }
+
+        let first: SearchResponse = r
+            .get_json_as(
+                &r.admin,
+                &format!(
+                    "/workspaces/{}/search?q=Pagination%20Needle&limit=2",
+                    space.workspace.id,
+                ),
+            )
+            .await?
+            .into_success()?;
+        assert_eq!(first.items.len(), 2);
+        let cursor = first.next_cursor.expect("first page should have a continuation cursor");
+
+        let second: SearchResponse = r
+            .get_json_as(
+                &r.admin,
+                &format!(
+                    "/workspaces/{}/search?q=Pagination%20Needle&limit=2&cursor={cursor}",
+                    space.workspace.id,
+                ),
+            )
+            .await?
+            .into_success()?;
+        assert_eq!(second.items.len(), 1);
+        assert!(second.next_cursor.is_none());
+
+        let mut actual_ids = first.items.iter().map(|hit| hit.object_id).collect::<Vec<_>>();
+        actual_ids.extend(second.items.iter().map(|hit| hit.object_id));
+        actual_ids.sort_unstable();
+        expected_ids.sort_unstable();
+        assert_eq!(actual_ids, expected_ids);
+
+        Ok(())
+    }
+
+    #[sqlx::test(migrations = "../kernel/migrations")]
+    async fn search_rejects_cursor_reuse_with_different_query(pool: sqlx::PgPool) -> Result<()> {
+        let r = TestKival::new(pool).await?;
+        let space = r.object_space("search cursor query binding").await?;
+
+        for suffix in ["Alpha", "Beta"] {
+            r.create_object(
+                space.workspace.id,
+                &format!("Cursor Binding {suffix}"),
+                &test_body(&format!("Cursor Binding {suffix}"), "Body."),
+                object_metadata(&format!("search-cursor-binding-{suffix}")),
+            )
+            .await?;
+        }
+
+        let first: SearchResponse = r
+            .get_json_as(
+                &r.admin,
+                &format!("/workspaces/{}/search?q=Cursor%20Binding&limit=1", space.workspace.id,),
+            )
+            .await?
+            .into_success()?;
+        let cursor = first.next_cursor.expect("first page should have a continuation cursor");
+
+        let response = r
+            .request(
+                Some(&r.admin),
+                Method::GET,
+                &format!(
+                    "/workspaces/{}/search?q=Different%20Query&limit=1&cursor={cursor}",
+                    space.workspace.id,
+                ),
+                None,
+            )
+            .await?;
+
+        response.assert_status(StatusCode::BAD_REQUEST);
 
         Ok(())
     }
