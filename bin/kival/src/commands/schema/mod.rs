@@ -1,16 +1,12 @@
 //! Machine-readable command discovery for Kival.
 
-mod normalize;
-
 use clap::Parser;
 use clap_schema::{CliSchema, SchemaRequest, schema_handler};
 use eyre::Result;
-pub use normalize::schema_for;
 use schemars::JsonSchema;
 use serde::Serialize;
 use serde_json::Value;
 
-use self::normalize::normalize_schema;
 use crate::{
     Cli,
     commands::{
@@ -111,7 +107,8 @@ impl SchemaCommand {
 ///
 /// Returns an invalid command path error for unknown paths, or an internal schema error
 /// when the Clap command tree and compile-time registrations disagree.
-pub fn schema_for_path(path: &[String]) -> Result<SchemaDocument> {
+#[cfg(test)]
+fn schema_for_path(path: &[String]) -> Result<SchemaDocument> {
     schema_for_path_with_options(path, false)
 }
 
@@ -120,7 +117,7 @@ pub fn schema_for_path(path: &[String]) -> Result<SchemaDocument> {
 /// # Errors
 ///
 /// Returns an invalid command path error for unknown or non-executable paths.
-pub fn output_schema_for_path(path: &[String]) -> Result<Option<Value>> {
+pub(crate) fn output_schema_for_path(path: &[String]) -> Result<Option<Value>> {
     let contract = Cli::schema()?;
     let path_refs = path.iter().map(String::as_str).collect::<Vec<_>>();
     let command = contract.command(&path_refs).map_err(map_schema_path_error)?;
@@ -131,7 +128,7 @@ pub fn output_schema_for_path(path: &[String]) -> Result<Option<Value>> {
         ))
         .into());
     }
-    Ok(command.output.map(normalize_schema))
+    Ok(command.output)
 }
 
 /// Returns a Kival schema document with optional recursive child resolution.
@@ -140,23 +137,20 @@ pub fn output_schema_for_path(path: &[String]) -> Result<Option<Value>> {
 ///
 /// Returns an invalid command path error for unknown paths, or an internal schema error
 /// when the Clap command tree and compile-time registrations disagree.
-pub fn schema_for_path_with_options(path: &[String], full: bool) -> Result<SchemaDocument> {
+fn schema_for_path_with_options(path: &[String], full: bool) -> Result<SchemaDocument> {
     let contract = Cli::schema()?;
     let request = SchemaRequest::new(path.iter().cloned()).with_full(full);
     let discovery = contract.schema(&request).map_err(map_schema_path_error)?;
 
     Ok(SchemaDocument {
         discovery: augment_discovery(discovery)?,
-        error_schema: schema_for::<CliErrorResponse>(),
+        error_schema: schema_fragment_for::<CliErrorResponse>(),
     })
 }
 
-/// Adds Kival-owned metadata and wire-schema refinements to a Clap discovery node.
+/// Adds Kival-owned metadata to a Clap discovery node.
 fn augment_discovery(document: clap_schema::SchemaDocument) -> Result<DiscoveryDocument> {
-    let clap_schema::SchemaDocument { mut command, subcommands, .. } = document;
-    if let Some(output) = command.output.take() {
-        command.output = Some(normalize_schema(output));
-    }
+    let clap_schema::SchemaDocument { command, subcommands, .. } = document;
     let structured_input = structured_input_schema(&command.path);
     let subcommands =
         subcommands.into_iter().map(augment_subcommand).collect::<Result<Vec<_>>>()?;
@@ -185,23 +179,36 @@ fn map_schema_path_error(error: clap_schema::Error) -> eyre::Report {
     error.into()
 }
 
+/// Generates a standalone Kival-owned schema fragment.
+fn schema_fragment_for<T>() -> Value
+where
+    T: JsonSchema,
+{
+    let mut schema = schemars::schema_for!(T).to_value();
+    if let Value::Object(root) = &mut schema {
+        root.remove("$schema");
+        root.remove("title");
+    }
+    schema
+}
+
 /// Returns Kival's application-specific structured JSON input contract for a command.
 ///
 /// `clap_schema` reflects `--input` as a path-valued CLI option. The JSON document read from that
 /// path is a Kival-owned deserialization contract, so its semantic Rust type is associated here.
 fn structured_input_schema(path: &[String]) -> Option<StructuredInputSchema> {
     let schema = if path == ["admin", "users", "update"] {
-        schema_for::<UpdateUserInput>()
+        schema_fragment_for::<UpdateUserInput>()
     } else if path == ["groups", "create"] {
-        schema_for::<CreateGroupInput>()
+        schema_fragment_for::<CreateGroupInput>()
     } else if path == ["groups", "update"] {
-        schema_for::<UpdateGroupInput>()
+        schema_fragment_for::<UpdateGroupInput>()
     } else if path == ["objects", "create"] {
-        schema_for::<CreateObjectInput>()
+        schema_fragment_for::<CreateObjectInput>()
     } else if path == ["objects", "update"] {
-        schema_for::<UpdateObjectInput>()
+        schema_fragment_for::<UpdateObjectInput>()
     } else if path == ["workspaces", "update"] {
-        schema_for::<UpdateWorkspaceInput>()
+        schema_fragment_for::<UpdateWorkspaceInput>()
     } else {
         return None;
     };
@@ -216,7 +223,9 @@ mod tests {
 
     #[test]
     fn object_response_schema_has_title_properties() {
-        let schema = schema_for::<kival_sdk::ObjectResponse>();
+        let schema = output_schema_for_path(&["objects".to_owned(), "get".to_owned()])
+            .expect("objects get schema should build")
+            .expect("objects get has JSON output");
 
         assert!(schema["$defs"]["ObjectResource"]["properties"]["title"].is_object());
         assert!(schema["$defs"]["ObjectVersion"]["properties"]["title"].is_object());
