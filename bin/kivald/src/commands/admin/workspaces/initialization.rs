@@ -30,7 +30,7 @@ use steda::{RetryStrategy, Task};
 use uuid::Uuid;
 
 /// Schema version understood by the bundled initializer catalog parser.
-const SCHEMA_VERSION: u32 = 4;
+const SCHEMA_VERSION: u32 = 1;
 /// Bundled JSON catalog containing reusable templates and demo scenarios.
 const CATALOG: &str = include_str!("catalog.json");
 /// Stable durable task contract consumed by the server notification projector.
