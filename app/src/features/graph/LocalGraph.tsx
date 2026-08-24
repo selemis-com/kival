@@ -648,7 +648,7 @@ export function LocalGraph({ context, onOpenObject, onRevealInGraph }: Props) {
 
       {!renderError && (
         <span style={styles.localGraphHint}>
-          Solid lines are relationships · dashed lines are references · drag to rearrange
+          Drag to rearrange
         </span>
       )}
     </div>

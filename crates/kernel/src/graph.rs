@@ -1026,7 +1026,11 @@ pub async fn object_graph_edges_for_nodes(
         WHERE ranked.row_number = 1
             AND ranked.source_object_id = ANY($4)
             AND ranked.target_object_id = ANY($4)
-        ORDER BY ranked.source_object_id ASC, ranked.target_object_id ASC, ranked.id ASC
+        ORDER BY
+            ranked.pair_has_relationship DESC,
+            ranked.source_object_id ASC,
+            ranked.target_object_id ASC,
+            ranked.id ASC
         LIMIT $5
         OFFSET CASE
             WHEN kival.require_access_active_object(
@@ -1135,7 +1139,10 @@ pub async fn workspace_graph_edges_for_nodes(
         WHERE ranked.row_number = 1
             AND ranked.source_object_id = ANY($3)
             AND ranked.target_object_id = ANY($3)
-        ORDER BY ranked.created_at DESC, ranked.id DESC
+        ORDER BY
+            ranked.pair_has_relationship DESC,
+            ranked.created_at DESC,
+            ranked.id DESC
         LIMIT $4
         OFFSET CASE WHEN kival.require_read_workspace($1, $2) THEN 0 ELSE 0 END
         "#,

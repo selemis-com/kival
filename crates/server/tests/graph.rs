@@ -242,6 +242,121 @@ mod tests {
     }
 
     #[sqlx::test(migrations = "../kernel/migrations")]
+    async fn graph_edge_limits_prioritize_relationships_over_references(
+        pool: sqlx::PgPool,
+    ) -> Result<()> {
+        let r = TestKival::new(pool).await?;
+        let workspace = r.create_workspace("graph edge priority").await?;
+
+        let reference_target = r
+            .create_object(
+                workspace.id,
+                "Reference Priority Target",
+                &test_body("Reference Priority Target", "Reference target body."),
+                object_metadata("reference-priority-target"),
+            )
+            .await?;
+        let relationship_target = r
+            .create_object(
+                workspace.id,
+                "Relationship Priority Target",
+                &test_body("Relationship Priority Target", "Relationship target body."),
+                object_metadata("relationship-priority-target"),
+            )
+            .await?;
+        let root = r
+            .create_object(
+                workspace.id,
+                "Graph Priority Root",
+                &test_body("Graph Priority Root", "Initial body."),
+                object_metadata("graph-priority-root"),
+            )
+            .await?;
+
+        r.create_edge(workspace.id, root.id, relationship_target.id).await?;
+        r.update_object(
+            workspace.id,
+            root.id,
+            None,
+            Some("A newer reference points to [[Reference Priority Target]]."),
+            None,
+        )
+        .await?;
+
+        let object_graph = r
+            .object_graph_as(
+                &r.admin,
+                workspace.id,
+                root.id,
+                "depth=1&direction=both&max_nodes=10&max_edges=1",
+            )
+            .await?;
+        assert_eq!(object_graph.edges.len(), 1);
+        assert_edge_kind(
+            &object_graph.edges,
+            root.id,
+            relationship_target.id,
+            GraphEdgeKind::Relationship,
+        );
+        assert!(
+            !has_edge(&object_graph.edges, root.id, reference_target.id),
+            "reference-only links must not displace formal relationships at the edge limit",
+        );
+
+        let workspace_graph =
+            r.workspace_graph_as(&r.admin, workspace.id, "limit_nodes=50&limit_edges=1").await?;
+        assert_eq!(workspace_graph.edges.len(), 1);
+        assert_workspace_edge_kind(
+            &workspace_graph.edges,
+            root.id,
+            relationship_target.id,
+            GraphEdgeKind::Relationship,
+        );
+        assert!(
+            !has_workspace_edge(&workspace_graph.edges, root.id, reference_target.id),
+            "newer reference-only links must not displace formal relationships at the edge limit",
+        );
+
+        Ok(())
+    }
+
+    #[sqlx::test(migrations = "../kernel/migrations")]
+    async fn graph_projects_kival_markdown_links_as_references(pool: sqlx::PgPool) -> Result<()> {
+        let r = TestKival::new(pool).await?;
+        let workspace = r.create_workspace("markdown reference graph").await?;
+
+        let target = r
+            .create_object(
+                workspace.id,
+                "Markdown Link Target",
+                &test_body("Markdown Link Target", "Target body."),
+                object_metadata("markdown-link-target"),
+            )
+            .await?;
+        let target_id = target.id;
+        let body = format!("See [the target](kival://objects/{target_id}).");
+        let source = r
+            .create_object(
+                workspace.id,
+                "Markdown Link Source",
+                &test_body("Markdown Link Source", &body),
+                object_metadata("markdown-link-source"),
+            )
+            .await?;
+
+        let graph =
+            r.workspace_graph_as(&r.admin, workspace.id, "limit_nodes=50&limit_edges=50").await?;
+        assert_workspace_edge_kind(
+            &graph.edges,
+            source.id,
+            target.id,
+            GraphEdgeKind::Reference,
+        );
+
+        Ok(())
+    }
+
+    #[sqlx::test(migrations = "../kernel/migrations")]
     async fn object_graph_hides_unreadable_neighbors_and_edges(pool: sqlx::PgPool) -> Result<()> {
         let r = TestKival::new(pool).await?;
 
