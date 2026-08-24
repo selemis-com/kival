@@ -1,0 +1,277 @@
+{
+  "schema_version": 1,
+  "templates": [
+    {
+      "id": "project",
+      "name": "Project workspace",
+      "description": "Start a real project with an overview, decision log, research notes, and a lightweight operating runbook.",
+      "actions": [
+        {
+          "type": "create_object",
+          "key": "overview",
+          "title": "Project overview",
+          "body": "# Project overview\n\nDescribe the problem, goals, constraints, owners, and current status.\n\nLink important choices to [[Decision log]] and supporting work to [[Research notes]].",
+          "metadata": {
+            "kind": "project",
+            "status": "active",
+            "labels": [
+              "project"
+            ]
+          }
+        },
+        {
+          "type": "create_object",
+          "key": "decisions",
+          "title": "Decision log",
+          "body": "# Decision log\n\nRecord durable decisions as separate objects and link them here so the reasoning stays discoverable.",
+          "metadata": {
+            "kind": "index",
+            "labels": [
+              "decisions"
+            ]
+          }
+        },
+        {
+          "type": "create_object",
+          "key": "research",
+          "title": "Research notes",
+          "body": "# Research notes\n\nCapture evidence, open questions, useful references, and conclusions that inform [[Project overview]].",
+          "metadata": {
+            "kind": "note",
+            "labels": [
+              "research"
+            ]
+          }
+        },
+        {
+          "type": "create_object",
+          "key": "runbook",
+          "title": "Project runbook",
+          "body": "# Project runbook\n\n1. Keep [[Project overview]] current.\n2. Preserve important choices as linked decisions.\n3. Add evidence to [[Research notes]].\n4. Update this runbook when the team changes how work is done.",
+          "metadata": {
+            "kind": "procedure",
+            "labels": [
+              "runbook"
+            ],
+            "status": "current"
+          }
+        },
+        {
+          "type": "create_relationship",
+          "source": "overview",
+          "target": "decisions"
+        },
+        {
+          "type": "create_relationship",
+          "source": "overview",
+          "target": "research"
+        },
+        {
+          "type": "create_relationship",
+          "source": "runbook",
+          "target": "overview"
+        }
+      ]
+    }
+  ],
+  "demos": [
+    {
+      "id": "product-engineering",
+      "name": "Product & engineering",
+      "description": "Explore a fictional product and engineering team using Kival for shared notes, decisions, procedures, research, metadata, relationships, and evolving knowledge.",
+      "actors": {
+        "maya": {
+          "display_name": "Maya Chen",
+          "username": "maya.chen"
+        },
+        "jonas": {
+          "display_name": "Jonas de Vries",
+          "username": "jonas.devries"
+        },
+        "sarah": {
+          "display_name": "Sarah Patel",
+          "username": "sarah.patel"
+        }
+      },
+      "actions": [
+        {
+          "actor": "maya",
+          "action": {
+            "type": "create_object",
+            "key": "welcome",
+            "title": "Welcome to Kival",
+            "body": "# Welcome to Kival\n\nKival is an intentional shared knowledge space: capture durable context, connect it to related work, and keep the reasoning that produced it.\n\nStart with [[Project Atlas]], then inspect [[Decision: Keep decisions close to the work]] and follow [[Runbook: Publish a decision]].",
+            "metadata": {
+              "kind": "guide",
+              "labels": [
+                "demo",
+                "onboarding"
+              ],
+              "audience": "everyone"
+            }
+          }
+        },
+        {
+          "actor": "maya",
+          "action": {
+            "type": "create_object",
+            "key": "project",
+            "title": "Project Atlas",
+            "body": "# Project Atlas\n\nAtlas is a fictional project exploring how a team can retrieve and reuse durable knowledge.\n\n## Current focus\n\n- make important context discoverable;\n- preserve why decisions were made;\n- keep operating procedures close to the work;\n- test retrieval using [[Research notes: Retrieval quality]].",
+            "metadata": {
+              "kind": "project",
+              "labels": [
+                "demo",
+                "atlas"
+              ],
+              "status": "active",
+              "owner": "Knowledge team"
+            }
+          }
+        },
+        {
+          "actor": "jonas",
+          "action": {
+            "type": "create_object",
+            "key": "decision",
+            "title": "Decision: Keep decisions close to the work",
+            "body": "# Decision\n\n## Context\n\nImportant choices are easy to lose when the outcome is recorded without the reasoning behind it.\n\n## Decision\n\nRecord durable decisions as first-class Kival objects and connect them to the projects, research, and procedures they affect.\n\n## Consequences\n\nFuture readers can recover both the chosen direction and the context that justified it.",
+            "metadata": {
+              "kind": "decision",
+              "labels": [
+                "demo",
+                "architecture"
+              ],
+              "status": "proposed"
+            }
+          }
+        },
+        {
+          "actor": "jonas",
+          "action": {
+            "type": "create_object",
+            "key": "procedure",
+            "title": "Runbook: Publish a decision",
+            "body": "# Publish a decision\n\nUse this procedure when a choice should remain understandable after the immediate conversation is gone.\n\n1. Write the context and constraints before the conclusion.\n2. State the decision clearly.\n3. Record important alternatives and consequences.\n4. Add metadata such as `kind`, `status`, and useful labels.\n5. Link the decision to the project or notes it affects.\n6. Create a new version when the decision changes.\n\nSee [[Decision: Keep decisions close to the work]] for an example.",
+            "metadata": {
+              "kind": "procedure",
+              "labels": [
+                "demo",
+                "runbook",
+                "how-to"
+              ],
+              "status": "current"
+            }
+          }
+        },
+        {
+          "actor": "sarah",
+          "action": {
+            "type": "create_object",
+            "key": "research",
+            "title": "Research notes: Retrieval quality",
+            "body": "# Retrieval quality notes\n\nA useful knowledge system should surface the right context without requiring people to remember exactly where it was stored.\n\nQuestions for [[Project Atlas]]:\n\n- Can search find a decision from the language used in its rationale?\n- Do relationships expose useful adjacent context?\n- Can labels narrow exploration without becoming a rigid taxonomy?\n- Does authored procedural knowledge remain understandable months later?",
+            "metadata": {
+              "kind": "note",
+              "labels": [
+                "demo",
+                "research",
+                "retrieval"
+              ],
+              "confidence": "working"
+            }
+          }
+        },
+        {
+          "actor": "sarah",
+          "action": {
+            "type": "create_object",
+            "key": "glossary",
+            "title": "Shared glossary",
+            "body": "# Shared glossary\n\n**Object** — a stable knowledge identity whose contents evolve through immutable versions.\n\n**Relationship** — an explicit connection between two objects, useful for graph exploration.\n\n**Authored knowledge** — context intentionally preserved by people or agents rather than inferred from transient activity.\n\nReturn to [[Welcome to Kival]] for the suggested tour.",
+            "metadata": {
+              "kind": "reference",
+              "labels": [
+                "demo",
+                "glossary"
+              ]
+            }
+          }
+        },
+        {
+          "actor": "maya",
+          "action": {
+            "type": "create_relationship",
+            "source": "welcome",
+            "target": "project"
+          }
+        },
+        {
+          "actor": "jonas",
+          "action": {
+            "type": "create_relationship",
+            "source": "project",
+            "target": "decision"
+          }
+        },
+        {
+          "actor": "jonas",
+          "action": {
+            "type": "create_relationship",
+            "source": "procedure",
+            "target": "decision"
+          }
+        },
+        {
+          "actor": "sarah",
+          "action": {
+            "type": "create_relationship",
+            "source": "research",
+            "target": "project"
+          }
+        },
+        {
+          "actor": "sarah",
+          "action": {
+            "type": "create_relationship",
+            "source": "glossary",
+            "target": "welcome"
+          }
+        },
+        {
+          "actor": "jonas",
+          "action": {
+            "type": "update_object",
+            "object": "decision",
+            "body": "# Decision\n\n## Context\n\nImportant choices are easy to lose when the outcome is recorded without the reasoning behind it. Sarah's retrieval notes reinforced that decisions need durable context, not just conclusions.\n\n## Decision\n\nRecord durable decisions as first-class Kival objects and connect them to the projects, research, and procedures they affect.\n\n## Consequences\n\nFuture readers can recover both the chosen direction and the context that justified it. Use [[Runbook: Publish a decision]] when adding a new decision.",
+            "metadata": {
+              "kind": "decision",
+              "labels": [
+                "demo",
+                "architecture"
+              ],
+              "status": "accepted"
+            }
+          }
+        },
+        {
+          "actor": "maya",
+          "action": {
+            "type": "update_object",
+            "object": "project",
+            "body": "# Project Atlas\n\nAtlas is a fictional project exploring how a team can retrieve and reuse durable knowledge.\n\n## Current focus\n\n- make important context discoverable;\n- preserve why decisions were made;\n- keep operating procedures close to the work;\n- test retrieval using [[Research notes: Retrieval quality]].\n\nThe team has now accepted [[Decision: Keep decisions close to the work]] and uses [[Runbook: Publish a decision]] for future choices.",
+            "metadata": {
+              "kind": "project",
+              "labels": [
+                "demo",
+                "atlas"
+              ],
+              "status": "active",
+              "owner": "Knowledge team"
+            }
+          }
+        }
+      ]
+    }
+  ]
+}
