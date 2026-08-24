@@ -14,7 +14,8 @@ use eyre::{Context, Result, bail, eyre};
 use kival_kernel::{
     CreateInitialObject, EventInsert, EventKind, GrantPrincipal, MembershipRole, ObjectRole,
     UpdateObjectVersion, append_event, archive_object, create_comment, create_comment_thread,
-    create_initial_object, create_object_edge, create_object_grant, create_user, create_workspace,
+    create_group, create_group_membership, create_initial_object, create_object_edge,
+    create_object_grant, create_user, create_workspace, create_workspace_group,
     create_workspace_membership, fetch_object_in_tx, lock_admin_provisioning,
     lock_user_for_operator, maintain_object_references, re_resolve_current_wikilinks_for_titles,
     set_thread_resolved, set_user_disabled_as_operator, touch_comment_thread,
@@ -26,7 +27,7 @@ use sqlx::{PgPool, Postgres, Transaction};
 use uuid::Uuid;
 
 /// Schema version understood by the bundled initializer catalog parser.
-const SCHEMA_VERSION: u32 = 3;
+const SCHEMA_VERSION: u32 = 4;
 /// Bundled JSON catalog containing reusable templates and demo scenarios.
 const CATALOG: &str = include_str!("catalog.json");
 
@@ -137,6 +138,12 @@ struct DemoRecipe {
     description: Option<String>,
     /// Synthetic historical actors keyed by names used in scenario actions.
     actors: BTreeMap<String, DemoActor>,
+    /// Reusable access groups populated from the configured demo actors.
+    #[serde(default)]
+    groups: BTreeMap<String, DemoGroup>,
+    /// Named object-access profiles applied when demo objects are created.
+    #[serde(default)]
+    access_profiles: BTreeMap<String, DemoAccessProfile>,
     /// Objects pinned for the real workspace owner after the scenario is seeded.
     #[serde(default)]
     owner_pins: Vec<String>,
@@ -156,6 +163,45 @@ struct DemoActor {
     username: String,
     /// Display name shown in ordinary Kival history and attribution UI.
     display_name: String,
+    /// Stable organizational role used to keep the fictional company internally coherent.
+    role: String,
+    /// Functional area for the fictional actor.
+    department: String,
+}
+
+/// One reusable access group in a demo scenario.
+#[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct DemoGroup {
+    /// Group name visible through ordinary Kival access-management surfaces.
+    name: String,
+    /// Optional explanation of the group's purpose.
+    #[serde(default)]
+    description: Option<String>,
+    /// Demo actor keys and their group-administration roles.
+    members: BTreeMap<String, String>,
+}
+
+/// Named set of grants applied to objects that share the same audience.
+#[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct DemoAccessProfile {
+    /// Direct-user or group grants that compose this access profile.
+    grants: Vec<DemoAccessGrant>,
+}
+
+/// One principal grant inside a demo access profile.
+#[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct DemoAccessGrant {
+    /// Demo actor key for a direct user grant.
+    #[serde(default)]
+    actor: Option<String>,
+    /// Demo group key for a group grant.
+    #[serde(default)]
+    group: Option<String>,
+    /// Object role granted to the principal.
+    role: String,
 }
 
 /// One demo mutation attributed to a configured synthetic actor.
@@ -164,6 +210,9 @@ struct DemoActor {
 struct DemoSeedAction {
     /// Key of the configured demo actor performing the mutation.
     actor: String,
+    /// Named access profile applied to a newly created object.
+    #[serde(default)]
+    access: Option<String>,
     /// Reusable seed mutation attributed to that actor.
     action: SeedAction,
 }
@@ -258,15 +307,26 @@ struct SeedCommentThreadState {
 
 /// Execution-scoped identities shared across one seed action.
 #[derive(Debug, Clone, Copy)]
-struct SeedExecutionContext<'a> {
+struct SeedExecutionContext {
     /// Newly created workspace receiving the seeded content.
     workspace_id: Uuid,
-    /// Bootstrapped administrator that owns initialized content.
-    owner_user_id: Uuid,
     /// User attributed as the actor for the current action.
     actor_id: Uuid,
-    /// Demo fixture users that may receive ordinary object grants.
-    demo_actor_ids: &'a [Uuid],
+}
+
+/// Demo access state shared while applying one object's named grant profile.
+#[derive(Debug, Clone, Copy)]
+struct DemoAccessContext<'a> {
+    /// Workspace receiving the object grants.
+    workspace_id: Uuid,
+    /// Real workspace owner attributed as the grant administrator.
+    owner_user_id: Uuid,
+    /// Provisioned demo actors by catalog key.
+    actors: &'a HashMap<String, Uuid>,
+    /// Provisioned demo groups by catalog key.
+    groups: &'a HashMap<String, Uuid>,
+    /// Validated named grant profiles.
+    profiles: &'a BTreeMap<String, DemoAccessProfile>,
 }
 
 /// Borrowed initializer selected from the validated catalog.
@@ -403,12 +463,7 @@ async fn execute_template(
 ) -> Result<()> {
     let mut objects = HashMap::new();
     let mut comment_threads = HashMap::new();
-    let context = SeedExecutionContext {
-        workspace_id,
-        owner_user_id,
-        actor_id: owner_user_id,
-        demo_actor_ids: &[],
-    };
+    let context = SeedExecutionContext { workspace_id, actor_id: owner_user_id };
     for action in &recipe.actions {
         execute_action(tx, context, &mut objects, &mut comment_threads, action).await?;
     }
@@ -423,6 +478,8 @@ async fn execute_demo(
     recipe: &DemoRecipe,
 ) -> Result<()> {
     let actors = provision_demo_actors(tx, workspace_id, owner_user_id, &recipe.actors).await?;
+    let groups =
+        provision_demo_groups(tx, workspace_id, owner_user_id, &actors, &recipe.groups).await?;
     let actor_ids = actors.values().copied().collect::<Vec<_>>();
     let mut objects = HashMap::new();
     let mut comment_threads = HashMap::new();
@@ -431,13 +488,32 @@ async fn execute_demo(
         let actor_id = *actors
             .get(&seeded.actor)
             .ok_or_else(|| eyre!("demo action references unknown actor {:?}", seeded.actor))?;
-        let context = SeedExecutionContext {
-            workspace_id,
-            owner_user_id,
-            actor_id,
-            demo_actor_ids: &actor_ids,
-        };
+        let context = SeedExecutionContext { workspace_id, actor_id };
         execute_action(tx, context, &mut objects, &mut comment_threads, &seeded.action).await?;
+
+        if let SeedAction::CreateObject { key, .. } = &seeded.action {
+            let access_profile = seeded
+                .access
+                .as_deref()
+                .ok_or_else(|| eyre!("demo object {key:?} does not declare an access profile"))?;
+            let object = objects
+                .get(key)
+                .ok_or_else(|| eyre!("newly created demo object {key:?} is missing"))?;
+            seed_demo_object_access(
+                tx,
+                DemoAccessContext {
+                    workspace_id,
+                    owner_user_id,
+                    actors: &actors,
+                    groups: &groups,
+                    profiles: &recipe.access_profiles,
+                },
+                actor_id,
+                object.object_id,
+                access_profile,
+            )
+            .await?;
+        }
     }
 
     seed_owner_object_markers(
@@ -493,6 +569,8 @@ async fn provision_demo_actors(
                 json!({
                     "user_id": created.id,
                     "username": created.username,
+                    "role": actor.role.as_str(),
+                    "department": actor.department.as_str(),
                     "demo_fixture": true,
                 }),
             )
@@ -532,6 +610,119 @@ async fn provision_demo_actors(
     Ok(provisioned)
 }
 
+/// Creates and links the access groups declared by a demo scenario.
+async fn provision_demo_groups(
+    tx: &mut Transaction<'_, Postgres>,
+    workspace_id: Uuid,
+    owner_user_id: Uuid,
+    actors: &HashMap<String, Uuid>,
+    groups: &BTreeMap<String, DemoGroup>,
+) -> Result<HashMap<String, Uuid>> {
+    let mut provisioned = HashMap::new();
+
+    for (key, configured) in groups {
+        let name = available_demo_group_name(tx, workspace_id, &configured.name).await?;
+        let group = create_group(
+            tx,
+            &name,
+            configured.description.as_deref().map(str::trim),
+            owner_user_id,
+        )
+        .await
+        .wrap_err_with(|| format!("failed to create demo group {key:?}"))?;
+
+        emit(
+            tx,
+            EventInsert::new(
+                owner_user_id,
+                EventKind::GroupCreated,
+                json!({ "group_id": group.id, "demo_fixture": true }),
+            )
+            .group(group.id),
+        )
+        .await?;
+
+        let workspace_group = create_workspace_group(tx, workspace_id, group.id, owner_user_id)
+            .await
+            .wrap_err_with(|| format!("failed to link demo group {key:?} to workspace"))?;
+        emit(
+            tx,
+            EventInsert::new(
+                owner_user_id,
+                EventKind::WorkspaceGroupLinked,
+                json!({ "workspace_group_id": workspace_group.id, "demo_fixture": true }),
+            )
+            .workspace(workspace_id)
+            .group(group.id),
+        )
+        .await?;
+
+        for (actor_key, role) in &configured.members {
+            let actor_id = *actors.get(actor_key).ok_or_else(|| {
+                eyre!("demo group {key:?} references unknown actor {actor_key:?}")
+            })?;
+            let role = role
+                .parse::<MembershipRole>()
+                .map_err(|()| eyre!("demo group {key:?} has invalid membership role {role:?}"))?;
+            let membership =
+                create_group_membership(tx, group.id, Some(actor_id), None, role, owner_user_id)
+                    .await
+                    .wrap_err_with(|| {
+                        format!("failed to add demo actor {actor_key:?} to group {key:?}")
+                    })?;
+            emit(
+                tx,
+                EventInsert::new(
+                    owner_user_id,
+                    EventKind::GroupMembershipCreated,
+                    json!({
+                        "group_membership_id": membership.id,
+                        "group_role": membership.group_role.as_str(),
+                        "demo_fixture": true,
+                    }),
+                )
+                .group(group.id)
+                .target_user(actor_id),
+            )
+            .await?;
+        }
+
+        provisioned.insert(key.clone(), group.id);
+    }
+
+    Ok(provisioned)
+}
+
+/// Resolves a collision-free visible name for one global demo access group.
+async fn available_demo_group_name(
+    tx: &mut Transaction<'_, Postgres>,
+    workspace_id: Uuid,
+    preferred: &str,
+) -> Result<String> {
+    let preferred = preferred.trim();
+    let exists = sqlx::query_scalar::<_, bool>(
+        r#"
+        SELECT EXISTS (
+            SELECT 1
+            FROM kival.groups
+            WHERE lower(name) = lower($1)
+              AND archived_at IS NULL
+        )
+        "#,
+    )
+    .bind(preferred)
+    .fetch_one(&mut **tx)
+    .await
+    .wrap_err("failed to check demo group name")?;
+    if !exists {
+        return Ok(preferred.to_owned());
+    }
+
+    let compact = workspace_id.simple().to_string();
+    let suffix = &compact[compact.len() - 8..];
+    Ok(format!("{preferred} · {suffix}"))
+}
+
 /// Resolves a collision-free username for a demo fixture user.
 async fn available_demo_username(
     tx: &mut Transaction<'_, Postgres>,
@@ -562,7 +753,7 @@ async fn available_demo_username(
 /// Applies one validated seed action and updates recipe-local object state.
 async fn execute_action(
     tx: &mut Transaction<'_, Postgres>,
-    context: SeedExecutionContext<'_>,
+    context: SeedExecutionContext,
     objects: &mut HashMap<String, SeedObjectState>,
     comment_threads: &mut HashMap<String, SeedCommentThreadState>,
     action: &SeedAction,
@@ -830,7 +1021,7 @@ async fn resolve_seed_comment_thread(
 /// Creates one seeded object with normal grants, references, and events.
 async fn create_seed_object(
     tx: &mut Transaction<'_, Postgres>,
-    context: SeedExecutionContext<'_>,
+    context: SeedExecutionContext,
     title: &str,
     body: &str,
     metadata: Value,
@@ -900,38 +1091,84 @@ async fn create_seed_object(
     )
     .await?;
 
-    // A demo represents a shared workspace. Grant every other demo actor editor access so later
-    // configured actions are permissions-consistent with the normal API even though this privileged
-    // executor itself does not run HTTP authorization checks.
-    for grantee in
-        context.demo_actor_ids.iter().copied().filter(|grantee| *grantee != context.actor_id)
-    {
+    Ok(SeedObjectState { object_id, current_version_id: version_id })
+}
+
+/// Applies the named access profile for one newly created demo object.
+async fn seed_demo_object_access(
+    tx: &mut Transaction<'_, Postgres>,
+    context: DemoAccessContext<'_>,
+    creator_user_id: Uuid,
+    object_id: Uuid,
+    profile_key: &str,
+) -> Result<()> {
+    let profile = context
+        .profiles
+        .get(profile_key)
+        .ok_or_else(|| eyre!("demo object references unknown access profile {profile_key:?}"))?;
+
+    for configured in &profile.grants {
+        let role = configured.role.parse::<ObjectRole>().map_err(|()| {
+            eyre!(
+                "demo access profile {profile_key:?} has invalid object role {:?}",
+                configured.role
+            )
+        })?;
+        let (principal, target_user_id, group_id) = match (&configured.actor, &configured.group) {
+            (Some(actor), None) => {
+                let user_id = *context.actors.get(actor).ok_or_else(|| {
+                    eyre!("demo access profile {profile_key:?} references unknown actor {actor:?}")
+                })?;
+                if user_id == creator_user_id {
+                    continue;
+                }
+                (GrantPrincipal::User(user_id), Some(user_id), None)
+            }
+            (None, Some(group)) => {
+                let group_id = *context.groups.get(group).ok_or_else(|| {
+                    eyre!("demo access profile {profile_key:?} references unknown group {group:?}")
+                })?;
+                (GrantPrincipal::Group(group_id), None, Some(group_id))
+            }
+            _ => bail!(
+                "demo access profile {profile_key:?} grant must reference exactly one actor or group"
+            ),
+        };
+
         let grant = create_object_grant(
             tx,
             context.workspace_id,
             object_id,
-            GrantPrincipal::User(grantee),
-            ObjectRole::Editor,
+            principal,
+            role,
             context.owner_user_id,
         )
         .await
-        .wrap_err("failed to grant demo actor object access")?;
-        emit(
-            tx,
-            EventInsert::new(
-                context.owner_user_id,
-                EventKind::ObjectGrantCreated,
-                json!({ "object_grant_id": grant.id, "object_role": "editor", "demo_fixture": true }),
-            )
-            .workspace(context.workspace_id)
-            .object(object_id)
-            .object_grant(grant.id)
-            .target_user(grantee),
+        .wrap_err_with(|| format!("failed to apply demo access profile {profile_key:?}"))?;
+
+        let mut event = EventInsert::new(
+            context.owner_user_id,
+            EventKind::ObjectGrantCreated,
+            json!({
+                "object_grant_id": grant.id,
+                "object_role": role.as_str(),
+                "demo_fixture": true,
+                "access_profile": profile_key,
+            }),
         )
-        .await?;
+        .workspace(context.workspace_id)
+        .object(object_id)
+        .object_grant(grant.id);
+        if let Some(user_id) = target_user_id {
+            event = event.target_user(user_id);
+        }
+        if let Some(group_id) = group_id {
+            event = event.group(group_id);
+        }
+        emit(tx, event).await?;
     }
 
-    Ok(SeedObjectState { object_id, current_version_id: version_id })
+    Ok(())
 }
 
 /// Creates a new seeded object version while preserving normal reference and event behavior.
@@ -1240,13 +1477,37 @@ fn validate_catalog(catalog: &Catalog) -> Result<()> {
             }
         }
 
+        validate_demo_groups(recipe)?;
+        validate_demo_access_profiles(recipe)?;
+
         for seeded in &recipe.actions {
             if !recipe.actors.contains_key(&seeded.actor) {
                 bail!("demo {:?} action references unknown actor {:?}", recipe.id, seeded.actor);
             }
+            match &seeded.action {
+                SeedAction::CreateObject { key, .. } => {
+                    let profile = seeded.access.as_deref().ok_or_else(|| {
+                        eyre!("demo {:?} object {key:?} must declare an access profile", recipe.id)
+                    })?;
+                    if !recipe.access_profiles.contains_key(profile) {
+                        bail!(
+                            "demo {:?} object {key:?} references unknown access profile {profile:?}",
+                            recipe.id
+                        );
+                    }
+                }
+                _ if seeded.access.is_some() => {
+                    bail!(
+                        "demo {:?} access profiles may only be attached to create_object actions",
+                        recipe.id
+                    );
+                }
+                _ => {}
+            }
         }
         let actions = recipe.actions.iter().map(|seeded| seeded.action.clone()).collect::<Vec<_>>();
         validate_actions(&actions)?;
+        validate_demo_action_access(recipe)?;
         validate_demo_owner_markers(recipe, &actions)?;
     }
 
@@ -1318,6 +1579,12 @@ fn validate_demo_actor(key: &str, actor: &DemoActor) -> Result<()> {
     if actor.display_name.trim().is_empty() {
         bail!("demo actor {key:?} display name must not be empty");
     }
+    if actor.role.trim().is_empty() {
+        bail!("demo actor {key:?} role must not be empty");
+    }
+    if actor.department.trim().is_empty() {
+        bail!("demo actor {key:?} department must not be empty");
+    }
 
     let username = actor.username.as_str();
     if username.is_empty() || username.len() > 16 {
@@ -1340,6 +1607,197 @@ fn validate_demo_actor(key: &str, actor: &DemoActor) -> Result<()> {
         bail!("demo actor {key:?} has invalid username {username:?}");
     }
     Ok(())
+}
+
+/// Validates reusable demo groups and their actor memberships.
+fn validate_demo_groups(recipe: &DemoRecipe) -> Result<()> {
+    let mut names = HashSet::new();
+    for (key, group) in &recipe.groups {
+        if key.trim().is_empty() {
+            bail!("demo {:?} group key must not be empty", recipe.id);
+        }
+        if group.name.trim().is_empty() {
+            bail!("demo {:?} group {key:?} name must not be empty", recipe.id);
+        }
+        if !names.insert(group.name.to_ascii_lowercase()) {
+            bail!("demo {:?} declares duplicate group name {:?}", recipe.id, group.name);
+        }
+        if group.members.is_empty() {
+            bail!("demo {:?} group {key:?} must contain at least one actor", recipe.id);
+        }
+        for (actor, role) in &group.members {
+            if !recipe.actors.contains_key(actor) {
+                bail!("demo {:?} group {key:?} references unknown actor {actor:?}", recipe.id);
+            }
+            if role.parse::<MembershipRole>().is_err() {
+                bail!("demo {:?} group {key:?} has invalid membership role {role:?}", recipe.id);
+            }
+        }
+    }
+    Ok(())
+}
+
+/// Validates named access profiles and every principal they reference.
+fn validate_demo_access_profiles(recipe: &DemoRecipe) -> Result<()> {
+    for (key, profile) in &recipe.access_profiles {
+        if key.trim().is_empty() {
+            bail!("demo {:?} access profile key must not be empty", recipe.id);
+        }
+        if profile.grants.is_empty() {
+            bail!("demo {:?} access profile {key:?} must contain at least one grant", recipe.id);
+        }
+        let mut principals = HashSet::new();
+        for grant in &profile.grants {
+            let principal = match (&grant.actor, &grant.group) {
+                (Some(actor), None) => {
+                    if !recipe.actors.contains_key(actor) {
+                        bail!(
+                            "demo {:?} access profile {key:?} references unknown actor {actor:?}",
+                            recipe.id
+                        );
+                    }
+                    format!("actor:{actor}")
+                }
+                (None, Some(group)) => {
+                    if !recipe.groups.contains_key(group) {
+                        bail!(
+                            "demo {:?} access profile {key:?} references unknown group {group:?}",
+                            recipe.id
+                        );
+                    }
+                    format!("group:{group}")
+                }
+                _ => bail!(
+                    "demo {:?} access profile {key:?} grant must reference exactly one actor or group",
+                    recipe.id
+                ),
+            };
+            if !principals.insert(principal) {
+                bail!("demo {:?} access profile {key:?} repeats a principal", recipe.id);
+            }
+            if grant.role.parse::<ObjectRole>().is_err() {
+                bail!(
+                    "demo {:?} access profile {key:?} has invalid object role {:?}",
+                    recipe.id,
+                    grant.role
+                );
+            }
+        }
+    }
+    Ok(())
+}
+
+/// Access state attached to one demo object for static permission validation.
+struct DemoObjectAccessState {
+    /// Actor that receives the object's creator administrator grant.
+    creator: String,
+    /// Named grant profile applied immediately after creation.
+    profile: String,
+}
+
+/// Verifies that historical demo mutations are possible under the access model they advertise.
+fn validate_demo_action_access(recipe: &DemoRecipe) -> Result<()> {
+    let mut objects = HashMap::<String, DemoObjectAccessState>::new();
+    let mut threads = HashMap::<String, String>::new();
+
+    for seeded in &recipe.actions {
+        let actor = seeded.actor.as_str();
+        match &seeded.action {
+            SeedAction::CreateObject { key, .. } => {
+                let profile = seeded.access.as_deref().ok_or_else(|| {
+                    eyre!("demo {:?} object {key:?} is missing an access profile", recipe.id)
+                })?;
+                objects.insert(
+                    key.clone(),
+                    DemoObjectAccessState {
+                        creator: actor.to_owned(),
+                        profile: profile.to_owned(),
+                    },
+                );
+            }
+            SeedAction::UpdateObject { object, .. } => {
+                require_demo_object_role(recipe, &objects, object, actor, ObjectRole::Editor)?;
+            }
+            SeedAction::CreateRelationship { source, target } => {
+                require_demo_object_role(recipe, &objects, source, actor, ObjectRole::Editor)?;
+                require_demo_object_role(recipe, &objects, target, actor, ObjectRole::Viewer)?;
+            }
+            SeedAction::CreateCommentThread { key, object, .. } => {
+                require_demo_object_role(recipe, &objects, object, actor, ObjectRole::Viewer)?;
+                threads.insert(key.clone(), object.clone());
+            }
+            SeedAction::ReplyToCommentThread { thread, .. }
+            | SeedAction::ResolveCommentThread { thread } => {
+                let object = threads.get(thread.as_str()).ok_or_else(|| {
+                    eyre!("demo {:?} commentary thread {thread:?} has no object", recipe.id)
+                })?;
+                require_demo_object_role(recipe, &objects, object, actor, ObjectRole::Viewer)?;
+            }
+            SeedAction::ArchiveObject { object } => {
+                require_demo_object_role(recipe, &objects, object, actor, ObjectRole::Admin)?;
+            }
+        }
+    }
+
+    Ok(())
+}
+
+/// Requires one demo actor to satisfy the given object role from creator or configured grants.
+fn require_demo_object_role(
+    recipe: &DemoRecipe,
+    objects: &HashMap<String, DemoObjectAccessState>,
+    object: &str,
+    actor: &str,
+    required: ObjectRole,
+) -> Result<()> {
+    let state = objects.get(object).ok_or_else(|| {
+        eyre!("demo {:?} access check references unknown object {object:?}", recipe.id)
+    })?;
+    let actual = demo_object_role(recipe, state, actor);
+    if actual.is_some_and(|role| object_role_rank(role) >= object_role_rank(required)) {
+        return Ok(());
+    }
+    bail!(
+        "demo {:?} actor {actor:?} lacks {} access to object {object:?}",
+        recipe.id,
+        required.as_str()
+    )
+}
+
+/// Resolves the strongest configured role for one demo actor on one seeded object.
+fn demo_object_role(
+    recipe: &DemoRecipe,
+    object: &DemoObjectAccessState,
+    actor: &str,
+) -> Option<ObjectRole> {
+    if object.creator.as_str() == actor {
+        return Some(ObjectRole::Admin);
+    }
+
+    let profile = recipe.access_profiles.get(object.profile.as_str())?;
+    profile
+        .grants
+        .iter()
+        .filter_map(|grant| {
+            let applies = match (&grant.actor, &grant.group) {
+                (Some(granted_actor), None) => granted_actor == actor,
+                (None, Some(group)) => {
+                    recipe.groups.get(group).is_some_and(|group| group.members.contains_key(actor))
+                }
+                _ => false,
+            };
+            if applies { ObjectRole::parse(&grant.role) } else { None }
+        })
+        .max_by_key(|role| object_role_rank(*role))
+}
+
+/// Numeric rank used only for static demo-role comparison.
+const fn object_role_rank(role: ObjectRole) -> u8 {
+    match role {
+        ObjectRole::Viewer => 1,
+        ObjectRole::Editor => 2,
+        ObjectRole::Admin => 3,
+    }
 }
 
 /// Validates seed action ordering and all recipe-local object references.
@@ -1504,13 +1962,13 @@ mod tests {
     fn initializer_kind_mismatch_suggests_the_correct_flag() {
         let catalog = load_catalog().expect("catalog JSON should parse");
 
-        let template = WorkspaceInitializer::template("acme-engineering");
+        let template = WorkspaceInitializer::template("acme");
         let error = resolve_initializer(&catalog, Some(&template))
             .err()
             .expect("demo selected as template should fail");
         assert_eq!(
             error.to_string(),
-            "initializer \"acme-engineering\" is a demo scenario; use `--demo acme-engineering` instead of `--template`"
+            "initializer \"acme\" is a demo scenario; use `--demo acme` instead of `--template`"
         );
 
         let demo = WorkspaceInitializer::demo("project");
@@ -1538,7 +1996,7 @@ mod tests {
         record_bootstrap_completed(&mut tx, admin.id, "admin", Uuid::now_v7()).await?;
         tx.commit().await?;
 
-        let initializer = WorkspaceInitializer::demo("acme-engineering");
+        let initializer = WorkspaceInitializer::demo("acme");
         let created =
             super::create_workspace_as_operator(&pool, "Kival Demo", None, Some(&initializer))
                 .await?;
@@ -1549,7 +2007,7 @@ mod tests {
         .bind(created.workspace_id)
         .fetch_one(&pool)
         .await?;
-        assert_eq!(object_count, 47);
+        assert_eq!(object_count, 86);
 
         let archived_object_count = sqlx::query_scalar::<_, i64>(
             "SELECT COUNT(*) FROM kival.objects WHERE workspace_id = $1 AND archived_at IS NOT NULL",
@@ -1557,7 +2015,7 @@ mod tests {
         .bind(created.workspace_id)
         .fetch_one(&pool)
         .await?;
-        assert_eq!(archived_object_count, 2);
+        assert_eq!(archived_object_count, 4);
 
         let archived_titles = sqlx::query_scalar::<_, String>(
             r#"
@@ -1577,6 +2035,8 @@ mod tests {
         assert_eq!(
             archived_titles,
             vec![
+                "Campaign: Orbit private beta (complete)".to_owned(),
+                "H1 2026 hiring plan (closed)".to_owned(),
                 "Project Atlas: Checkout extraction".to_owned(),
                 "Runbook: Manual production deploy (legacy)".to_owned(),
             ]
@@ -1588,7 +2048,7 @@ mod tests {
         .bind(created.workspace_id)
         .fetch_one(&pool)
         .await?;
-        assert_eq!(membership_count, 8);
+        assert_eq!(membership_count, 13);
 
         let disabled_demo_actors = sqlx::query_scalar::<_, i64>(
             r#"
@@ -1604,7 +2064,7 @@ mod tests {
         .bind(admin.id)
         .fetch_one(&pool)
         .await?;
-        assert_eq!(disabled_demo_actors, 7);
+        assert_eq!(disabled_demo_actors, 12);
 
         let authored_actors = sqlx::query_scalar::<_, i64>(
             r#"
@@ -1617,7 +2077,15 @@ mod tests {
         .bind(created.workspace_id)
         .fetch_one(&pool)
         .await?;
-        assert_eq!(authored_actors, 7);
+        assert_eq!(authored_actors, 12);
+
+        let linked_group_count = sqlx::query_scalar::<_, i64>(
+            "SELECT COUNT(*) FROM kival.workspace_groups WHERE workspace_id = $1 AND archived_at IS NULL",
+        )
+        .bind(created.workspace_id)
+        .fetch_one(&pool)
+        .await?;
+        assert_eq!(linked_group_count, 8);
 
         Ok(())
     }
@@ -1637,7 +2105,7 @@ mod tests {
         record_bootstrap_completed(&mut tx, admin.id, "admin", Uuid::now_v7()).await?;
         tx.commit().await?;
 
-        let initializer = WorkspaceInitializer::demo("acme-engineering");
+        let initializer = WorkspaceInitializer::demo("acme");
         let created =
             super::create_workspace_as_operator(&pool, "ACME Demo", None, Some(&initializer))
                 .await?;
@@ -1648,7 +2116,7 @@ mod tests {
         .bind(created.workspace_id)
         .fetch_one(&pool)
         .await?;
-        assert_eq!(object_count, 47);
+        assert_eq!(object_count, 86);
 
         let active_object_count = sqlx::query_scalar::<_, i64>(
             "SELECT COUNT(*) FROM kival.objects WHERE workspace_id = $1 AND archived_at IS NULL",
@@ -1656,7 +2124,7 @@ mod tests {
         .bind(created.workspace_id)
         .fetch_one(&pool)
         .await?;
-        assert_eq!(active_object_count, 45);
+        assert_eq!(active_object_count, 82);
 
         let edge_count = sqlx::query_scalar::<_, i64>(
             "SELECT COUNT(*) FROM kival.object_edges WHERE workspace_id = $1 AND revoked_at IS NULL",
@@ -1664,7 +2132,7 @@ mod tests {
         .bind(created.workspace_id)
         .fetch_one(&pool)
         .await?;
-        assert_eq!(edge_count, 46);
+        assert_eq!(edge_count, 81);
 
         let pin_count = sqlx::query_scalar::<_, i64>(
             "SELECT COUNT(*) FROM kival.object_pins WHERE workspace_id = $1 AND user_id = $2",
@@ -1673,7 +2141,7 @@ mod tests {
         .bind(admin.id)
         .fetch_one(&pool)
         .await?;
-        assert_eq!(pin_count, 4);
+        assert_eq!(pin_count, 6);
 
         let favorite_count = sqlx::query_scalar::<_, i64>(
             "SELECT COUNT(*) FROM kival.object_favorites WHERE workspace_id = $1 AND user_id = $2",
@@ -1682,7 +2150,7 @@ mod tests {
         .bind(admin.id)
         .fetch_one(&pool)
         .await?;
-        assert_eq!(favorite_count, 6);
+        assert_eq!(favorite_count, 8);
 
         let thread_count = sqlx::query_scalar::<_, i64>(
             "SELECT COUNT(*) FROM kival.comment_threads WHERE workspace_id = $1",
@@ -1690,7 +2158,7 @@ mod tests {
         .bind(created.workspace_id)
         .fetch_one(&pool)
         .await?;
-        assert_eq!(thread_count, 20);
+        assert_eq!(thread_count, 36);
 
         let comment_count = sqlx::query_scalar::<_, i64>(
             "SELECT COUNT(*) FROM kival.comments WHERE workspace_id = $1",
@@ -1698,7 +2166,7 @@ mod tests {
         .bind(created.workspace_id)
         .fetch_one(&pool)
         .await?;
-        assert_eq!(comment_count, 42);
+        assert_eq!(comment_count, 74);
 
         let resolved_count = sqlx::query_scalar::<_, i64>(
             "SELECT COUNT(*) FROM kival.comment_threads WHERE workspace_id = $1 AND resolved_at IS NOT NULL",
@@ -1706,7 +2174,7 @@ mod tests {
         .bind(created.workspace_id)
         .fetch_one(&pool)
         .await?;
-        assert_eq!(resolved_count, 6);
+        assert_eq!(resolved_count, 13);
 
         let commented_object_count = sqlx::query_scalar::<_, i64>(
             "SELECT COUNT(DISTINCT object_id) FROM kival.comment_threads WHERE workspace_id = $1",
@@ -1714,7 +2182,7 @@ mod tests {
         .bind(created.workspace_id)
         .fetch_one(&pool)
         .await?;
-        assert_eq!(commented_object_count, 20);
+        assert_eq!(commented_object_count, 36);
 
         let comment_author_count = sqlx::query_scalar::<_, i64>(
             "SELECT COUNT(DISTINCT author_user_id) FROM kival.comments WHERE workspace_id = $1",
@@ -1722,7 +2190,114 @@ mod tests {
         .bind(created.workspace_id)
         .fetch_one(&pool)
         .await?;
-        assert_eq!(comment_author_count, 7);
+        assert_eq!(comment_author_count, 12);
+
+        Ok(())
+    }
+
+    #[sqlx::test(migrations = "../../crates/kernel/migrations")]
+    async fn acme_demo_applies_functional_access_boundaries(
+        pool: sqlx::PgPool,
+    ) -> eyre::Result<()> {
+        use kival_kernel::{
+            create_user, grant_global_admin_as_operator, record_bootstrap_completed,
+        };
+        use uuid::Uuid;
+
+        let mut tx = pool.begin().await?;
+        let admin = create_user(&mut tx, "admin", "Admin").await?;
+        grant_global_admin_as_operator(&mut tx, admin.id).await?;
+        record_bootstrap_completed(&mut tx, admin.id, "admin", Uuid::now_v7()).await?;
+        tx.commit().await?;
+
+        let initializer = WorkspaceInitializer::demo("acme");
+        let created =
+            super::create_workspace_as_operator(&pool, "ACME Demo", None, Some(&initializer))
+                .await?;
+
+        async fn access_role(
+            pool: &sqlx::PgPool,
+            workspace_id: Uuid,
+            username: &str,
+            title: &str,
+        ) -> eyre::Result<Option<String>> {
+            Ok(sqlx::query_scalar::<_, Option<String>>(
+                r#"
+                SELECT kival.object_access_role($1, object.id, actor.id)::text
+                FROM kival.objects object
+                JOIN kival.object_versions version
+                  ON version.id = object.current_version_id
+                CROSS JOIN kival.users actor
+                WHERE object.workspace_id = $1
+                  AND version.title = $2
+                  AND actor.username = $3
+                "#,
+            )
+            .bind(workspace_id)
+            .bind(title)
+            .bind(username)
+            .fetch_one(pool)
+            .await?)
+        }
+
+        assert_eq!(
+            access_role(&pool, created.workspace_id, "kate", "ACME company handbook").await?,
+            Some("viewer".to_owned())
+        );
+        assert_eq!(
+            access_role(&pool, created.workspace_id, "charlie", "Platform architecture").await?,
+            Some("editor".to_owned())
+        );
+        assert_eq!(
+            access_role(&pool, created.workspace_id, "ivan", "Platform architecture").await?,
+            None
+        );
+        assert_eq!(
+            access_role(
+                &pool,
+                created.workspace_id,
+                "bob",
+                "Candidate pipeline — senior backend engineer"
+            )
+            .await?,
+            Some("editor".to_owned())
+        );
+        assert_eq!(
+            access_role(
+                &pool,
+                created.workspace_id,
+                "judy",
+                "Candidate pipeline — senior backend engineer"
+            )
+            .await?,
+            None
+        );
+        assert_eq!(
+            access_role(&pool, created.workspace_id, "grace", "Paid acquisition operating model")
+                .await?,
+            Some("viewer".to_owned())
+        );
+        assert_eq!(
+            access_role(&pool, created.workspace_id, "charlie", "Paid acquisition operating model")
+                .await?,
+            None
+        );
+        assert_eq!(
+            access_role(&pool, created.workspace_id, "grace", "Strategic partner pipeline").await?,
+            Some("editor".to_owned())
+        );
+        assert_eq!(
+            access_role(&pool, created.workspace_id, "judy", "Strategic partner pipeline").await?,
+            None
+        );
+        assert_eq!(
+            access_role(&pool, created.workspace_id, "heidi", "Company operating metrics").await?,
+            Some("editor".to_owned())
+        );
+        assert_eq!(
+            access_role(&pool, created.workspace_id, "ivan", "Company operating metrics").await?,
+            None
+        );
 
         Ok(())
     }

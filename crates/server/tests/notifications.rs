@@ -157,9 +157,7 @@ mod tests {
     }
 
     #[sqlx::test(migrations = "../kernel/migrations")]
-    async fn inbox_preserves_attribution_after_actor_is_disabled(
-        pool: sqlx::PgPool,
-    ) -> Result<()> {
+    async fn inbox_preserves_attribution_after_actor_is_disabled(pool: sqlx::PgPool) -> Result<()> {
         let r = TestKival::new(pool).await?;
         let space = r.object_space("disabled notification actor").await?;
         let object = r
@@ -200,11 +198,7 @@ mod tests {
         )
         .await?;
         let _: UserResponse = r
-            .empty_json_as(
-                &r.admin,
-                Method::POST,
-                &format!("/users/{}/disable", editor.id),
-            )
+            .empty_json_as(&r.admin, Method::POST, &format!("/users/{}/disable", editor.id))
             .await?
             .into_success()?;
 
