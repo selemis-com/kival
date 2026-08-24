@@ -78,7 +78,7 @@
     {
       "id": "acme",
       "name": "ACME company",
-      "description": "A lived-in whole-company demo spanning engineering, people, hiring, marketing, growth, partnerships, launches, and company operations with realistic access boundaries and shared agent skills.",
+      "description": "A fully synthetic, lived-in whole-company demo spanning engineering, people, hiring, marketing, growth, partnerships, launches, and company operations with realistic access boundaries and shared agent skills.",
       "actors": {
         "alice": {
           "display_name": "Alice",
@@ -2636,7 +2636,7 @@
             "type": "create_object",
             "key": "performance_reviews",
             "title": "Performance review operating guide",
-            "body": "# Performance review operating guide\n\nThis guide is restricted to People and the CEO because it includes manager calibration mechanics. Individual reviews do not belong in Kival demo content.\n\n## Cadence\n\nFormal reviews happen twice per year. Managers maintain lightweight evidence continuously rather than reconstructing six months from memory.\n\n## Calibration\n\nAssess scope, outcomes, judgment, collaboration, and growth against role expectations. Do not normalize ratings to force a distribution. If expectations were unclear, fix the expectations before treating the ambiguity as a performance problem.\n\n## Written record\n\nThe review should distinguish observed evidence, manager interpretation, and agreed next steps. Avoid speculative personality labels and unnecessary personal context.",
+            "body": "# Performance review operating guide\n\nThis guide is restricted to People and the CEO because it includes manager calibration mechanics. Individual review records belong in the HR system and are not stored in this shared workspace.\n\n## Cadence\n\nFormal reviews happen twice per year. Managers maintain lightweight evidence continuously rather than reconstructing six months from memory.\n\n## Calibration\n\nAssess scope, outcomes, judgment, collaboration, and growth against role expectations. Do not normalize ratings to force a distribution. If expectations were unclear, fix the expectations before treating the ambiguity as a performance problem.\n\n## Written record\n\nThe review should distinguish observed evidence, manager interpretation, and agreed next steps. Avoid speculative personality labels and unnecessary personal context.",
             "metadata": {
               "kind": "guide",
               "status": "current",
