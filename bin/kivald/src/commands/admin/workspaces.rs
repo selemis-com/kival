@@ -105,8 +105,7 @@ impl AdminWorkspaceCreateCommand {
             self.description.as_deref(),
             initializer.as_ref(),
         )
-        .await
-        .wrap_err("failed to create workspace")?;
+        .await?;
 
         info!(
             target: "kival::cli",

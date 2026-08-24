@@ -13,10 +13,11 @@ use std::{
 use eyre::{Context, Result, bail, eyre};
 use kival_kernel::{
     CreateInitialObject, EventInsert, EventKind, GrantPrincipal, MembershipRole, ObjectRole,
-    UpdateObjectVersion, append_event, create_initial_object, create_object_edge,
-    create_object_grant, create_user, create_workspace, create_workspace_membership,
-    lock_admin_provisioning, lock_user_for_operator, maintain_object_references,
-    set_user_disabled_as_operator, update_object_version,
+    UpdateObjectVersion, append_event, create_comment, create_comment_thread, create_initial_object,
+    create_object_edge, create_object_grant, create_user, create_workspace,
+    create_workspace_membership, lock_admin_provisioning, lock_user_for_operator,
+    maintain_object_references, set_thread_resolved, set_user_disabled_as_operator,
+    touch_comment_thread, update_object_version,
 };
 use serde::Deserialize;
 use serde_json::{Value, json};
@@ -24,7 +25,7 @@ use sqlx::{PgPool, Postgres, Transaction};
 use uuid::Uuid;
 
 /// Schema version understood by the bundled initializer catalog parser.
-const SCHEMA_VERSION: u32 = 1;
+const SCHEMA_VERSION: u32 = 2;
 /// Bundled JSON catalog containing reusable templates and demo scenarios.
 const CATALOG: &str = include_str!("catalog.json");
 
@@ -135,6 +136,12 @@ struct DemoRecipe {
     description: Option<String>,
     /// Synthetic historical actors keyed by names used in scenario actions.
     actors: BTreeMap<String, DemoActor>,
+    /// Objects pinned for the real workspace owner after the scenario is seeded.
+    #[serde(default)]
+    owner_pins: Vec<String>,
+    /// Objects favorited for the real workspace owner after the scenario is seeded.
+    #[serde(default)]
+    owner_favorites: Vec<String>,
     /// Ordered actor-attributed mutations applied during initialization.
     actions: Vec<DemoSeedAction>,
 }
@@ -198,6 +205,27 @@ enum SeedAction {
         /// Recipe-local key of the target object.
         target: String,
     },
+    /// Starts a commentary thread on a previously created object.
+    CreateCommentThread {
+        /// Recipe-local key used by later replies or resolution actions.
+        key: String,
+        /// Recipe-local key of the commented object.
+        object: String,
+        /// Initial comment body.
+        body: String,
+    },
+    /// Adds a reply to a previously created commentary thread.
+    ReplyToCommentThread {
+        /// Recipe-local key of the thread receiving the reply.
+        thread: String,
+        /// Reply body.
+        body: String,
+    },
+    /// Marks a previously created commentary thread resolved.
+    ResolveCommentThread {
+        /// Recipe-local key of the thread to resolve.
+        thread: String,
+    },
 }
 
 /// Runtime identifiers tracked for an object created by the current initializer.
@@ -207,6 +235,19 @@ struct SeedObjectState {
     object_id: Uuid,
     /// Identifier of the object's latest seeded version.
     current_version_id: Uuid,
+}
+
+/// Runtime identifiers tracked for a commentary thread created by the current initializer.
+#[derive(Debug, Clone, Copy)]
+struct SeedCommentThreadState {
+    /// Object containing the thread.
+    object_id: Uuid,
+    /// Persisted thread identifier.
+    thread_id: Uuid,
+    /// Root comment identifier used as the parent for replies.
+    root_comment_id: Uuid,
+    /// Author of the root comment, used for ordinary reply-event attribution.
+    root_author_user_id: Uuid,
 }
 
 /// Execution-scoped identities shared across one seed action.
@@ -355,6 +396,7 @@ async fn execute_template(
     recipe: &TemplateRecipe,
 ) -> Result<()> {
     let mut objects = HashMap::new();
+    let mut comment_threads = HashMap::new();
     let context = SeedExecutionContext {
         workspace_id,
         owner_user_id,
@@ -362,7 +404,7 @@ async fn execute_template(
         demo_actor_ids: &[],
     };
     for action in &recipe.actions {
-        execute_action(tx, context, &mut objects, action).await?;
+        execute_action(tx, context, &mut objects, &mut comment_threads, action).await?;
     }
     Ok(())
 }
@@ -377,6 +419,7 @@ async fn execute_demo(
     let actors = provision_demo_actors(tx, workspace_id, owner_user_id, &recipe.actors).await?;
     let actor_ids = actors.values().copied().collect::<Vec<_>>();
     let mut objects = HashMap::new();
+    let mut comment_threads = HashMap::new();
 
     for seeded in &recipe.actions {
         let actor_id = *actors
@@ -388,8 +431,18 @@ async fn execute_demo(
             actor_id,
             demo_actor_ids: &actor_ids,
         };
-        execute_action(tx, context, &mut objects, &seeded.action).await?;
+        execute_action(tx, context, &mut objects, &mut comment_threads, &seeded.action).await?;
     }
+
+    seed_owner_object_markers(
+        tx,
+        workspace_id,
+        owner_user_id,
+        &objects,
+        &recipe.owner_pins,
+        &recipe.owner_favorites,
+    )
+    .await?;
 
     // Demo actors are historical fixtures, not accounts that should ever authenticate.
     for actor_id in actor_ids {
@@ -505,6 +558,7 @@ async fn execute_action(
     tx: &mut Transaction<'_, Postgres>,
     context: SeedExecutionContext<'_>,
     objects: &mut HashMap<String, SeedObjectState>,
+    comment_threads: &mut HashMap<String, SeedCommentThreadState>,
     action: &SeedAction,
 ) -> Result<()> {
     match action {
@@ -543,9 +597,218 @@ async fn execute_action(
             )
             .await?;
         }
+        SeedAction::CreateCommentThread { key, object, body } => {
+            let object = objects.get(object).ok_or_else(|| {
+                eyre!("initializer commentary references unknown object {object:?}")
+            })?;
+            let thread = create_seed_comment_thread(
+                tx,
+                context.workspace_id,
+                object.object_id,
+                context.actor_id,
+                body,
+            )
+            .await?;
+            comment_threads.insert(key.clone(), thread);
+        }
+        SeedAction::ReplyToCommentThread { thread, body } => {
+            let thread = *comment_threads.get(thread).ok_or_else(|| {
+                eyre!("initializer references unknown commentary thread {thread:?}")
+            })?;
+            reply_to_seed_comment_thread(
+                tx,
+                context.workspace_id,
+                context.actor_id,
+                thread,
+                body,
+            )
+            .await?;
+        }
+        SeedAction::ResolveCommentThread { thread } => {
+            let thread = *comment_threads.get(thread).ok_or_else(|| {
+                eyre!("initializer references unknown commentary thread {thread:?}")
+            })?;
+            resolve_seed_comment_thread(
+                tx,
+                context.workspace_id,
+                context.actor_id,
+                thread,
+            )
+            .await?;
+        }
     }
 
     Ok(())
+}
+
+/// Seeds personal pins and favorites for the real workspace owner.
+async fn seed_owner_object_markers(
+    tx: &mut Transaction<'_, Postgres>,
+    workspace_id: Uuid,
+    owner_user_id: Uuid,
+    objects: &HashMap<String, SeedObjectState>,
+    pins: &[String],
+    favorites: &[String],
+) -> Result<()> {
+    for key in pins {
+        let object = objects
+            .get(key)
+            .ok_or_else(|| eyre!("demo owner pin references unknown object {key:?}"))?;
+        sqlx::query(
+            r#"
+            INSERT INTO kival.object_pins (user_id, workspace_id, object_id)
+            VALUES ($1, $2, $3)
+            ON CONFLICT (user_id, object_id) DO NOTHING
+            "#,
+        )
+        .bind(owner_user_id)
+        .bind(workspace_id)
+        .bind(object.object_id)
+        .execute(&mut **tx)
+        .await
+        .wrap_err("failed to seed demo object pin")?;
+    }
+
+    for key in favorites {
+        let object = objects
+            .get(key)
+            .ok_or_else(|| eyre!("demo owner favorite references unknown object {key:?}"))?;
+        sqlx::query(
+            r#"
+            INSERT INTO kival.object_favorites (user_id, workspace_id, object_id)
+            VALUES ($1, $2, $3)
+            ON CONFLICT DO NOTHING
+            "#,
+        )
+        .bind(owner_user_id)
+        .bind(workspace_id)
+        .bind(object.object_id)
+        .execute(&mut **tx)
+        .await
+        .wrap_err("failed to seed demo object favorite")?;
+    }
+
+    Ok(())
+}
+
+/// Starts one seeded commentary thread and emits the ordinary creation event.
+async fn create_seed_comment_thread(
+    tx: &mut Transaction<'_, Postgres>,
+    workspace_id: Uuid,
+    object_id: Uuid,
+    actor_id: Uuid,
+    body: &str,
+) -> Result<SeedCommentThreadState> {
+    let thread_id = create_comment_thread(tx, workspace_id, object_id, actor_id)
+        .await
+        .wrap_err("failed to create initialized comment thread")?;
+    let comment_id = create_comment(
+        tx,
+        workspace_id,
+        object_id,
+        thread_id,
+        None,
+        actor_id,
+        body,
+    )
+    .await
+    .wrap_err("failed to create initialized comment")?;
+
+    emit(
+        tx,
+        EventInsert::new(
+            actor_id,
+            EventKind::CommentCreated,
+            json!({ "thread_id": thread_id, "comment_id": comment_id }),
+        )
+        .workspace(workspace_id)
+        .object(object_id)
+        .comment_thread(thread_id)
+        .comment(comment_id),
+    )
+    .await?;
+
+    Ok(SeedCommentThreadState {
+        object_id,
+        thread_id,
+        root_comment_id: comment_id,
+        root_author_user_id: actor_id,
+    })
+}
+
+/// Adds one seeded reply and emits the ordinary reply event.
+async fn reply_to_seed_comment_thread(
+    tx: &mut Transaction<'_, Postgres>,
+    workspace_id: Uuid,
+    actor_id: Uuid,
+    thread: SeedCommentThreadState,
+    body: &str,
+) -> Result<()> {
+    let comment_id = create_comment(
+        tx,
+        workspace_id,
+        thread.object_id,
+        thread.thread_id,
+        Some(thread.root_comment_id),
+        actor_id,
+        body,
+    )
+    .await
+    .wrap_err("failed to create initialized comment reply")?;
+    touch_comment_thread(tx, thread.thread_id)
+        .await
+        .wrap_err("failed to update initialized comment thread activity")?;
+
+    emit(
+        tx,
+        EventInsert::new(
+            actor_id,
+            EventKind::CommentReplied,
+            json!({
+                "thread_id": thread.thread_id,
+                "comment_id": comment_id,
+                "parent_comment_id": thread.root_comment_id,
+            }),
+        )
+        .workspace(workspace_id)
+        .object(thread.object_id)
+        .comment_thread(thread.thread_id)
+        .comment(comment_id)
+        .target_user(thread.root_author_user_id),
+    )
+    .await
+}
+
+/// Resolves one seeded commentary thread and emits the ordinary resolution event.
+async fn resolve_seed_comment_thread(
+    tx: &mut Transaction<'_, Postgres>,
+    workspace_id: Uuid,
+    actor_id: Uuid,
+    thread: SeedCommentThreadState,
+) -> Result<()> {
+    set_thread_resolved(
+        tx,
+        workspace_id,
+        thread.object_id,
+        thread.thread_id,
+        actor_id,
+        true,
+    )
+    .await
+    .wrap_err("failed to resolve initialized comment thread")?;
+
+    emit(
+        tx,
+        EventInsert::new(
+            actor_id,
+            EventKind::CommentThreadResolved,
+            json!({ "thread_id": thread.thread_id }),
+        )
+        .workspace(workspace_id)
+        .object(thread.object_id)
+        .comment_thread(thread.thread_id),
+    )
+    .await
 }
 
 /// Creates one seeded object with normal grants, references, and events.
@@ -891,20 +1154,36 @@ fn resolve_initializer<'a>(
     };
 
     match initializer.kind {
-        WorkspaceInitializerKind::Template => catalog
-            .templates
-            .iter()
-            .find(|recipe| recipe.id == initializer.id)
-            .map(ResolvedInitializer::Template)
-            .map(Some)
-            .ok_or_else(|| eyre!("unknown workspace template {:?}", initializer.id)),
-        WorkspaceInitializerKind::Demo => catalog
-            .demos
-            .iter()
-            .find(|recipe| recipe.id == initializer.id)
-            .map(ResolvedInitializer::Demo)
-            .map(Some)
-            .ok_or_else(|| eyre!("unknown demo scenario {:?}", initializer.id)),
+        WorkspaceInitializerKind::Template => {
+            if let Some(recipe) =
+                catalog.templates.iter().find(|recipe| recipe.id == initializer.id)
+            {
+                return Ok(Some(ResolvedInitializer::Template(recipe)));
+            }
+            if catalog.demos.iter().any(|recipe| recipe.id == initializer.id) {
+                bail!(
+                    "initializer {:?} is a demo scenario; use `--demo {}` instead of `--template`",
+                    initializer.id,
+                    initializer.id
+                );
+            }
+            bail!("unknown workspace template {:?}", initializer.id)
+        }
+        WorkspaceInitializerKind::Demo => {
+            if let Some(recipe) =
+                catalog.demos.iter().find(|recipe| recipe.id == initializer.id)
+            {
+                return Ok(Some(ResolvedInitializer::Demo(recipe)));
+            }
+            if catalog.templates.iter().any(|recipe| recipe.id == initializer.id) {
+                bail!(
+                    "initializer {:?} is a reusable template; use `--template {}` instead of `--demo`",
+                    initializer.id,
+                    initializer.id
+                );
+            }
+            bail!("unknown demo scenario {:?}", initializer.id)
+        }
     }
 }
 
@@ -954,6 +1233,32 @@ fn validate_catalog(catalog: &Catalog) -> Result<()> {
         }
         let actions = recipe.actions.iter().map(|seeded| seeded.action.clone()).collect::<Vec<_>>();
         validate_actions(&actions)?;
+        validate_demo_owner_markers(recipe, &actions)?;
+    }
+
+    Ok(())
+}
+
+/// Validates demo owner pins and favorites against objects declared by the recipe.
+fn validate_demo_owner_markers(recipe: &DemoRecipe, actions: &[SeedAction]) -> Result<()> {
+    let object_keys = actions
+        .iter()
+        .filter_map(|action| match action {
+            SeedAction::CreateObject { key, .. } => Some(key.as_str()),
+            _ => None,
+        })
+        .collect::<HashSet<_>>();
+
+    for (kind, keys) in [("pin", &recipe.owner_pins), ("favorite", &recipe.owner_favorites)] {
+        let mut seen = HashSet::new();
+        for key in keys {
+            if !object_keys.contains(key.as_str()) {
+                bail!("demo {:?} owner {kind} references unknown object {key:?}", recipe.id);
+            }
+            if !seen.insert(key.as_str()) {
+                bail!("demo {:?} declares duplicate owner {kind} for object {key:?}", recipe.id);
+            }
+        }
     }
 
     Ok(())
@@ -1016,6 +1321,8 @@ fn validate_demo_actor(key: &str, actor: &DemoActor) -> Result<()> {
 /// Validates seed action ordering and all recipe-local object references.
 fn validate_actions(actions: &[SeedAction]) -> Result<()> {
     let mut objects = HashSet::new();
+    let mut comment_threads = HashSet::new();
+    let mut resolved_comment_threads = HashSet::new();
 
     for action in actions {
         match action {
@@ -1054,6 +1361,39 @@ fn validate_actions(actions: &[SeedAction]) -> Result<()> {
                 }
                 if source == target {
                     bail!("initializer relationship cannot connect object {source:?} to itself");
+                }
+            }
+            SeedAction::CreateCommentThread { key, object, body } => {
+                if key.trim().is_empty() {
+                    bail!("initializer commentary thread key must not be empty");
+                }
+                if !comment_threads.insert(key.as_str()) {
+                    bail!("initializer declares duplicate commentary thread key {key:?}");
+                }
+                if !objects.contains(object.as_str()) {
+                    bail!("initializer commentary object {object:?} is not created yet");
+                }
+                if body.trim().is_empty() {
+                    bail!("initializer commentary thread {key:?} body must not be empty");
+                }
+            }
+            SeedAction::ReplyToCommentThread { thread, body } => {
+                if !comment_threads.contains(thread.as_str()) {
+                    bail!("initializer replies to commentary thread {thread:?} before it is created");
+                }
+                if resolved_comment_threads.contains(thread.as_str()) {
+                    bail!("initializer replies to resolved commentary thread {thread:?}");
+                }
+                if body.trim().is_empty() {
+                    bail!("initializer commentary reply for {thread:?} must not be empty");
+                }
+            }
+            SeedAction::ResolveCommentThread { thread } => {
+                if !comment_threads.contains(thread.as_str()) {
+                    bail!("initializer resolves commentary thread {thread:?} before it is created");
+                }
+                if !resolved_comment_threads.insert(thread.as_str()) {
+                    bail!("initializer resolves commentary thread {thread:?} more than once");
                 }
             }
         }
@@ -1098,7 +1438,10 @@ fn empty_metadata() -> Value {
 
 #[cfg(test)]
 mod tests {
-    use super::{WorkspaceInitializerKind, load_catalog, validate_catalog, workspace_initializers};
+    use super::{
+        WorkspaceInitializer, WorkspaceInitializerKind, load_catalog, resolve_initializer,
+        validate_catalog, workspace_initializers,
+    };
 
     #[test]
     fn bundled_catalog_is_valid_and_contains_both_initializer_kinds() {
@@ -1108,6 +1451,29 @@ mod tests {
         let initializers = workspace_initializers().expect("initializers should load");
         assert!(initializers.iter().any(|item| item.kind == WorkspaceInitializerKind::Template));
         assert!(initializers.iter().any(|item| item.kind == WorkspaceInitializerKind::Demo));
+    }
+
+    #[test]
+    fn initializer_kind_mismatch_suggests_the_correct_flag() {
+        let catalog = load_catalog().expect("catalog JSON should parse");
+
+        let template = WorkspaceInitializer::template("acme-engineering");
+        let error = resolve_initializer(&catalog, Some(&template))
+            .err()
+            .expect("demo selected as template should fail");
+        assert_eq!(
+            error.to_string(),
+            "initializer \"acme-engineering\" is a demo scenario; use `--demo acme-engineering` instead of `--template`"
+        );
+
+        let demo = WorkspaceInitializer::demo("project");
+        let error = resolve_initializer(&catalog, Some(&demo))
+            .err()
+            .expect("template selected as demo should fail");
+        assert_eq!(
+            error.to_string(),
+            "initializer \"project\" is a reusable template; use `--template project` instead of `--demo`"
+        );
     }
 
     #[sqlx::test(migrations = "../../crates/kernel/migrations")]
@@ -1125,7 +1491,7 @@ mod tests {
         record_bootstrap_completed(&mut tx, admin.id, "admin", Uuid::now_v7()).await?;
         tx.commit().await?;
 
-        let initializer = super::WorkspaceInitializer::demo("product-engineering");
+        let initializer = super::WorkspaceInitializer::demo("acme-engineering");
         let created =
             super::create_workspace_as_operator(&pool, "Kival Demo", None, Some(&initializer))
                 .await?;
@@ -1136,7 +1502,7 @@ mod tests {
         .bind(created.workspace_id)
         .fetch_one(&pool)
         .await?;
-        assert_eq!(object_count, 6);
+        assert_eq!(object_count, 45);
 
         let membership_count = sqlx::query_scalar::<_, i64>(
             "SELECT COUNT(*) FROM kival.workspace_memberships WHERE workspace_id = $1 AND revoked_at IS NULL",
@@ -1144,7 +1510,7 @@ mod tests {
         .bind(created.workspace_id)
         .fetch_one(&pool)
         .await?;
-        assert_eq!(membership_count, 4);
+        assert_eq!(membership_count, 8);
 
         let disabled_demo_actors = sqlx::query_scalar::<_, i64>(
             r#"
@@ -1160,7 +1526,7 @@ mod tests {
         .bind(admin.id)
         .fetch_one(&pool)
         .await?;
-        assert_eq!(disabled_demo_actors, 3);
+        assert_eq!(disabled_demo_actors, 7);
 
         let authored_actors = sqlx::query_scalar::<_, i64>(
             r#"
@@ -1173,7 +1539,104 @@ mod tests {
         .bind(created.workspace_id)
         .fetch_one(&pool)
         .await?;
-        assert_eq!(authored_actors, 3);
+        assert_eq!(authored_actors, 7);
+
+        Ok(())
+    }
+
+    #[sqlx::test(migrations = "../../crates/kernel/migrations")]
+    async fn acme_demo_seeds_owner_markers_commentary_and_sparse_graph(
+        pool: sqlx::PgPool,
+    ) -> eyre::Result<()> {
+        use kival_kernel::{
+            create_user, grant_global_admin_as_operator, record_bootstrap_completed,
+        };
+        use uuid::Uuid;
+
+        let mut tx = pool.begin().await?;
+        let admin = create_user(&mut tx, "admin", "Admin").await?;
+        grant_global_admin_as_operator(&mut tx, admin.id).await?;
+        record_bootstrap_completed(&mut tx, admin.id, "admin", Uuid::now_v7()).await?;
+        tx.commit().await?;
+
+        let initializer = WorkspaceInitializer::demo("acme-engineering");
+        let created =
+            super::create_workspace_as_operator(&pool, "ACME Demo", None, Some(&initializer))
+                .await?;
+
+        let object_count = sqlx::query_scalar::<_, i64>(
+            "SELECT COUNT(*) FROM kival.objects WHERE workspace_id = $1",
+        )
+        .bind(created.workspace_id)
+        .fetch_one(&pool)
+        .await?;
+        assert_eq!(object_count, 45);
+
+        let edge_count = sqlx::query_scalar::<_, i64>(
+            "SELECT COUNT(*) FROM kival.object_edges WHERE workspace_id = $1 AND revoked_at IS NULL",
+        )
+        .bind(created.workspace_id)
+        .fetch_one(&pool)
+        .await?;
+        assert_eq!(edge_count, 46);
+
+        let pin_count = sqlx::query_scalar::<_, i64>(
+            "SELECT COUNT(*) FROM kival.object_pins WHERE workspace_id = $1 AND user_id = $2",
+        )
+        .bind(created.workspace_id)
+        .bind(admin.id)
+        .fetch_one(&pool)
+        .await?;
+        assert_eq!(pin_count, 4);
+
+        let favorite_count = sqlx::query_scalar::<_, i64>(
+            "SELECT COUNT(*) FROM kival.object_favorites WHERE workspace_id = $1 AND user_id = $2",
+        )
+        .bind(created.workspace_id)
+        .bind(admin.id)
+        .fetch_one(&pool)
+        .await?;
+        assert_eq!(favorite_count, 6);
+
+        let thread_count = sqlx::query_scalar::<_, i64>(
+            "SELECT COUNT(*) FROM kival.comment_threads WHERE workspace_id = $1",
+        )
+        .bind(created.workspace_id)
+        .fetch_one(&pool)
+        .await?;
+        assert_eq!(thread_count, 20);
+
+        let comment_count = sqlx::query_scalar::<_, i64>(
+            "SELECT COUNT(*) FROM kival.comments WHERE workspace_id = $1",
+        )
+        .bind(created.workspace_id)
+        .fetch_one(&pool)
+        .await?;
+        assert_eq!(comment_count, 42);
+
+        let resolved_count = sqlx::query_scalar::<_, i64>(
+            "SELECT COUNT(*) FROM kival.comment_threads WHERE workspace_id = $1 AND resolved_at IS NOT NULL",
+        )
+        .bind(created.workspace_id)
+        .fetch_one(&pool)
+        .await?;
+        assert_eq!(resolved_count, 6);
+
+        let commented_object_count = sqlx::query_scalar::<_, i64>(
+            "SELECT COUNT(DISTINCT object_id) FROM kival.comment_threads WHERE workspace_id = $1",
+        )
+        .bind(created.workspace_id)
+        .fetch_one(&pool)
+        .await?;
+        assert_eq!(commented_object_count, 20);
+
+        let comment_author_count = sqlx::query_scalar::<_, i64>(
+            "SELECT COUNT(DISTINCT author_user_id) FROM kival.comments WHERE workspace_id = $1",
+        )
+        .bind(created.workspace_id)
+        .fetch_one(&pool)
+        .await?;
+        assert_eq!(comment_author_count, 7);
 
         Ok(())
     }

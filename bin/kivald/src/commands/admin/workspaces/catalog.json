@@ -1,5 +1,5 @@
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "templates": [
     {
       "id": "project",
@@ -109,6 +109,20 @@
           "username": "grace"
         }
       },
+      "owner_pins": [
+        "priorities",
+        "service_catalog",
+        "oncall",
+        "skill_catalog"
+      ],
+      "owner_favorites": [
+        "architecture",
+        "relay",
+        "postmortem_017",
+        "agent_policy",
+        "skill_repo_change",
+        "skill_incident"
+      ],
       "actions": [
         {
           "actor": "alice",
@@ -1385,152 +1399,8 @@
           "actor": "alice",
           "action": {
             "type": "create_relationship",
-            "source": "handbook",
-            "target": "service_catalog"
-          }
-        },
-        {
-          "actor": "alice",
-          "action": {
-            "type": "create_relationship",
-            "source": "handbook",
-            "target": "decision_register"
-          }
-        },
-        {
-          "actor": "alice",
-          "action": {
-            "type": "create_relationship",
-            "source": "handbook",
-            "target": "incident_index"
-          }
-        },
-        {
-          "actor": "bob",
-          "action": {
-            "type": "create_relationship",
-            "source": "service_catalog",
-            "target": "checkout"
-          }
-        },
-        {
-          "actor": "bob",
-          "action": {
-            "type": "create_relationship",
-            "source": "service_catalog",
-            "target": "orders"
-          }
-        },
-        {
-          "actor": "charlie",
-          "action": {
-            "type": "create_relationship",
-            "source": "service_catalog",
-            "target": "webhooks"
-          }
-        },
-        {
-          "actor": "grace",
-          "action": {
-            "type": "create_relationship",
-            "source": "service_catalog",
-            "target": "console"
-          }
-        },
-        {
-          "actor": "bob",
-          "action": {
-            "type": "create_relationship",
-            "source": "decision_register",
-            "target": "adr_webhooks"
-          }
-        },
-        {
-          "actor": "bob",
-          "action": {
-            "type": "create_relationship",
-            "source": "decision_register",
-            "target": "rfc_relay"
-          }
-        },
-        {
-          "actor": "bob",
-          "action": {
-            "type": "create_relationship",
-            "source": "decision_register",
-            "target": "api_policy"
-          }
-        },
-        {
-          "actor": "charlie",
-          "action": {
-            "type": "create_relationship",
-            "source": "incident_index",
-            "target": "incident_017"
-          }
-        },
-        {
-          "actor": "charlie",
-          "action": {
-            "type": "create_relationship",
-            "source": "incident_index",
-            "target": "postmortem_017"
-          }
-        },
-        {
-          "actor": "charlie",
-          "action": {
-            "type": "create_relationship",
-            "source": "incident_index",
-            "target": "runbook_checkout"
-          }
-        },
-        {
-          "actor": "alice",
-          "action": {
-            "type": "create_relationship",
-            "source": "handbook",
-            "target": "org"
-          }
-        },
-        {
-          "actor": "alice",
-          "action": {
-            "type": "create_relationship",
-            "source": "handbook",
-            "target": "architecture"
-          }
-        },
-        {
-          "actor": "alice",
-          "action": {
-            "type": "create_relationship",
-            "source": "handbook",
-            "target": "priorities"
-          }
-        },
-        {
-          "actor": "alice",
-          "action": {
-            "type": "create_relationship",
-            "source": "handbook",
-            "target": "oncall"
-          }
-        },
-        {
-          "actor": "alice",
-          "action": {
-            "type": "create_relationship",
-            "source": "handbook",
-            "target": "onboarding"
-          }
-        },
-        {
-          "actor": "alice",
-          "action": {
-            "type": "create_relationship",
-            "source": "handbook",
-            "target": "glossary"
+            "source": "org",
+            "target": "handbook"
           }
         },
         {
@@ -1561,16 +1431,16 @@
           "actor": "alice",
           "action": {
             "type": "create_relationship",
-            "source": "org",
-            "target": "team_security"
+            "source": "handbook",
+            "target": "onboarding"
           }
         },
         {
-          "actor": "grace",
+          "actor": "alice",
           "action": {
             "type": "create_relationship",
-            "source": "team_product",
-            "target": "console"
+            "source": "onboarding",
+            "target": "glossary"
           }
         },
         {
@@ -1582,75 +1452,11 @@
           }
         },
         {
-          "actor": "grace",
+          "actor": "alice",
           "action": {
             "type": "create_relationship",
-            "source": "team_product",
-            "target": "api_v2"
-          }
-        },
-        {
-          "actor": "bob",
-          "action": {
-            "type": "create_relationship",
-            "source": "team_core",
-            "target": "checkout"
-          }
-        },
-        {
-          "actor": "bob",
-          "action": {
-            "type": "create_relationship",
-            "source": "team_core",
-            "target": "orders"
-          }
-        },
-        {
-          "actor": "bob",
-          "action": {
-            "type": "create_relationship",
-            "source": "team_core",
-            "target": "api_policy"
-          }
-        },
-        {
-          "actor": "bob",
-          "action": {
-            "type": "create_relationship",
-            "source": "team_core",
-            "target": "api_v2"
-          }
-        },
-        {
-          "actor": "charlie",
-          "action": {
-            "type": "create_relationship",
-            "source": "team_platform",
-            "target": "webhooks"
-          }
-        },
-        {
-          "actor": "charlie",
-          "action": {
-            "type": "create_relationship",
-            "source": "team_platform",
-            "target": "relay"
-          }
-        },
-        {
-          "actor": "charlie",
-          "action": {
-            "type": "create_relationship",
-            "source": "team_platform",
-            "target": "oncall"
-          }
-        },
-        {
-          "actor": "charlie",
-          "action": {
-            "type": "create_relationship",
-            "source": "team_platform",
-            "target": "runbook_db"
+            "source": "org",
+            "target": "glossary"
           }
         },
         {
@@ -1670,90 +1476,130 @@
           }
         },
         {
-          "actor": "bob",
+          "actor": "eve",
+          "action": {
+            "type": "create_relationship",
+            "source": "team_security",
+            "target": "agent_policy"
+          }
+        },
+        {
+          "actor": "eve",
+          "action": {
+            "type": "create_relationship",
+            "source": "auth_model",
+            "target": "data_classification"
+          }
+        },
+        {
+          "actor": "alice",
           "action": {
             "type": "create_relationship",
             "source": "architecture",
+            "target": "service_catalog"
+          }
+        },
+        {
+          "actor": "alice",
+          "action": {
+            "type": "create_relationship",
+            "source": "service_catalog",
             "target": "checkout"
           }
         },
         {
-          "actor": "bob",
+          "actor": "alice",
           "action": {
             "type": "create_relationship",
-            "source": "architecture",
+            "source": "service_catalog",
             "target": "orders"
           }
         },
         {
-          "actor": "bob",
+          "actor": "alice",
           "action": {
             "type": "create_relationship",
-            "source": "architecture",
+            "source": "service_catalog",
             "target": "webhooks"
           }
         },
         {
-          "actor": "bob",
+          "actor": "alice",
           "action": {
             "type": "create_relationship",
-            "source": "architecture",
+            "source": "service_catalog",
             "target": "console"
           }
         },
         {
-          "actor": "bob",
+          "actor": "alice",
           "action": {
             "type": "create_relationship",
-            "source": "checkout",
-            "target": "orders"
+            "source": "ownership_standard",
+            "target": "service_catalog"
+          }
+        },
+        {
+          "actor": "alice",
+          "action": {
+            "type": "create_relationship",
+            "source": "ownership_standard",
+            "target": "architecture"
+          }
+        },
+        {
+          "actor": "alice",
+          "action": {
+            "type": "create_relationship",
+            "source": "priorities",
+            "target": "relay"
+          }
+        },
+        {
+          "actor": "alice",
+          "action": {
+            "type": "create_relationship",
+            "source": "priorities",
+            "target": "api_v2"
+          }
+        },
+        {
+          "actor": "alice",
+          "action": {
+            "type": "create_relationship",
+            "source": "priorities",
+            "target": "release_process"
+          }
+        },
+        {
+          "actor": "alice",
+          "action": {
+            "type": "create_relationship",
+            "source": "priorities",
+            "target": "decision_register"
           }
         },
         {
           "actor": "bob",
           "action": {
             "type": "create_relationship",
-            "source": "checkout",
+            "source": "decision_register",
             "target": "adr_webhooks"
           }
         },
         {
-          "actor": "charlie",
+          "actor": "bob",
           "action": {
             "type": "create_relationship",
-            "source": "webhooks",
-            "target": "adr_webhooks"
-          }
-        },
-        {
-          "actor": "charlie",
-          "action": {
-            "type": "create_relationship",
-            "source": "webhooks",
+            "source": "decision_register",
             "target": "rfc_relay"
           }
         },
         {
-          "actor": "charlie",
+          "actor": "bob",
           "action": {
             "type": "create_relationship",
-            "source": "relay",
-            "target": "rfc_relay"
-          }
-        },
-        {
-          "actor": "charlie",
-          "action": {
-            "type": "create_relationship",
-            "source": "relay",
-            "target": "webhooks"
-          }
-        },
-        {
-          "actor": "dave",
-          "action": {
-            "type": "create_relationship",
-            "source": "api_v2",
+            "source": "decision_register",
             "target": "api_policy"
           }
         },
@@ -1761,56 +1607,24 @@
           "actor": "frank",
           "action": {
             "type": "create_relationship",
+            "source": "relay",
+            "target": "rfc_relay"
+          }
+        },
+        {
+          "actor": "bob",
+          "action": {
+            "type": "create_relationship",
             "source": "api_v2",
-            "target": "console"
+            "target": "api_policy"
           }
         },
         {
           "actor": "charlie",
           "action": {
             "type": "create_relationship",
-            "source": "incident_017",
-            "target": "checkout"
-          }
-        },
-        {
-          "actor": "charlie",
-          "action": {
-            "type": "create_relationship",
-            "source": "postmortem_017",
-            "target": "incident_017"
-          }
-        },
-        {
-          "actor": "charlie",
-          "action": {
-            "type": "create_relationship",
-            "source": "postmortem_017",
-            "target": "runbook_checkout"
-          }
-        },
-        {
-          "actor": "charlie",
-          "action": {
-            "type": "create_relationship",
-            "source": "runbook_checkout",
-            "target": "checkout"
-          }
-        },
-        {
-          "actor": "charlie",
-          "action": {
-            "type": "create_relationship",
-            "source": "runbook_checkout",
-            "target": "runbook_db"
-          }
-        },
-        {
-          "actor": "charlie",
-          "action": {
-            "type": "create_relationship",
-            "source": "runbook_webhooks",
-            "target": "webhooks"
+            "source": "oncall",
+            "target": "incident_index"
           }
         },
         {
@@ -1841,96 +1655,32 @@
           "actor": "charlie",
           "action": {
             "type": "create_relationship",
-            "source": "release_process",
-            "target": "oncall"
-          }
-        },
-        {
-          "actor": "bob",
-          "action": {
-            "type": "create_relationship",
-            "source": "ownership_standard",
-            "target": "checkout"
+            "source": "incident_index",
+            "target": "incident_017"
           }
         },
         {
           "actor": "charlie",
           "action": {
             "type": "create_relationship",
-            "source": "ownership_standard",
-            "target": "webhooks"
-          }
-        },
-        {
-          "actor": "eve",
-          "action": {
-            "type": "create_relationship",
-            "source": "auth_model",
-            "target": "data_classification"
-          }
-        },
-        {
-          "actor": "grace",
-          "action": {
-            "type": "create_relationship",
-            "source": "onboarding",
-            "target": "architecture"
-          }
-        },
-        {
-          "actor": "grace",
-          "action": {
-            "type": "create_relationship",
-            "source": "onboarding",
-            "target": "release_process"
-          }
-        },
-        {
-          "actor": "alice",
-          "action": {
-            "type": "create_relationship",
-            "source": "priorities",
-            "target": "relay"
-          }
-        },
-        {
-          "actor": "alice",
-          "action": {
-            "type": "create_relationship",
-            "source": "priorities",
-            "target": "api_v2"
-          }
-        },
-        {
-          "actor": "alice",
-          "action": {
-            "type": "create_relationship",
-            "source": "priorities",
+            "source": "incident_index",
             "target": "postmortem_017"
           }
         },
         {
-          "actor": "alice",
+          "actor": "charlie",
           "action": {
             "type": "create_relationship",
-            "source": "handbook",
-            "target": "agent_model"
+            "source": "postmortem_017",
+            "target": "incident_017"
           }
         },
         {
-          "actor": "alice",
+          "actor": "charlie",
           "action": {
             "type": "create_relationship",
-            "source": "handbook",
-            "target": "skill_catalog"
-          }
-        },
-        {
-          "actor": "alice",
-          "action": {
-            "type": "create_relationship",
-            "source": "agent_model",
-            "target": "agent_policy"
+            "source": "postmortem_017",
+            "target": "runbook_checkout"
           }
         },
         {
@@ -1939,54 +1689,6 @@
             "type": "create_relationship",
             "source": "agent_model",
             "target": "skill_catalog"
-          }
-        },
-        {
-          "actor": "alice",
-          "action": {
-            "type": "create_relationship",
-            "source": "agent_model",
-            "target": "decision_register"
-          }
-        },
-        {
-          "actor": "alice",
-          "action": {
-            "type": "create_relationship",
-            "source": "agent_model",
-            "target": "ownership_standard"
-          }
-        },
-        {
-          "actor": "eve",
-          "action": {
-            "type": "create_relationship",
-            "source": "agent_policy",
-            "target": "auth_model"
-          }
-        },
-        {
-          "actor": "eve",
-          "action": {
-            "type": "create_relationship",
-            "source": "agent_policy",
-            "target": "data_classification"
-          }
-        },
-        {
-          "actor": "eve",
-          "action": {
-            "type": "create_relationship",
-            "source": "agent_policy",
-            "target": "release_process"
-          }
-        },
-        {
-          "actor": "eve",
-          "action": {
-            "type": "create_relationship",
-            "source": "agent_policy",
-            "target": "oncall"
           }
         },
         {
@@ -2064,273 +1766,399 @@
         {
           "actor": "bob",
           "action": {
-            "type": "create_relationship",
-            "source": "skill_repo_change",
-            "target": "service_catalog"
+            "type": "create_comment_thread",
+            "key": "c_priorities_sunset",
+            "object": "priorities",
+            "body": "I would keep the v1 sunset explicitly conditional on reaching the 90% migration target. We are not close enough to make the date feel inevitable yet."
+          }
+        },
+        {
+          "actor": "alice",
+          "action": {
+            "type": "reply_to_comment_thread",
+            "thread": "c_priorities_sunset",
+            "body": "Agreed. The target is a decision gate, not a promised sunset date. I updated the wording in the migration plan to match that."
+          }
+        },
+        {
+          "actor": "charlie",
+          "action": {
+            "type": "create_comment_thread",
+            "key": "c_relay_replay",
+            "object": "rfc_relay",
+            "body": "Can we make replay semantics more explicit before implementation finishes? I care about what happens when a delivery succeeds remotely but we lose the acknowledgement locally."
           }
         },
         {
           "actor": "bob",
           "action": {
-            "type": "create_relationship",
-            "source": "skill_repo_change",
-            "target": "decision_register"
+            "type": "reply_to_comment_thread",
+            "thread": "c_relay_replay",
+            "body": "Yes. The worker should treat that as an at-least-once case and the public contract needs to say consumers must tolerate duplicate delivery."
+          }
+        },
+        {
+          "actor": "frank",
+          "action": {
+            "type": "reply_to_comment_thread",
+            "thread": "c_relay_replay",
+            "body": "I will add the failure matrix to the RFC and link the dashboard fields we use to distinguish retry from first delivery."
+          }
+        },
+        {
+          "actor": "dave",
+          "action": {
+            "type": "create_comment_thread",
+            "key": "c_checkout_pool_alert",
+            "object": "checkout",
+            "body": "The connection-pool alert is still noisy during deploys. Should the warning key off sustained queue time instead of raw utilization?"
+          }
+        },
+        {
+          "actor": "charlie",
+          "action": {
+            "type": "reply_to_comment_thread",
+            "thread": "c_checkout_pool_alert",
+            "body": "Yes, utilization alone is not actionable. Keep saturation on the dashboard but page on queue time plus request latency."
+          }
+        },
+        {
+          "actor": "grace",
+          "action": {
+            "type": "create_comment_thread",
+            "key": "c_postmortem_owner",
+            "object": "postmortem_017",
+            "body": "Action item 3 needs a named owner and a verification date. Otherwise this is the kind of thing we rediscover next incident."
+          }
+        },
+        {
+          "actor": "alice",
+          "action": {
+            "type": "reply_to_comment_thread",
+            "thread": "c_postmortem_owner",
+            "body": "Assigned to Charlie with the next game day as the verification point."
+          }
+        },
+        {
+          "actor": "grace",
+          "action": {
+            "type": "resolve_comment_thread",
+            "thread": "c_postmortem_owner"
+          }
+        },
+        {
+          "actor": "eve",
+          "action": {
+            "type": "create_comment_thread",
+            "key": "c_agent_prod_scope",
+            "object": "agent_policy",
+            "body": "I want the production read-access section to say scoped and time-bounded explicitly. Read-only is still too broad if an agent can enumerate every tenant."
+          }
+        },
+        {
+          "actor": "charlie",
+          "action": {
+            "type": "reply_to_comment_thread",
+            "thread": "c_agent_prod_scope",
+            "body": "Makes sense. Platform can issue service-scoped credentials for investigations instead of reusing the general operator role."
+          }
+        },
+        {
+          "actor": "eve",
+          "action": {
+            "type": "resolve_comment_thread",
+            "thread": "c_agent_prod_scope"
           }
         },
         {
           "actor": "bob",
           "action": {
-            "type": "create_relationship",
-            "source": "skill_repo_change",
-            "target": "release_process"
+            "type": "create_comment_thread",
+            "key": "c_skill_repo_tests",
+            "object": "skill_repo_change",
+            "body": "Should this skill require the agent to state the test plan before editing? It would make large mechanical patches easier to review."
+          }
+        },
+        {
+          "actor": "alice",
+          "action": {
+            "type": "reply_to_comment_thread",
+            "thread": "c_skill_repo_tests",
+            "body": "For non-trivial changes, yes. I would keep tiny documentation-only edits exempt so the skill does not become ceremony."
+          }
+        },
+        {
+          "actor": "charlie",
+          "action": {
+            "type": "create_comment_thread",
+            "key": "c_skill_incident_handoff",
+            "object": "skill_incident",
+            "body": "Please add an explicit handoff point when diagnosis reaches a production mutation. The agent can recommend the runbook step, but the incident commander should own the decision."
           }
         },
         {
           "actor": "eve",
           "action": {
-            "type": "create_relationship",
-            "source": "skill_api_review",
-            "target": "api_policy"
-          }
-        },
-        {
-          "actor": "eve",
-          "action": {
-            "type": "create_relationship",
-            "source": "skill_api_review",
-            "target": "api_v2"
-          }
-        },
-        {
-          "actor": "eve",
-          "action": {
-            "type": "create_relationship",
-            "source": "skill_api_review",
-            "target": "auth_model"
-          }
-        },
-        {
-          "actor": "charlie",
-          "action": {
-            "type": "create_relationship",
-            "source": "skill_release",
-            "target": "release_process"
-          }
-        },
-        {
-          "actor": "charlie",
-          "action": {
-            "type": "create_relationship",
-            "source": "skill_release",
-            "target": "oncall"
-          }
-        },
-        {
-          "actor": "charlie",
-          "action": {
-            "type": "create_relationship",
-            "source": "skill_release",
-            "target": "ownership_standard"
-          }
-        },
-        {
-          "actor": "charlie",
-          "action": {
-            "type": "create_relationship",
-            "source": "skill_incident",
-            "target": "oncall"
-          }
-        },
-        {
-          "actor": "charlie",
-          "action": {
-            "type": "create_relationship",
-            "source": "skill_incident",
-            "target": "incident_index"
-          }
-        },
-        {
-          "actor": "charlie",
-          "action": {
-            "type": "create_relationship",
-            "source": "skill_incident",
-            "target": "service_catalog"
-          }
-        },
-        {
-          "actor": "dave",
-          "action": {
-            "type": "create_relationship",
-            "source": "skill_checkout",
-            "target": "checkout"
-          }
-        },
-        {
-          "actor": "dave",
-          "action": {
-            "type": "create_relationship",
-            "source": "skill_checkout",
-            "target": "runbook_checkout"
-          }
-        },
-        {
-          "actor": "dave",
-          "action": {
-            "type": "create_relationship",
-            "source": "skill_checkout",
-            "target": "postmortem_017"
-          }
-        },
-        {
-          "actor": "dave",
-          "action": {
-            "type": "create_relationship",
-            "source": "skill_checkout",
-            "target": "runbook_db"
-          }
-        },
-        {
-          "actor": "charlie",
-          "action": {
-            "type": "create_relationship",
-            "source": "skill_webhook",
-            "target": "webhooks"
-          }
-        },
-        {
-          "actor": "charlie",
-          "action": {
-            "type": "create_relationship",
-            "source": "skill_webhook",
-            "target": "runbook_webhooks"
-          }
-        },
-        {
-          "actor": "charlie",
-          "action": {
-            "type": "create_relationship",
-            "source": "skill_webhook",
-            "target": "relay"
-          }
-        },
-        {
-          "actor": "charlie",
-          "action": {
-            "type": "create_relationship",
-            "source": "skill_db_failover",
-            "target": "runbook_db"
-          }
-        },
-        {
-          "actor": "charlie",
-          "action": {
-            "type": "create_relationship",
-            "source": "skill_db_failover",
-            "target": "architecture"
-          }
-        },
-        {
-          "actor": "charlie",
-          "action": {
-            "type": "create_relationship",
-            "source": "skill_db_failover",
-            "target": "oncall"
-          }
-        },
-        {
-          "actor": "frank",
-          "action": {
-            "type": "create_relationship",
-            "source": "skill_postmortem",
-            "target": "incident_index"
-          }
-        },
-        {
-          "actor": "frank",
-          "action": {
-            "type": "create_relationship",
-            "source": "skill_postmortem",
-            "target": "postmortem_017"
-          }
-        },
-        {
-          "actor": "frank",
-          "action": {
-            "type": "create_relationship",
-            "source": "skill_postmortem",
-            "target": "skill_catalog"
+            "type": "reply_to_comment_thread",
+            "thread": "c_skill_incident_handoff",
+            "body": "Strong +1. That boundary should match the approval policy verbatim so we only have one rule."
           }
         },
         {
           "actor": "grace",
           "action": {
-            "type": "create_relationship",
-            "source": "skill_knowledge",
-            "target": "service_catalog"
-          }
-        },
-        {
-          "actor": "grace",
-          "action": {
-            "type": "create_relationship",
-            "source": "skill_knowledge",
-            "target": "decision_register"
-          }
-        },
-        {
-          "actor": "grace",
-          "action": {
-            "type": "create_relationship",
-            "source": "skill_knowledge",
-            "target": "incident_index"
-          }
-        },
-        {
-          "actor": "grace",
-          "action": {
-            "type": "create_relationship",
-            "source": "skill_knowledge",
-            "target": "skill_catalog"
-          }
-        },
-        {
-          "actor": "grace",
-          "action": {
-            "type": "create_relationship",
-            "source": "onboarding",
-            "target": "agent_model"
-          }
-        },
-        {
-          "actor": "grace",
-          "action": {
-            "type": "create_relationship",
-            "source": "onboarding",
-            "target": "skill_catalog"
+            "type": "create_comment_thread",
+            "key": "c_api_v2_cohort",
+            "object": "api_v2",
+            "body": "Merchant cohort 3 still has two integrations depending on the old pagination behavior. Do we want a compatibility shim or should we hold that cohort?"
           }
         },
         {
           "actor": "bob",
           "action": {
-            "type": "create_relationship",
-            "source": "team_core",
-            "target": "skill_api_review"
+            "type": "reply_to_comment_thread",
+            "thread": "c_api_v2_cohort",
+            "body": "Hold the cohort for now. A shim would extend behavior we are specifically trying to remove."
+          }
+        },
+        {
+          "actor": "alice",
+          "action": {
+            "type": "reply_to_comment_thread",
+            "thread": "c_api_v2_cohort",
+            "body": "Please capture the two blockers in the migration tracker. If the same issue appears in another cohort we can revisit."
+          }
+        },
+        {
+          "actor": "frank",
+          "action": {
+            "type": "create_comment_thread",
+            "key": "c_db_failover_region",
+            "object": "runbook_db",
+            "body": "Step 6 should say which region is authoritative after promotion. During the last game day we had two people checking different dashboards."
           }
         },
         {
           "actor": "charlie",
           "action": {
-            "type": "create_relationship",
-            "source": "team_platform",
-            "target": "skill_incident"
+            "type": "reply_to_comment_thread",
+            "thread": "c_db_failover_region",
+            "body": "Good catch. I added the control-plane check before application traffic is reopened."
+          }
+        },
+        {
+          "actor": "frank",
+          "action": {
+            "type": "resolve_comment_thread",
+            "thread": "c_db_failover_region"
+          }
+        },
+        {
+          "actor": "alice",
+          "action": {
+            "type": "create_comment_thread",
+            "key": "c_service_catalog_owner",
+            "object": "service_catalog",
+            "body": "The dependency from Checkout API to the event delivery path is documented, but the escalation owner is not obvious from this page."
+          }
+        },
+        {
+          "actor": "bob",
+          "action": {
+            "type": "reply_to_comment_thread",
+            "thread": "c_service_catalog_owner",
+            "body": "I will add Core Services as the application owner and Platform as the infrastructure escalation, rather than a single ambiguous owner field."
+          }
+        },
+        {
+          "actor": "grace",
+          "action": {
+            "type": "create_comment_thread",
+            "key": "c_onboarding_bootstrap",
+            "object": "onboarding",
+            "body": "This assumes the local development environment is already working before day one. Can we link the bootstrap path directly from the first-day checklist?"
+          }
+        },
+        {
+          "actor": "dave",
+          "action": {
+            "type": "reply_to_comment_thread",
+            "thread": "c_onboarding_bootstrap",
+            "body": "Yes. I also want a known-good smoke test there so new engineers can tell setup problems from application problems."
+          }
+        },
+        {
+          "actor": "alice",
+          "action": {
+            "type": "create_comment_thread",
+            "key": "c_skill_knowledge_promotion",
+            "object": "skill_knowledge",
+            "body": "Can we explicitly say that repeated findings should be promoted into durable knowledge instead of accumulating in task transcripts? That is the behavior I want agents to learn."
+          }
+        },
+        {
+          "actor": "bob",
+          "action": {
+            "type": "reply_to_comment_thread",
+            "thread": "c_skill_knowledge_promotion",
+            "body": "Yes. I would use three examples: a service fact goes to the service page, a repeatable procedure becomes a skill/runbook, and a trade-off becomes an ADR or RFC."
+          }
+        },
+        {
+          "actor": "frank",
+          "action": {
+            "type": "create_comment_thread",
+            "key": "c_webhook_dashboard",
+            "object": "webhooks",
+            "body": "The backlog section should link the per-destination retry histogram. The aggregate queue depth hid the partner-specific failure last week."
+          }
+        },
+        {
+          "actor": "charlie",
+          "action": {
+            "type": "reply_to_comment_thread",
+            "thread": "c_webhook_dashboard",
+            "body": "Added to the runbook. I am leaving aggregate depth as the first signal but the next step now breaks it down by destination."
+          }
+        },
+        {
+          "actor": "frank",
+          "action": {
+            "type": "resolve_comment_thread",
+            "thread": "c_webhook_dashboard"
+          }
+        },
+        {
+          "actor": "dave",
+          "action": {
+            "type": "create_comment_thread",
+            "key": "c_release_canary",
+            "object": "release_process",
+            "body": "Is the 15 minute canary window still enough for Checkout API? Most of the slow pool failures show up only after traffic has ramped for a while."
+          }
+        },
+        {
+          "actor": "charlie",
+          "action": {
+            "type": "reply_to_comment_thread",
+            "thread": "c_release_canary",
+            "body": "For tier-1 services treat 15 minutes as the minimum, not the completion condition. The SLO and saturation signals need to be stable at representative traffic."
+          }
+        },
+        {
+          "actor": "dave",
+          "action": {
+            "type": "create_comment_thread",
+            "key": "c_handbook_decisions",
+            "object": "handbook",
+            "body": "The handbook says decisions should be durable, but it does not say when a discussion has crossed the threshold for an ADR. Can we make that trigger less subjective?"
+          }
+        },
+        {
+          "actor": "alice",
+          "action": {
+            "type": "reply_to_comment_thread",
+            "thread": "c_handbook_decisions",
+            "body": "Good point. I will use “changes a shared constraint or is expensive to reverse” as the default trigger and keep small local choices in the owning object."
+          }
+        },
+        {
+          "actor": "bob",
+          "action": {
+            "type": "create_comment_thread",
+            "key": "c_architecture_queue",
+            "object": "architecture",
+            "body": "The diagram text still makes the webhook queue look like part of checkout. Can we call out that enqueue is the boundary and delivery is independently recoverable?"
+          }
+        },
+        {
+          "actor": "frank",
+          "action": {
+            "type": "reply_to_comment_thread",
+            "thread": "c_architecture_queue",
+            "body": "Yes. That distinction is also what we use operationally, so I will mirror the wording from the Relay RFC."
+          }
+        },
+        {
+          "actor": "bob",
+          "action": {
+            "type": "resolve_comment_thread",
+            "thread": "c_architecture_queue"
+          }
+        },
+        {
+          "actor": "frank",
+          "action": {
+            "type": "create_comment_thread",
+            "key": "c_oncall_secondary",
+            "object": "oncall",
+            "body": "Do we still need a named secondary for every incident? For most SEV-3s the second person joins only if escalation is needed."
+          }
+        },
+        {
+          "actor": "charlie",
+          "action": {
+            "type": "reply_to_comment_thread",
+            "thread": "c_oncall_secondary",
+            "body": "Not for SEV-3. Keep primary + incident channel, then pull a second engineer when the scope crosses a service boundary or the incident is promoted."
+          }
+        },
+        {
+          "actor": "dave",
+          "action": {
+            "type": "create_comment_thread",
+            "key": "c_skill_catalog_scope",
+            "object": "skill_catalog",
+            "body": "A few skills are getting very service-specific. I think the catalog should distinguish organization-wide skills from service-local skills so agents do not load everything."
+          }
+        },
+        {
+          "actor": "alice",
+          "action": {
+            "type": "reply_to_comment_thread",
+            "thread": "c_skill_catalog_scope",
+            "body": "Agreed. The catalog should stay small at the top level; service pages can point to the narrower skills that are relevant in that context."
+          }
+        },
+        {
+          "actor": "grace",
+          "action": {
+            "type": "create_comment_thread",
+            "key": "c_api_policy_errors",
+            "object": "api_policy",
+            "body": "Can we treat error-code removal the same as response-field removal here? Integrators are branching on some of the current codes even though we never documented them well."
+          }
+        },
+        {
+          "actor": "bob",
+          "action": {
+            "type": "reply_to_comment_thread",
+            "thread": "c_api_policy_errors",
+            "body": "Yes for codes we have emitted consistently. Undocumented does not mean unused. I will add error semantics to the compatibility checklist."
+          }
+        },
+        {
+          "actor": "grace",
+          "action": {
+            "type": "resolve_comment_thread",
+            "thread": "c_api_policy_errors"
           }
         },
         {
           "actor": "eve",
           "action": {
-            "type": "create_relationship",
-            "source": "team_security",
-            "target": "agent_policy"
+            "type": "create_comment_thread",
+            "key": "c_ownership_security",
+            "object": "ownership_standard",
+            "body": "For tier-1 services I would add a security contact or reviewed threat model location. “Owning team” is not enough during an auth-related incident."
+          }
+        },
+        {
+          "actor": "alice",
+          "action": {
+            "type": "reply_to_comment_thread",
+            "thread": "c_ownership_security",
+            "body": "Makes sense. I prefer linking the reviewed security context rather than naming a person, so the ownership survives team changes."
           }
         }
       ]
