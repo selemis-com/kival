@@ -273,13 +273,17 @@ export function KivalApp() {
       socket.addEventListener("message", handleMessage);
       socket.addEventListener("close", (event) => {
         socket = null;
+        if (stopped) {
+          return;
+        }
+
         if (event.code === REALTIME_CREDENTIAL_INACTIVE_CLOSE_CODE) {
-          stopped = true;
-          if (retryTimer !== null) {
-            window.clearTimeout(retryTimer);
-            retryTimer = null;
-          }
-          clearAuthenticatedState("Your session is no longer active. Sign in again.");
+          // Fresh passkey authentication rotates the browser session. The existing
+          // realtime connection is still bound to the replaced session and is
+          // therefore closed as inactive even though the browser now has a valid
+          // replacement session. Revalidate the current cookie before treating the
+          // close as a logout.
+          void verifySessionAndConnect();
           return;
         }
 
