@@ -13,11 +13,12 @@ use std::{
 use eyre::{Context, Result, bail, eyre};
 use kival_kernel::{
     CreateInitialObject, EventInsert, EventKind, GrantPrincipal, MembershipRole, ObjectRole,
-    UpdateObjectVersion, append_event, create_comment, create_comment_thread, create_initial_object,
-    create_object_edge, create_object_grant, create_user, create_workspace,
-    create_workspace_membership, lock_admin_provisioning, lock_user_for_operator,
-    maintain_object_references, set_thread_resolved, set_user_disabled_as_operator,
-    touch_comment_thread, update_object_version,
+    UpdateObjectVersion, append_event, archive_object, create_comment, create_comment_thread,
+    create_initial_object, create_object_edge, create_object_grant, create_user, create_workspace,
+    create_workspace_membership, fetch_object_in_tx, lock_admin_provisioning,
+    lock_user_for_operator, maintain_object_references, re_resolve_current_wikilinks_for_titles,
+    set_thread_resolved, set_user_disabled_as_operator, touch_comment_thread,
+    update_object_version,
 };
 use serde::Deserialize;
 use serde_json::{Value, json};
@@ -25,7 +26,7 @@ use sqlx::{PgPool, Postgres, Transaction};
 use uuid::Uuid;
 
 /// Schema version understood by the bundled initializer catalog parser.
-const SCHEMA_VERSION: u32 = 2;
+const SCHEMA_VERSION: u32 = 3;
 /// Bundled JSON catalog containing reusable templates and demo scenarios.
 const CATALOG: &str = include_str!("catalog.json");
 
@@ -225,6 +226,11 @@ enum SeedAction {
     ResolveCommentThread {
         /// Recipe-local key of the thread to resolve.
         thread: String,
+    },
+    /// Archives a previously created object while retaining it in workspace history.
+    ArchiveObject {
+        /// Recipe-local key of the object to archive.
+        object: String,
     },
 }
 
@@ -615,30 +621,55 @@ async fn execute_action(
             let thread = *comment_threads.get(thread).ok_or_else(|| {
                 eyre!("initializer references unknown commentary thread {thread:?}")
             })?;
-            reply_to_seed_comment_thread(
-                tx,
-                context.workspace_id,
-                context.actor_id,
-                thread,
-                body,
-            )
-            .await?;
+            reply_to_seed_comment_thread(tx, context.workspace_id, context.actor_id, thread, body)
+                .await?;
         }
         SeedAction::ResolveCommentThread { thread } => {
             let thread = *comment_threads.get(thread).ok_or_else(|| {
                 eyre!("initializer references unknown commentary thread {thread:?}")
             })?;
-            resolve_seed_comment_thread(
-                tx,
-                context.workspace_id,
-                context.actor_id,
-                thread,
-            )
-            .await?;
+            resolve_seed_comment_thread(tx, context.workspace_id, context.actor_id, thread).await?;
+        }
+        SeedAction::ArchiveObject { object } => {
+            let state = *objects
+                .get(object)
+                .ok_or_else(|| eyre!("initializer archives unknown object {object:?}"))?;
+            archive_seed_object(tx, context.workspace_id, context.actor_id, state).await?;
         }
     }
 
     Ok(())
+}
+
+/// Archives one seeded object with the same lifecycle and reference semantics as the normal API.
+async fn archive_seed_object(
+    tx: &mut Transaction<'_, Postgres>,
+    workspace_id: Uuid,
+    actor_id: Uuid,
+    state: SeedObjectState,
+) -> Result<()> {
+    archive_object(tx, workspace_id, state.object_id, actor_id)
+        .await
+        .wrap_err("failed to archive initialized object")?;
+
+    let object = fetch_object_in_tx(tx, workspace_id, state.object_id)
+        .await
+        .wrap_err("failed to fetch archived initialized object")?;
+    let affected_titles = vec![object.title.clone()];
+    let reresolution = re_resolve_current_wikilinks_for_titles(tx, workspace_id, &affected_titles)
+        .await
+        .wrap_err("failed to re-resolve references after initialized object archive")?;
+
+    emit(
+        tx,
+        EventInsert::new(actor_id, EventKind::ObjectArchived, json!({ "object_id": object.id }))
+            .workspace(workspace_id)
+            .object(object.id),
+    )
+    .await?;
+
+    emit_reresolution_event(tx, workspace_id, actor_id, object.id, &affected_titles, reresolution)
+        .await
 }
 
 /// Seeds personal pins and favorites for the real workspace owner.
@@ -702,17 +733,9 @@ async fn create_seed_comment_thread(
     let thread_id = create_comment_thread(tx, workspace_id, object_id, actor_id)
         .await
         .wrap_err("failed to create initialized comment thread")?;
-    let comment_id = create_comment(
-        tx,
-        workspace_id,
-        object_id,
-        thread_id,
-        None,
-        actor_id,
-        body,
-    )
-    .await
-    .wrap_err("failed to create initialized comment")?;
+    let comment_id = create_comment(tx, workspace_id, object_id, thread_id, None, actor_id, body)
+        .await
+        .wrap_err("failed to create initialized comment")?;
 
     emit(
         tx,
@@ -786,16 +809,9 @@ async fn resolve_seed_comment_thread(
     actor_id: Uuid,
     thread: SeedCommentThreadState,
 ) -> Result<()> {
-    set_thread_resolved(
-        tx,
-        workspace_id,
-        thread.object_id,
-        thread.thread_id,
-        actor_id,
-        true,
-    )
-    .await
-    .wrap_err("failed to resolve initialized comment thread")?;
+    set_thread_resolved(tx, workspace_id, thread.object_id, thread.thread_id, actor_id, true)
+        .await
+        .wrap_err("failed to resolve initialized comment thread")?;
 
     emit(
         tx,
@@ -1170,9 +1186,7 @@ fn resolve_initializer<'a>(
             bail!("unknown workspace template {:?}", initializer.id)
         }
         WorkspaceInitializerKind::Demo => {
-            if let Some(recipe) =
-                catalog.demos.iter().find(|recipe| recipe.id == initializer.id)
-            {
+            if let Some(recipe) = catalog.demos.iter().find(|recipe| recipe.id == initializer.id) {
                 return Ok(Some(ResolvedInitializer::Demo(recipe)));
             }
             if catalog.templates.iter().any(|recipe| recipe.id == initializer.id) {
@@ -1248,12 +1262,22 @@ fn validate_demo_owner_markers(recipe: &DemoRecipe, actions: &[SeedAction]) -> R
             _ => None,
         })
         .collect::<HashSet<_>>();
+    let archived_object_keys = actions
+        .iter()
+        .filter_map(|action| match action {
+            SeedAction::ArchiveObject { object } => Some(object.as_str()),
+            _ => None,
+        })
+        .collect::<HashSet<_>>();
 
     for (kind, keys) in [("pin", &recipe.owner_pins), ("favorite", &recipe.owner_favorites)] {
         let mut seen = HashSet::new();
         for key in keys {
             if !object_keys.contains(key.as_str()) {
                 bail!("demo {:?} owner {kind} references unknown object {key:?}", recipe.id);
+            }
+            if archived_object_keys.contains(key.as_str()) {
+                bail!("demo {:?} owner {kind} references archived object {key:?}", recipe.id);
             }
             if !seen.insert(key.as_str()) {
                 bail!("demo {:?} declares duplicate owner {kind} for object {key:?}", recipe.id);
@@ -1321,6 +1345,7 @@ fn validate_demo_actor(key: &str, actor: &DemoActor) -> Result<()> {
 /// Validates seed action ordering and all recipe-local object references.
 fn validate_actions(actions: &[SeedAction]) -> Result<()> {
     let mut objects = HashSet::new();
+    let mut archived_objects = HashSet::new();
     let mut comment_threads = HashSet::new();
     let mut resolved_comment_threads = HashSet::new();
 
@@ -1342,6 +1367,9 @@ fn validate_actions(actions: &[SeedAction]) -> Result<()> {
                 if !objects.contains(object.as_str()) {
                     bail!("initializer updates object {object:?} before it is created");
                 }
+                if archived_objects.contains(object.as_str()) {
+                    bail!("initializer updates archived object {object:?}");
+                }
                 if title.is_none() && body.is_none() && metadata.is_none() {
                     bail!("initializer update for {object:?} must change at least one field");
                 }
@@ -1359,6 +1387,12 @@ fn validate_actions(actions: &[SeedAction]) -> Result<()> {
                 if !objects.contains(target.as_str()) {
                     bail!("initializer relationship target {target:?} is not created yet");
                 }
+                if archived_objects.contains(source.as_str()) {
+                    bail!("initializer relationship source {source:?} is archived");
+                }
+                if archived_objects.contains(target.as_str()) {
+                    bail!("initializer relationship target {target:?} is archived");
+                }
                 if source == target {
                     bail!("initializer relationship cannot connect object {source:?} to itself");
                 }
@@ -1373,13 +1407,18 @@ fn validate_actions(actions: &[SeedAction]) -> Result<()> {
                 if !objects.contains(object.as_str()) {
                     bail!("initializer commentary object {object:?} is not created yet");
                 }
+                if archived_objects.contains(object.as_str()) {
+                    bail!("initializer commentary object {object:?} is archived");
+                }
                 if body.trim().is_empty() {
                     bail!("initializer commentary thread {key:?} body must not be empty");
                 }
             }
             SeedAction::ReplyToCommentThread { thread, body } => {
                 if !comment_threads.contains(thread.as_str()) {
-                    bail!("initializer replies to commentary thread {thread:?} before it is created");
+                    bail!(
+                        "initializer replies to commentary thread {thread:?} before it is created"
+                    );
                 }
                 if resolved_comment_threads.contains(thread.as_str()) {
                     bail!("initializer replies to resolved commentary thread {thread:?}");
@@ -1394,6 +1433,14 @@ fn validate_actions(actions: &[SeedAction]) -> Result<()> {
                 }
                 if !resolved_comment_threads.insert(thread.as_str()) {
                     bail!("initializer resolves commentary thread {thread:?} more than once");
+                }
+            }
+            SeedAction::ArchiveObject { object } => {
+                if !objects.contains(object.as_str()) {
+                    bail!("initializer archives object {object:?} before it is created");
+                }
+                if !archived_objects.insert(object.as_str()) {
+                    bail!("initializer archives object {object:?} more than once");
                 }
             }
         }
@@ -1491,7 +1538,7 @@ mod tests {
         record_bootstrap_completed(&mut tx, admin.id, "admin", Uuid::now_v7()).await?;
         tx.commit().await?;
 
-        let initializer = super::WorkspaceInitializer::demo("acme-engineering");
+        let initializer = WorkspaceInitializer::demo("acme-engineering");
         let created =
             super::create_workspace_as_operator(&pool, "Kival Demo", None, Some(&initializer))
                 .await?;
@@ -1502,7 +1549,38 @@ mod tests {
         .bind(created.workspace_id)
         .fetch_one(&pool)
         .await?;
-        assert_eq!(object_count, 45);
+        assert_eq!(object_count, 47);
+
+        let archived_object_count = sqlx::query_scalar::<_, i64>(
+            "SELECT COUNT(*) FROM kival.objects WHERE workspace_id = $1 AND archived_at IS NOT NULL",
+        )
+        .bind(created.workspace_id)
+        .fetch_one(&pool)
+        .await?;
+        assert_eq!(archived_object_count, 2);
+
+        let archived_titles = sqlx::query_scalar::<_, String>(
+            r#"
+            SELECT current_version.title
+            FROM kival.objects object
+            JOIN kival.object_versions current_version
+              ON current_version.object_id = object.id
+             AND current_version.id = object.current_version_id
+            WHERE object.workspace_id = $1
+              AND object.archived_at IS NOT NULL
+            ORDER BY current_version.title
+            "#,
+        )
+        .bind(created.workspace_id)
+        .fetch_all(&pool)
+        .await?;
+        assert_eq!(
+            archived_titles,
+            vec![
+                "Project Atlas: Checkout extraction".to_owned(),
+                "Runbook: Manual production deploy (legacy)".to_owned(),
+            ]
+        );
 
         let membership_count = sqlx::query_scalar::<_, i64>(
             "SELECT COUNT(*) FROM kival.workspace_memberships WHERE workspace_id = $1 AND revoked_at IS NULL",
@@ -1570,7 +1648,15 @@ mod tests {
         .bind(created.workspace_id)
         .fetch_one(&pool)
         .await?;
-        assert_eq!(object_count, 45);
+        assert_eq!(object_count, 47);
+
+        let active_object_count = sqlx::query_scalar::<_, i64>(
+            "SELECT COUNT(*) FROM kival.objects WHERE workspace_id = $1 AND archived_at IS NULL",
+        )
+        .bind(created.workspace_id)
+        .fetch_one(&pool)
+        .await?;
+        assert_eq!(active_object_count, 45);
 
         let edge_count = sqlx::query_scalar::<_, i64>(
             "SELECT COUNT(*) FROM kival.object_edges WHERE workspace_id = $1 AND revoked_at IS NULL",

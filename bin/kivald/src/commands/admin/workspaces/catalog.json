@@ -1,5 +1,5 @@
 {
-  "schema_version": 2,
+  "schema_version": 3,
   "templates": [
     {
       "id": "project",
@@ -2159,6 +2159,70 @@
             "type": "reply_to_comment_thread",
             "thread": "c_ownership_security",
             "body": "Makes sense. I prefer linking the reviewed security context rather than naming a person, so the ownership survives team changes."
+          }
+        },
+        {
+          "actor": "bob",
+          "action": {
+            "type": "create_object",
+            "key": "project_atlas",
+            "title": "Project Atlas: Checkout extraction",
+            "body": "# Project Atlas: Checkout extraction\n\nProject Atlas moved checkout orchestration out of the original application monolith into the independently deployable Checkout API. The migration completed in November 2025 after dual-running both paths for six weeks.\n\n## Outcome\n\n- Checkout deploys no longer require a Merchant Console release.\n- Order creation has a separately owned reliability budget.\n- The old in-process checkout path was removed after the rollback window closed.\n\n## Why this is archived\n\nThe project is complete and its enduring architectural consequences are documented in the current service and architecture material. This object is retained for historical context when investigating older commits, dashboards, or incident references.",
+            "metadata": {
+              "kind": "project",
+              "status": "completed",
+              "owner": "Core Services",
+              "completed": "2025-11",
+              "labels": [
+                "demo",
+                "engineering",
+                "historical",
+                "checkout"
+              ],
+              "aliases": [
+                "Project Atlas",
+                "checkout extraction project"
+              ]
+            }
+          }
+        },
+        {
+          "actor": "bob",
+          "action": {
+            "type": "archive_object",
+            "object": "project_atlas"
+          }
+        },
+        {
+          "actor": "dave",
+          "action": {
+            "type": "create_object",
+            "key": "legacy_deploy_runbook",
+            "title": "Runbook: Manual production deploy (legacy)",
+            "body": "# Runbook: Manual production deploy (legacy)\n\nThis was the emergency procedure used before ACME standardized the production release pipeline. It described building an artifact locally, uploading it to the deployment host, and advancing instances one at a time.\n\nThe procedure was retired after signed CI artifacts, automated rollout health checks, and one-command rollback became mandatory. Do not use these steps for a current production release.\n\nThe document is kept only because older incident reviews and shell history may refer to commands from this workflow.",
+            "metadata": {
+              "kind": "runbook",
+              "status": "retired",
+              "owner": "Platform & Reliability",
+              "retired": "2026-02",
+              "labels": [
+                "demo",
+                "engineering",
+                "historical",
+                "release"
+              ],
+              "aliases": [
+                "manual deploy runbook",
+                "legacy deployment procedure"
+              ]
+            }
+          }
+        },
+        {
+          "actor": "dave",
+          "action": {
+            "type": "archive_object",
+            "object": "legacy_deploy_runbook"
           }
         }
       ]
