@@ -303,6 +303,42 @@ mod tests {
         assert!(matches!(admin.command, AdminSubcommand::Users(_)));
     }
     #[test]
+    fn operator_workspace_initialization_is_admin_only_cli_surface() {
+        let cli = Cli::try_parse_from([
+            "kivald",
+            "admin",
+            "workspaces",
+            "create",
+            "--name",
+            "Kival Demo",
+            "--demo",
+            "product-engineering",
+        ])
+        .expect("operator demo workspace creation should parse");
+
+        let Commands::Admin(admin) = cli.command else {
+            panic!("admin command should parse");
+        };
+        assert!(matches!(admin.command, AdminSubcommand::Workspaces(_)));
+
+        assert!(
+            Cli::try_parse_from([
+                "kivald",
+                "admin",
+                "workspaces",
+                "create",
+                "--name",
+                "Invalid",
+                "--template",
+                "project",
+                "--demo",
+                "product-engineering",
+            ])
+            .is_err()
+        );
+    }
+
+    #[test]
     fn deployment_operator_recovery_accepts_user_identity() {
         let cli = Cli::try_parse_from(["kivald", "admin", "recover", "kival-user"])
             .expect("operator recovery should parse");

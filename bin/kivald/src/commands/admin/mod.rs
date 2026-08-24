@@ -16,6 +16,7 @@ use crate::{
     ServerConfig,
     commands::admin::{
         bootstrap::AdminBootstrapCommand, recovery::AdminRecoverCommand, users::AdminUsersCommand,
+        workspaces::AdminWorkspacesCommand,
     },
     database::connect_options_from_env,
 };
@@ -23,6 +24,7 @@ use crate::{
 mod bootstrap;
 mod recovery;
 mod users;
+mod workspaces;
 
 /// The `admin` command arguments.
 #[derive(Debug, Parser, Serialize)]
@@ -55,6 +57,10 @@ pub(crate) enum AdminSubcommand {
     /// Provision, disable, and enable users.
     #[command(name = "users")]
     Users(AdminUsersCommand),
+
+    /// Create workspaces with optional one-shot administrative initialization.
+    #[command(name = "workspaces")]
+    Workspaces(AdminWorkspacesCommand),
 }
 
 /// Configuration overrides accepted by deployment-operator commands.
@@ -90,6 +96,7 @@ impl AdminCommand {
             AdminSubcommand::Bootstrap(command) => command.run(db_pool, origin).await,
             AdminSubcommand::Recover(command) => command.run(db_pool, origin).await,
             AdminSubcommand::Users(command) => command.run(db_pool, origin).await,
+            AdminSubcommand::Workspaces(command) => command.run(db_pool).await,
         }
     }
 }

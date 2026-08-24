@@ -242,7 +242,7 @@ export function InboxPage({
   onLogout,
 }: Props) {
   const navigate = useNavigate();
-  const [filter, setFilter] = useState<InboxFilter>("all");
+  const [filter, setFilter] = useState<InboxFilter>("unread");
   const [workspaceId, setWorkspaceId] = useState<string>("");
   const [updatingId, setUpdatingId] = useState<string | null>(null);
   const [markingAllRead, setMarkingAllRead] = useState(false);

@@ -181,7 +181,6 @@ pub async fn list_inbox_entries(
             AND object_current_version.id = object.current_version_id
         LEFT JOIN kival.users actor
             ON actor.id = inbox.actor_user_id
-            AND actor.disabled_at IS NULL
         LEFT JOIN kival.comments comment
             ON comment.workspace_id = inbox.workspace_id
             AND comment.object_id = inbox.object_id
@@ -291,7 +290,6 @@ pub async fn update_inbox_entry_read_state(
             AND object_current_version.id = object.current_version_id
         LEFT JOIN kival.users actor
             ON actor.id = updated.actor_user_id
-            AND actor.disabled_at IS NULL
         LEFT JOIN kival.comments comment
             ON comment.workspace_id = updated.workspace_id
             AND comment.object_id = updated.object_id

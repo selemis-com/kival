@@ -173,9 +173,8 @@ impl Server {
     ///
     /// # Errors
     ///
-    /// Returns an error if the TCP listener cannot bind, the local address cannot be read,
-    /// notification projection cannot be initialized or continue running, or the HTTP server
-    /// fails while serving requests.
+    /// Returns an error if the TCP listener cannot bind, notification projection cannot be
+    /// initialized or continue running, or the HTTP server fails while serving requests.
     pub async fn run(self, bind_addr: SocketAddr) -> Result<()> {
         self.run_with_graceful_shutdown(bind_addr, std::future::pending()).await
     }
@@ -184,9 +183,8 @@ impl Server {
     ///
     /// # Errors
     ///
-    /// Returns an error if the TCP listener cannot bind, the local address cannot be read,
-    /// notification projection cannot be initialized or continue running, or the HTTP server
-    /// fails while serving requests.
+    /// Returns an error if the TCP listener cannot bind, notification projection cannot be
+    /// initialized or continue running, or the HTTP server fails while serving requests.
     ///
     /// # Panics
     ///
@@ -197,9 +195,12 @@ impl Server {
         shutdown: impl Future<Output = ()> + Send + 'static,
     ) -> Result<()> {
         let listener = TcpListener::bind(bind_addr).await?;
-        let local_address = listener.local_addr()?;
 
-        info!(target: "kival::server", "Kival available at: http://{local_address}");
+        info!(
+            target: "kival::server",
+            "Kival available at: {}",
+            self.state.webauthn().origin()
+        );
 
         let api_version_prefix = API_PREFIX
             .strip_prefix(API_ROOT)

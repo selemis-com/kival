@@ -15,7 +15,9 @@ workspace = true
 clap = { workspace = true, features = ["derive"] }
 eyre.workspace = true
 serde = { workspace = true, features = ["derive"] }
+serde_json.workspace = true
 sqlx.workspace = true
+steda.workspace = true
 tracing.workspace = true
 uuid.workspace = true
 
