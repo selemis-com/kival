@@ -184,17 +184,18 @@ fn snippet(
     let haystack = if case_sensitive { text.to_owned() } else { text.to_lowercase() };
     let search_needle =
         if case_sensitive { search_text.to_owned() } else { search_text.to_lowercase() };
-    let matched_term = if let Some(byte_index) = haystack.find(&search_needle) {
-        Some((byte_index, search_text.len()))
-    } else {
-        matched_terms
-            .iter()
-            .filter_map(|term| {
-                let needle = if case_sensitive { term.clone() } else { term.to_lowercase() };
-                haystack.find(&needle).map(|byte_index| (byte_index, term.len()))
-            })
-            .min_by_key(|(byte_index, _)| *byte_index)
-    };
+    let matched_term = haystack.find(&search_needle).map_or_else(
+        || {
+            matched_terms
+                .iter()
+                .filter_map(|term| {
+                    let needle = if case_sensitive { term.clone() } else { term.to_lowercase() };
+                    haystack.find(&needle).map(|byte_index| (byte_index, term.len()))
+                })
+                .min_by_key(|(byte_index, _)| *byte_index)
+        },
+        |byte_index| Some((byte_index, search_text.len())),
+    );
     let Some((byte_index, match_len)) = matched_term else {
         return truncate_on_char_boundary(text, context.saturating_mul(2));
     };

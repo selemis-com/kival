@@ -207,11 +207,7 @@ fn print_search_hit(hit: &SearchHit) {
     parts.push(format!("category={}", hit.matched_category));
     parts.push(format!("status={}", hit.status));
     if let Some(coverage) = &hit.term_coverage {
-        parts.push(format!(
-            "terms={}/{}",
-            coverage.matched_terms.len(),
-            coverage.query_term_count
-        ));
+        parts.push(format!("terms={}/{}", coverage.matched_terms.len(), coverage.query_term_count));
     }
 
     parts.push(format!("title={}", quote_human_string(&hit.title)));
