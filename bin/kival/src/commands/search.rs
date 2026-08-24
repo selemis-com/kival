@@ -28,9 +28,10 @@ Every mode searches the same selected categories. Omit --categories to search ev
 category. Metadata paths such as metadata.kind are not supported.
 
 Search modes:
-  auto     Match normalized full-text tokens or a literal substring. Classify each hit as exact
-           for complete-value equality, otherwise literal for a substring, otherwise text. This is
-           the default.
+  auto     Match normalized full-text tokens or a literal substring. Plain multi-word queries also
+           admit lower-ranked results matching only some terms. Classify each hit as exact for
+           complete-value equality, otherwise literal for a substring, otherwise text. This is the
+           default.
   text     Match normalized tokens using PostgreSQL web-search syntax and the simple text-search
            configuration. Quoted phrases, OR, and -term use PostgreSQL web-search syntax. Matching
            is case-insensitive, does not stem words, and does not match arbitrary substrings inside
@@ -114,8 +115,9 @@ pub struct SearchCommand {
 pub enum CliSearchMode {
     /// Match normalized full-text tokens or a literal substring.
     ///
-    /// Each hit is classified as exact for complete-value equality, otherwise literal for a
-    /// substring, otherwise text. Case sensitivity affects only the literal and exact checks.
+    /// Plain multi-word queries also admit lower-ranked results matching only some terms. Each hit
+    /// is classified as exact for complete-value equality, otherwise literal for a substring,
+    /// otherwise text. Case sensitivity affects only the literal and exact checks.
     Auto,
 
     /// Match normalized tokens using `PostgreSQL` web-search syntax.

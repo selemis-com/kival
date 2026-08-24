@@ -264,7 +264,8 @@ or `metadata`. Categories select complete indexed version values; nested metadat
 
 Search modes have distinct matching behavior:
 
-* `auto` combines normalized full-text matching with literal and exact checks;
+* `auto` combines normalized full-text matching with literal and exact checks and adds lower-ranked
+  partial-term matches for plain multi-word queries;
 * `text` uses normalized tokens and PostgreSQL web-search syntax;
 * `literal` matches one contiguous substring;
 * `exact` matches the complete stored category value.

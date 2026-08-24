@@ -6,7 +6,8 @@ export type SearchMatchKind = "text" | "literal" | "exact";
 /**
  * Search matching model.
  *
- * - `auto` combines normalized full-text matching with literal and exact checks.
+ * - `auto` combines normalized full-text matching with literal and exact checks, then includes
+ *   lower-ranked partial-term matches for plain multi-word queries.
  * - `text` uses normalized tokens and PostgreSQL web-search syntax.
  * - `literal` matches one contiguous substring.
  * - `exact` matches the complete stored category value.

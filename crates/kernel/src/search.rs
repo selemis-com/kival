@@ -84,6 +84,7 @@ pub async fn search_documents(
     input: SearchDocuments<'_>,
 ) -> Result<Vec<SearchDocumentRow>> {
     let categories: Vec<String> = input.categories.iter().map(ToString::to_string).collect();
+    let fallback_query = auto_fallback_query(input.query, input.mode);
 
     #[derive(sqlx::FromRow)]
     struct StoredSearchDocumentRow {
@@ -106,7 +107,12 @@ pub async fn search_documents(
             SELECT kival.require_read_workspace($1, $4) AS allowed
         ),
         search_query AS (
-            SELECT websearch_to_tsquery('simple', $2) AS tsq
+            SELECT
+                websearch_to_tsquery('simple', $2) AS tsq,
+                CASE
+                    WHEN $14::text IS NULL THEN NULL::tsquery
+                    ELSE websearch_to_tsquery('simple', $14)
+                END AS fallback_tsq
         ),
         candidates AS (
             SELECT
@@ -120,6 +126,8 @@ pub async fn search_documents(
                 sd.category,
                 sd.text,
                 (sd.search_vector @@ search_query.tsq) AS matched_text,
+                COALESCE(sd.search_vector @@ search_query.fallback_tsq, false)
+                    AS matched_fallback_text,
                 CASE
                     WHEN $6::bool THEN position($2 in sd.text) > 0
                     ELSE position(lower($2) in lower(sd.text)) > 0
@@ -129,6 +137,11 @@ pub async fn search_documents(
                         THEN ts_rank(sd.search_vector, search_query.tsq)
                     ELSE 0.0::real
                 END AS text_rank,
+                CASE
+                    WHEN sd.search_vector @@ search_query.fallback_tsq
+                        THEN ts_rank(sd.search_vector, search_query.fallback_tsq)
+                    ELSE 0.0::real
+                END AS fallback_text_rank,
                 CASE
                     WHEN $6::bool THEN sd.text = $2
                     ELSE lower(sd.text) = lower($2)
@@ -182,7 +195,10 @@ pub async fn search_documents(
                 WHEN 'text' THEN candidates.matched_text
                 WHEN 'exact' THEN candidates.matched_exact
                 WHEN 'literal' THEN candidates.matched_literal
-                ELSE candidates.matched_text OR candidates.matched_literal
+                ELSE
+                    candidates.matched_text
+                    OR candidates.matched_literal
+                    OR candidates.matched_fallback_text
             END
         ),
         ranked AS (
@@ -204,7 +220,16 @@ pub async fn search_documents(
                     WHEN matched_literal THEN 'literal'
                     ELSE 'text'
                 END AS match_kind,
-                category_weight + match_weight + text_rank AS rank
+                category_weight
+                    + match_weight
+                    + text_rank
+                    + CASE
+                        WHEN NOT matched_text
+                            AND NOT matched_literal
+                            AND matched_fallback_text
+                            THEN -100.0::real + LEAST(fallback_text_rank, 1.0::real)
+                        ELSE 0.0::real
+                    END AS rank
             FROM matched
         ),
         deduplicated AS (
@@ -281,6 +306,7 @@ pub async fn search_documents(
     .bind(input.cursor.map(|cursor| cursor.object_id))
     .bind(input.cursor.map(|cursor| cursor.version_number))
     .bind(input.cursor.map(|cursor| cursor.version_id))
+    .bind(fallback_query.as_deref())
     .fetch_all(pool)
     .await?;
 
@@ -301,4 +327,46 @@ pub async fn search_documents(
             })
         })
         .collect()
+}
+
+/// Builds a conservative low-ranked OR query for plain multi-term `auto` searches.
+fn auto_fallback_query(query: &str, mode: SearchMode) -> Option<String> {
+    if mode != SearchMode::Auto {
+        return None;
+    }
+
+    let terms = query.split_whitespace().collect::<Vec<_>>();
+    if terms.len() < 2
+        || terms.iter().any(|term| {
+            term.eq_ignore_ascii_case("or") || !term.chars().all(char::is_alphanumeric)
+        })
+    {
+        return None;
+    }
+
+    Some(terms.join(" OR "))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn auto_fallback_query_broadens_plain_multi_term_queries() {
+        assert_eq!(
+            auto_fallback_query("security incident", SearchMode::Auto).as_deref(),
+            Some("security OR incident"),
+        );
+        assert_eq!(
+            auto_fallback_query("company overview", SearchMode::Auto).as_deref(),
+            Some("company OR overview"),
+        );
+    }
+
+    #[test]
+    fn auto_fallback_query_preserves_explicit_or_strict_modes() {
+        assert!(auto_fallback_query("security OR incident", SearchMode::Auto).is_none());
+        assert!(auto_fallback_query("security incident", SearchMode::Text).is_none());
+        assert!(auto_fallback_query("release-notes draft", SearchMode::Auto).is_none());
+    }
 }

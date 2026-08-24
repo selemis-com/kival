@@ -708,6 +708,109 @@ mod tests {
     }
 
     #[sqlx::test(migrations = "../kernel/migrations")]
+    async fn search_auto_mode_includes_lower_ranked_partial_term_matches(
+        pool: sqlx::PgPool,
+    ) -> Result<()> {
+        let r = TestKival::new(pool).await?;
+        let space = r.object_space("search auto partial terms").await?;
+
+        let strict = r
+            .create_object(
+                space.workspace.id,
+                "Security Incident Policy",
+                &test_body("Security Incident Policy", "Policy body."),
+                object_metadata("search-auto-strict"),
+            )
+            .await?;
+        let partial = r
+            .create_object(
+                space.workspace.id,
+                "Checkout Incident Review",
+                &test_body("Checkout Incident Review", "Concrete production incident."),
+                object_metadata("search-auto-partial"),
+            )
+            .await?;
+
+        let results: SearchResponse = r
+            .get_json_as(
+                &r.admin,
+                &format!(
+                    "/workspaces/{}/search?q=security%20incident&categories=title",
+                    space.workspace.id,
+                ),
+            )
+            .await?
+            .into_success()?;
+
+        let strict_index = results
+            .items
+            .iter()
+            .position(|hit| hit.object_id == strict.id)
+            .expect("full-query match should be returned");
+        let partial_index = results
+            .items
+            .iter()
+            .position(|hit| hit.object_id == partial.id)
+            .expect("partial-term auto fallback should be returned");
+        assert!(strict_index < partial_index, "full-query matches must rank before fallback hits");
+        assert!(results.items[partial_index].rank < results.items[strict_index].rank);
+
+        Ok(())
+    }
+
+    #[sqlx::test(migrations = "../kernel/migrations")]
+    async fn search_auto_mode_broadens_plain_multi_term_discovery(
+        pool: sqlx::PgPool,
+    ) -> Result<()> {
+        let r = TestKival::new(pool).await?;
+        let space = r.object_space("search auto discovery").await?;
+
+        let company = r
+            .create_object(
+                space.workspace.id,
+                "Company Handbook",
+                &test_body("Company Handbook", "Organization information."),
+                object_metadata("search-auto-company"),
+            )
+            .await?;
+        let overview = r
+            .create_object(
+                space.workspace.id,
+                "Quarterly Overview",
+                &test_body("Quarterly Overview", "Current priorities."),
+                object_metadata("search-auto-overview"),
+            )
+            .await?;
+
+        let auto_results: SearchResponse = r
+            .get_json_as(
+                &r.admin,
+                &format!(
+                    "/workspaces/{}/search?q=company%20overview&categories=title",
+                    space.workspace.id,
+                ),
+            )
+            .await?
+            .into_success()?;
+        assert!(auto_results.items.iter().any(|hit| hit.object_id == company.id));
+        assert!(auto_results.items.iter().any(|hit| hit.object_id == overview.id));
+
+        let text_results: SearchResponse = r
+            .get_json_as(
+                &r.admin,
+                &format!(
+                    "/workspaces/{}/search?q=company%20overview&categories=title&mode=text",
+                    space.workspace.id,
+                ),
+            )
+            .await?
+            .into_success()?;
+        assert!(text_results.items.is_empty(), "text mode must keep strict full-query semantics");
+
+        Ok(())
+    }
+
+    #[sqlx::test(migrations = "../kernel/migrations")]
     async fn search_text_mode_returns_text_match_kind(pool: sqlx::PgPool) -> Result<()> {
         let r = TestKival::new(pool).await?;
         let space = r.object_space("search text mode").await?;

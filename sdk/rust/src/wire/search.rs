@@ -33,7 +33,8 @@ pub struct SearchParams {
     /// Opaque pagination cursor from a previous `response.next_cursor`.
     pub cursor: Option<String>,
 
-    /// Matching model. Defaults to `auto`.
+    /// Matching model. Defaults to `auto`. Plain multi-word `auto` queries may include
+    /// lower-ranked partial-term full-text matches.
     pub mode: Option<SearchMode>,
 
     /// Case-sensitive literal and exact comparisons.
