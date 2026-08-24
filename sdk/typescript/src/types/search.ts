@@ -45,6 +45,14 @@ export type SearchParams = {
   include_history?: boolean | null;
 };
 
+/** Term coverage for a plain multi-term `auto` search. */
+export type SearchTermCoverage = {
+  /** Query terms matched by the selected search document. */
+  matched_terms: string[];
+  /** Number of terms in the broadened query. */
+  query_term_count: number;
+};
+
 /** One actionable search hit. */
 export type SearchHit = {
   /** Workspace ID. */
@@ -65,6 +73,8 @@ export type SearchHit = {
   matched_category: string;
   /** Match kind. */
   match_kind: SearchMatchKind;
+  /** Term coverage for plain multi-term `auto` searches. */
+  term_coverage?: SearchTermCoverage;
   /** Context snippet. */
   snippet: string;
   /** Relevance score. Higher is better. */

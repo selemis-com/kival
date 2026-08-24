@@ -9,6 +9,7 @@ export type GroupedSearchResult = {
   snippets: string[];
   categories: string[];
   matchCount: number;
+  termCoverage?: SearchHit["term_coverage"];
 };
 
 const categoryPriority = ["title", "body", "metadata"];
@@ -53,6 +54,7 @@ export function groupWorkspaceSearchResults(hits: SearchHit[]): GroupedSearchRes
       snippets: hit.snippet && hit.snippet !== hit.title ? [hit.snippet] : [],
       categories: [category],
       matchCount: 1,
+      termCoverage: hit.term_coverage,
     });
   }
 
@@ -82,9 +84,10 @@ export function groupWorkspaceSearchResults(hits: SearchHit[]): GroupedSearchRes
 type HighlightedSearchTextProps = {
   value: string;
   query: string;
+  matchedTerms?: string[];
 };
 
-export function HighlightedSearchText({ value, query }: HighlightedSearchTextProps) {
+export function HighlightedSearchText({ value, query, matchedTerms }: HighlightedSearchTextProps) {
   const normalizedQuery = query.trim();
 
   if (!normalizedQuery) {
@@ -93,19 +96,46 @@ export function HighlightedSearchText({ value, query }: HighlightedSearchTextPro
 
   const lowerValue = value.toLowerCase();
   const lowerQuery = normalizedQuery.toLowerCase();
+  const needles = lowerValue.includes(lowerQuery)
+    ? [normalizedQuery]
+    : Array.from(
+        new Set(
+          (matchedTerms ?? [])
+            .map((term) => term.trim())
+            .filter((term) => term.length > 0),
+        ),
+      ).sort((left, right) => right.length - left.length);
+
+  if (needles.length === 0) {
+    return value;
+  }
+
   const parts: Array<string | { match: string; key: string }> = [];
   let cursor = 0;
-  let matchIndex = lowerValue.indexOf(lowerQuery);
 
-  while (matchIndex !== -1) {
-    if (matchIndex > cursor) {
-      parts.push(value.slice(cursor, matchIndex));
+  while (cursor < value.length) {
+    let nextIndex = -1;
+    let nextNeedle = "";
+
+    for (const needle of needles) {
+      const index = lowerValue.indexOf(needle.toLowerCase(), cursor);
+      if (index !== -1 && (nextIndex === -1 || index < nextIndex)) {
+        nextIndex = index;
+        nextNeedle = needle;
+      }
     }
 
-    const match = value.slice(matchIndex, matchIndex + normalizedQuery.length);
-    parts.push({ match, key: `${matchIndex}-${match}` });
-    cursor = matchIndex + normalizedQuery.length;
-    matchIndex = lowerValue.indexOf(lowerQuery, cursor);
+    if (nextIndex === -1) {
+      break;
+    }
+
+    if (nextIndex > cursor) {
+      parts.push(value.slice(cursor, nextIndex));
+    }
+
+    const match = value.slice(nextIndex, nextIndex + nextNeedle.length);
+    parts.push({ match, key: `${nextIndex}-${match}` });
+    cursor = nextIndex + nextNeedle.length;
   }
 
   if (cursor < value.length) {

@@ -61,6 +61,16 @@ pub struct SearchResponse {
     pub next_cursor: Option<String>,
 }
 
+/// Term coverage for a plain multi-term `auto` search.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+pub struct SearchTermCoverage {
+    /// Query terms matched by the selected search document.
+    pub matched_terms: Vec<String>,
+
+    /// Number of terms in the broadened query.
+    pub query_term_count: usize,
+}
+
 /// One actionable search hit.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
 pub struct SearchHit {
@@ -90,6 +100,12 @@ pub struct SearchHit {
 
     /// Match kind.
     pub match_kind: SearchMatchKind,
+
+    /// Term coverage for plain multi-term `auto` searches.
+    ///
+    /// Omitted for strict modes and queries that do not use the partial-term fallback.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub term_coverage: Option<SearchTermCoverage>,
 
     /// Context snippet.
     pub snippet: String,

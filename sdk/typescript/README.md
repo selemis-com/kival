@@ -272,8 +272,10 @@ Search modes have distinct matching behavior:
 
 Literal and exact matching can be case-sensitive. Full-text matching remains case-insensitive.
 The `context` option changes snippet length without changing which values match. Search results include the matched version metadata and object lifecycle status for lightweight
-triage. They are cursor-paginated; pass `next_cursor` back as `cursor` with the same query and
-filters to continue.
+triage. Plain multi-word `auto` results also include `term_coverage`, which reports the matched
+query terms and total query-term count so clients can distinguish full and partial matches without
+inferring from rank. Results are cursor-paginated; pass `next_cursor` back as `cursor` with the same
+query and filters to continue.
 
 ## Custom fetch implementations
 

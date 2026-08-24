@@ -622,6 +622,7 @@ export function WorkspaceView({
                               <HighlightedSearchText
                                 value={result.title}
                                 query={normalizedSearchQuery}
+                                matchedTerms={result.termCoverage?.matched_terms}
                               />
                             </strong>
 
@@ -629,6 +630,11 @@ export function WorkspaceView({
                               {[
                                 includeSearchHistory ? `v${result.versionNumber}` : null,
                                 result.matchCount > 1 ? `${result.matchCount} matches` : null,
+                                result.termCoverage &&
+                                result.termCoverage.matched_terms.length <
+                                  result.termCoverage.query_term_count
+                                  ? `${result.termCoverage.matched_terms.length}/${result.termCoverage.query_term_count} terms`
+                                  : null,
                                 ...result.categories,
                               ]
                                 .filter(Boolean)
@@ -640,6 +646,7 @@ export function WorkspaceView({
                                 <HighlightedSearchText
                                   value={result.snippets[0]}
                                   query={normalizedSearchQuery}
+                                  matchedTerms={result.termCoverage?.matched_terms}
                                 />
                               </span>
                             )}

@@ -32,6 +32,10 @@ pub struct SearchDocumentRow {
     pub text: String,
     /// Classification of the strongest match.
     pub match_kind: SearchMatchKind,
+    /// Query terms matched by this document for plain multi-term `auto` searches.
+    pub matched_terms: Option<Vec<String>>,
+    /// Number of query terms considered for plain multi-term `auto` searches.
+    pub query_term_count: Option<usize>,
     /// Computed search rank.
     pub rank: f32,
 }
@@ -84,7 +88,9 @@ pub async fn search_documents(
     input: SearchDocuments<'_>,
 ) -> Result<Vec<SearchDocumentRow>> {
     let categories: Vec<String> = input.categories.iter().map(ToString::to_string).collect();
-    let fallback_query = auto_fallback_query(input.query, input.mode);
+    let fallback_terms = auto_fallback_terms(input.query, input.mode);
+    let fallback_query = fallback_terms.as_ref().map(|terms| terms.join(" OR "));
+    let query_term_count = fallback_terms.as_ref().map(Vec::len);
 
     #[derive(sqlx::FromRow)]
     struct StoredSearchDocumentRow {
@@ -98,6 +104,7 @@ pub async fn search_documents(
         category: String,
         text: String,
         match_kind: String,
+        matched_terms: Option<Vec<String>>,
         rank: f32,
     }
 
@@ -125,6 +132,7 @@ pub async fn search_documents(
                 version.metadata,
                 sd.category,
                 sd.text,
+                sd.search_vector,
                 (sd.search_vector @@ search_query.tsq) AS matched_text,
                 COALESCE(sd.search_vector @@ search_query.fallback_tsq, false)
                     AS matched_fallback_text,
@@ -213,6 +221,15 @@ pub async fn search_documents(
                 category,
                 text,
                 CASE
+                    WHEN $15::text[] IS NULL THEN NULL::text[]
+                    ELSE ARRAY(
+                        SELECT terms.term
+                        FROM unnest($15::text[]) WITH ORDINALITY AS terms(term, ordinal)
+                        WHERE search_vector @@ plainto_tsquery('simple', terms.term)
+                        ORDER BY terms.ordinal
+                    )
+                END AS matched_terms,
+                CASE
                     WHEN $5 = 'exact' THEN 'exact'
                     WHEN $5 = 'literal' THEN 'literal'
                     WHEN $5 = 'text' THEN 'text'
@@ -244,6 +261,7 @@ pub async fn search_documents(
                 category,
                 text,
                 match_kind,
+                matched_terms,
                 rank
             FROM ranked
             ORDER BY object_id, version_id, rank DESC, category
@@ -259,6 +277,7 @@ pub async fn search_documents(
             result.category,
             result.text,
             result.match_kind,
+            result.matched_terms,
             result.rank
         FROM workspace_access
         CROSS JOIN LATERAL (
@@ -273,6 +292,7 @@ pub async fn search_documents(
                 category,
                 text,
                 match_kind,
+                matched_terms,
                 rank
             FROM deduplicated
             WHERE workspace_access.allowed
@@ -307,6 +327,7 @@ pub async fn search_documents(
     .bind(input.cursor.map(|cursor| cursor.version_number))
     .bind(input.cursor.map(|cursor| cursor.version_id))
     .bind(fallback_query.as_deref())
+    .bind(fallback_terms)
     .fetch_all(pool)
     .await?;
 
@@ -323,14 +344,16 @@ pub async fn search_documents(
                 category: parse_stored("search category", row.category)?,
                 text: row.text,
                 match_kind: parse_stored("search match kind", row.match_kind)?,
+                matched_terms: row.matched_terms,
+                query_term_count,
                 rank: row.rank,
             })
         })
         .collect()
 }
 
-/// Builds a conservative low-ranked OR query for plain multi-term `auto` searches.
-fn auto_fallback_query(query: &str, mode: SearchMode) -> Option<String> {
+/// Extracts terms for the conservative low-ranked `auto` fallback.
+fn auto_fallback_terms(query: &str, mode: SearchMode) -> Option<Vec<String>> {
     if mode != SearchMode::Auto {
         return None;
     }
@@ -344,7 +367,7 @@ fn auto_fallback_query(query: &str, mode: SearchMode) -> Option<String> {
         return None;
     }
 
-    Some(terms.join(" OR "))
+    Some(terms.into_iter().map(str::to_owned).collect())
 }
 
 #[cfg(test)]
@@ -352,21 +375,21 @@ mod tests {
     use super::*;
 
     #[test]
-    fn auto_fallback_query_broadens_plain_multi_term_queries() {
+    fn auto_fallback_terms_extract_plain_multi_term_queries() {
         assert_eq!(
-            auto_fallback_query("security incident", SearchMode::Auto).as_deref(),
-            Some("security OR incident"),
+            auto_fallback_terms("security incident", SearchMode::Auto),
+            Some(vec!["security".to_owned(), "incident".to_owned()]),
         );
         assert_eq!(
-            auto_fallback_query("company overview", SearchMode::Auto).as_deref(),
-            Some("company OR overview"),
+            auto_fallback_terms("company overview", SearchMode::Auto),
+            Some(vec!["company".to_owned(), "overview".to_owned()]),
         );
     }
 
     #[test]
-    fn auto_fallback_query_preserves_explicit_or_strict_modes() {
-        assert!(auto_fallback_query("security OR incident", SearchMode::Auto).is_none());
-        assert!(auto_fallback_query("security incident", SearchMode::Text).is_none());
-        assert!(auto_fallback_query("release-notes draft", SearchMode::Auto).is_none());
+    fn auto_fallback_terms_preserve_explicit_or_strict_modes() {
+        assert!(auto_fallback_terms("security OR incident", SearchMode::Auto).is_none());
+        assert!(auto_fallback_terms("security incident", SearchMode::Text).is_none());
+        assert!(auto_fallback_terms("release-notes draft", SearchMode::Auto).is_none());
     }
 }

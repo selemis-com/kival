@@ -755,6 +755,25 @@ mod tests {
         assert!(strict_index < partial_index, "full-query matches must rank before fallback hits");
         assert!(results.items[partial_index].rank < results.items[strict_index].rank);
 
+        let strict_coverage = results.items[strict_index]
+            .term_coverage
+            .as_ref()
+            .expect("plain multi-term auto results should expose term coverage");
+        assert_eq!(
+            strict_coverage.matched_terms,
+            vec!["security".to_owned(), "incident".to_owned()]
+        );
+        assert_eq!(strict_coverage.query_term_count, 2);
+
+        let partial_hit = &results.items[partial_index];
+        let partial_coverage = partial_hit
+            .term_coverage
+            .as_ref()
+            .expect("partial auto results should expose term coverage");
+        assert_eq!(partial_coverage.matched_terms, vec!["incident".to_owned()]);
+        assert_eq!(partial_coverage.query_term_count, 2);
+        assert!(partial_hit.snippet.to_lowercase().contains("incident"));
+
         Ok(())
     }
 

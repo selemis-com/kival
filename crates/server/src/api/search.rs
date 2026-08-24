@@ -7,7 +7,9 @@ use axum::{
     extract::{Path, State},
 };
 use kival_kernel::{SearchDocumentCursor, SearchDocumentRow, SearchDocuments, search_documents};
-use kival_sdk::{DEFAULT_LIMIT, MAX_LIMIT, SearchHit, SearchParams, SearchResponse};
+use kival_sdk::{
+    DEFAULT_LIMIT, MAX_LIMIT, SearchHit, SearchParams, SearchResponse, SearchTermCoverage,
+};
 use kival_types::{ArchiveListStatus, SearchCategory, SearchMode};
 use uuid::Uuid;
 
@@ -131,6 +133,17 @@ trait SearchRowExt {
 impl SearchRowExt for SearchDocumentRow {
     /// Converts this row into a wire hit.
     fn into_hit(self, search_text: &str, case_sensitive: bool, context: usize) -> SearchHit {
+        let query_term_count = self.query_term_count;
+        let term_coverage = self.matched_terms.map(|matched_terms| SearchTermCoverage {
+            matched_terms,
+            query_term_count: query_term_count.expect("matched terms require a query term count"),
+        });
+        let snippet_terms = term_coverage
+            .as_ref()
+            .map(|coverage| coverage.matched_terms.as_slice())
+            .unwrap_or_default();
+        let snippet = snippet(&self.text, search_text, snippet_terms, case_sensitive, context);
+
         SearchHit {
             workspace_id: self.workspace_id,
             object_id: self.object_id,
@@ -141,25 +154,48 @@ impl SearchRowExt for SearchDocumentRow {
             metadata: self.metadata,
             matched_category: self.category,
             match_kind: self.match_kind,
-            snippet: snippet(&self.text, search_text, case_sensitive, context),
+            term_coverage,
+            snippet,
             rank: Some(self.rank),
         }
     }
 }
 
 /// Builds a compact context snippet around the first literal search-term occurrence.
-fn snippet(text: &str, search_text: &str, case_sensitive: bool, context: usize) -> String {
+fn snippet(
+    text: &str,
+    search_text: &str,
+    matched_terms: &[String],
+    case_sensitive: bool,
+    context: usize,
+) -> String {
     if search_text.is_empty() {
         return truncate_on_char_boundary(text, context.saturating_mul(2));
     }
 
-    if !case_sensitive && (!text.is_ascii() || !search_text.is_ascii()) {
+    if !case_sensitive
+        && (!text.is_ascii()
+            || !search_text.is_ascii()
+            || matched_terms.iter().any(|term| !term.is_ascii()))
+    {
         return truncate_on_char_boundary(text, context.saturating_mul(2));
     }
 
     let haystack = if case_sensitive { text.to_owned() } else { text.to_lowercase() };
-    let needle = if case_sensitive { search_text.to_owned() } else { search_text.to_lowercase() };
-    let Some(byte_index) = haystack.find(&needle) else {
+    let search_needle =
+        if case_sensitive { search_text.to_owned() } else { search_text.to_lowercase() };
+    let matched_term = if let Some(byte_index) = haystack.find(&search_needle) {
+        Some((byte_index, search_text.len()))
+    } else {
+        matched_terms
+            .iter()
+            .filter_map(|term| {
+                let needle = if case_sensitive { term.clone() } else { term.to_lowercase() };
+                haystack.find(&needle).map(|byte_index| (byte_index, term.len()))
+            })
+            .min_by_key(|(byte_index, _)| *byte_index)
+    };
+    let Some((byte_index, match_len)) = matched_term else {
         return truncate_on_char_boundary(text, context.saturating_mul(2));
     };
 
@@ -168,7 +204,7 @@ fn snippet(text: &str, search_text: &str, case_sensitive: bool, context: usize) 
     } else {
         text[..byte_index].char_indices().rev().nth(context - 1).map_or(0, |(idx, _)| idx)
     };
-    let end_seed = byte_index.saturating_add(search_text.len()).min(text.len());
+    let end_seed = byte_index.saturating_add(match_len).min(text.len());
     let end = if context == 0 {
         end_seed
     } else {
