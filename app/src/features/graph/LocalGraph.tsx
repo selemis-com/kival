@@ -2,22 +2,14 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { graphThemes } from "../../shared/styles/constants";
 import { styles } from "../../shared/styles/index";
 import { useTheme } from "../../shared/styles/theme";
-import type {
-  CurrentObjectResponse,
-  ObjectContext,
-  ObjectSummary,
-  WorkspaceGraphEdge,
-  WorkspaceGraphNode,
-} from "../../shared/types";
+import type { ObjectContext, WorkspaceGraphEdge, WorkspaceGraphNode } from "../../shared/types";
 import { GraphRenderer } from "./GraphRenderer";
 import { DEFAULT_GRAPH_LAYOUT_OPTIONS } from "./layout";
 import type { PositionedGraph, PositionedNode } from "./model";
 import { GraphPhysics } from "./physics";
 
 type Props = {
-  value: CurrentObjectResponse;
   context: ObjectContext;
-  objects: ObjectSummary[];
   onOpenObject: (objectId: string) => void;
   onRevealInGraph: () => void;
 };
@@ -140,127 +132,27 @@ function labelOverlapArea(a: LabelPlacement["rect"], b: LabelPlacement["rect"]) 
   return width * height;
 }
 
-function createLocalGraph(
-  value: CurrentObjectResponse,
-  context: ObjectContext,
-  objects: ObjectSummary[],
-): PositionedGraph {
-  const current = value.object;
-  const objectById = new Map(objects.map((object) => [object.id, object]));
-  const nodeById = new Map<string, WorkspaceGraphNode>();
-  const edges: WorkspaceGraphEdge[] = [];
-  const edgeIds = new Set<string>();
-
-  function ensureNode(node: WorkspaceGraphNode) {
-    if (!nodeById.has(node.id)) {
-      nodeById.set(node.id, node);
-    }
-  }
-
-  ensureNode({
-    id: current.id,
-    workspace_id: current.workspace_id,
-    current_version_id: current.current_version_id,
-    title: value.current_version.title,
-    status: current.status,
-    created_by: current.created_by,
-    created_at: current.created_at,
-    updated_at: current.updated_at,
-    in_degree: 0,
-    out_degree: 0,
-  });
-
-  for (const incoming of context.backlinks.incoming_edges) {
-    ensureNode({
-      id: incoming.source_object.id,
-      workspace_id: current.workspace_id,
-      current_version_id: null,
-      title: incoming.source_object.title,
-      status: incoming.source_object.status,
-      created_by: null,
-      created_at: incoming.created_at,
-      updated_at: incoming.created_at,
-      in_degree: 0,
-      out_degree: 0,
-    });
-
-    if (!edgeIds.has(incoming.edge_id)) {
-      edgeIds.add(incoming.edge_id);
-      edges.push({
-        id: incoming.edge_id,
-        workspace_id: current.workspace_id,
-        source_object_id: incoming.source_object.id,
-        target_object_id: current.id,
-        created_by: incoming.created_by,
-        created_at: incoming.created_at,
-        updated_at: incoming.created_at,
-      });
-    }
-  }
-
-  for (const edge of context.edges.items) {
-    if (edge.source_object_id !== current.id) {
-      continue;
-    }
-
-    const target = objectById.get(edge.target_object_id);
-
-    ensureNode({
-      id: edge.target_object_id,
-      workspace_id: current.workspace_id,
-      current_version_id: null,
-      title: target?.title ?? edge.target_object_id,
-      status: target?.status ?? "active",
-      created_by: null,
-      created_at: edge.created_at,
-      updated_at: edge.updated_at,
-      in_degree: 0,
-      out_degree: 0,
-    });
-
-    if (!edgeIds.has(edge.id)) {
-      edgeIds.add(edge.id);
-      edges.push({
-        id: edge.id,
-        workspace_id: edge.workspace_id,
-        source_object_id: edge.source_object_id,
-        target_object_id: edge.target_object_id,
-        created_by: edge.created_by,
-        created_at: edge.created_at,
-        updated_at: edge.updated_at,
-      });
-    }
-  }
-
-  const nodes = [...nodeById.values()];
-  const degreeById = new Map(nodes.map((node) => [node.id, { incoming: 0, outgoing: 0 }]));
-
-  for (const edge of edges) {
-    const source = degreeById.get(edge.source_object_id);
-    const target = degreeById.get(edge.target_object_id);
-
-    if (source) {
-      source.outgoing += 1;
-    }
-
-    if (target) {
-      target.incoming += 1;
-    }
-  }
-
-  const neighbors = nodes.filter((node) => node.id !== current.id);
+function createLocalGraph(context: ObjectContext): PositionedGraph {
+  const graph = context.graph;
+  const currentObjectId = graph.root_object_id;
+  const nodes: WorkspaceGraphNode[] = graph.nodes.map((node) => ({
+    id: node.id,
+    workspace_id: node.workspace_id,
+    current_version_id: node.current_version_id,
+    title: node.title,
+    status: node.status,
+    created_by: node.created_by,
+    created_at: node.created_at,
+    updated_at: node.updated_at,
+    in_degree: node.incoming_count,
+    out_degree: node.outgoing_count,
+  }));
+  const edges: WorkspaceGraphEdge[] = graph.edges;
+  const neighbors = nodes.filter((node) => node.id !== currentObjectId);
   const radius = Math.max(86, Math.min(132, 72 + neighbors.length * 4));
   const positioned: PositionedNode[] = nodes.map((node) => {
-    const degree = degreeById.get(node.id) ?? { incoming: 0, outgoing: 0 };
-
-    if (node.id === current.id) {
-      return {
-        ...node,
-        in_degree: degree.incoming,
-        out_degree: degree.outgoing,
-        x: 0,
-        y: 0,
-      };
+    if (node.id === currentObjectId) {
+      return { ...node, x: 0, y: 0 };
     }
 
     const index = neighbors.findIndex((neighbor) => neighbor.id === node.id);
@@ -268,8 +160,6 @@ function createLocalGraph(
 
     return {
       ...node,
-      in_degree: degree.incoming,
-      out_degree: degree.outgoing,
       x: Math.cos(angle) * radius,
       y: Math.sin(angle) * radius,
     };
@@ -416,7 +306,7 @@ function drawLocalLabels(
   context.restore();
 }
 
-export function LocalGraph({ value, context, objects, onOpenObject, onRevealInGraph }: Props) {
+export function LocalGraph({ context, onOpenObject, onRevealInGraph }: Props) {
   const { resolvedTheme } = useTheme();
   const graphTheme = graphThemes[resolvedTheme];
   const containerRef = useRef<HTMLDivElement>(null);
@@ -430,9 +320,9 @@ export function LocalGraph({ value, context, objects, onOpenObject, onRevealInGr
   const hoveredNodeIdRef = useRef<string | null>(null);
   const [renderError, setRenderError] = useState<string | null>(null);
 
-  const graph = useMemo(() => createLocalGraph(value, context, objects), [context, objects, value]);
-  const currentObjectId = value.object.id;
-  const hasConnections = graph.nodes.length > 1;
+  const graph = useMemo(() => createLocalGraph(context), [context]);
+  const currentObjectId = context.graph.root_object_id;
+  const hasGraphLinks = graph.nodes.length > 1;
 
   const drawLabels = useCallback(() => {
     const overlay = overlayRef.current;
@@ -493,7 +383,7 @@ export function LocalGraph({ value, context, objects, onOpenObject, onRevealInGr
   }, [currentObjectId, drawLabels]);
 
   useEffect(() => {
-    if (!hasConnections) {
+    if (!hasGraphLinks) {
       return;
     }
 
@@ -519,7 +409,7 @@ export function LocalGraph({ value, context, objects, onOpenObject, onRevealInGr
       renderer.destroy();
       rendererRef.current = null;
     };
-  }, [hasConnections, resolvedTheme]);
+  }, [hasGraphLinks, resolvedTheme]);
 
   useEffect(() => {
     rendererRef.current?.setTheme(resolvedTheme);
@@ -689,7 +579,7 @@ export function LocalGraph({ value, context, objects, onOpenObject, onRevealInGr
     pointerRef.current = null;
   }
 
-  if (!hasConnections) {
+  if (!hasGraphLinks) {
     return null;
   }
 
@@ -707,7 +597,7 @@ export function LocalGraph({ value, context, objects, onOpenObject, onRevealInGr
           ref={containerRef}
           style={styles.localGraphViewport}
           role="application"
-          aria-label="Local graph of direct object connections"
+          aria-label="Local graph of object relationships and references"
           onPointerDown={handlePointerDown}
           onPointerMove={handlePointerMove}
           onPointerUp={handlePointerUp}
@@ -757,7 +647,9 @@ export function LocalGraph({ value, context, objects, onOpenObject, onRevealInGr
       )}
 
       {!renderError && (
-        <span style={styles.localGraphHint}>Drag to rearrange · click a neighbour to open</span>
+        <span style={styles.localGraphHint}>
+          Drag to rearrange
+        </span>
       )}
     </div>
   );

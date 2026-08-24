@@ -138,8 +138,9 @@ pub use object_grants::{
     revoke_object_grant,
 };
 pub use object_references::{
-    ObjectReferenceMaintenance, ObjectReferenceUpdate, ReferenceReresolutionSummary,
-    maintain_object_references, re_resolve_current_wikilinks_for_titles,
+    ObjectReferenceMaintenance, ObjectReferenceUpdate, ObjectVersionWikilinkRow,
+    ReferenceReresolutionSummary, list_object_version_wikilinks, maintain_object_references,
+    re_resolve_current_wikilinks_for_titles,
 };
 pub(crate) use object_versions::create_object_version;
 pub use object_versions::{

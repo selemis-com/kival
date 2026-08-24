@@ -115,9 +115,7 @@ export function ContextPanel({
       <span style={styles.sidebarLabel}>Context</span>
 
       <LocalGraph
-        value={value}
         context={context}
-        objects={objects}
         onOpenObject={onOpenObject}
         onRevealInGraph={() => onRevealInGraph(objectId)}
       />

@@ -8,6 +8,7 @@ import type {
   ObjectContext,
   ObjectSummary,
   ObjectVersion,
+  ObjectVersionWikilink,
   User,
 } from "../../shared/types";
 import { CopyableId } from "../../shared/ui/CopyableId";
@@ -295,6 +296,7 @@ export function ObjectView({
   const [versionsLoading, setVersionsLoading] = useState(false);
   const [versionsLoadingMore, setVersionsLoadingMore] = useState(false);
   const [versionsError, setVersionsError] = useState<string | null>(null);
+  const [wikilinks, setWikilinks] = useState<ObjectVersionWikilink[]>([]);
   const [historyOpen, setHistoryOpen] = useState(false);
   const [activityOpen, setActivityOpen] = useState(false);
   const [events, setEvents] = useState<Event[]>([]);
@@ -453,6 +455,39 @@ export function ObjectView({
     !Array.isArray(selectedVersion.metadata)
       ? selectedVersion.metadata
       : {};
+
+  useEffect(() => {
+    const controller = new AbortController();
+    let active = true;
+
+    setWikilinks([]);
+    void kival
+      .getObjectVersionWikilinks({
+        workspaceId: object.workspace_id,
+        objectId: object.id,
+        version: selectedVersion.id,
+        signal: controller.signal,
+      })
+      .then((references) => {
+        if (active) {
+          setWikilinks(references);
+        }
+      })
+      .catch((error: unknown) => {
+        if (error instanceof KivalTransportError && error.kind === "abort") {
+          return;
+        }
+
+        if (active) {
+          setWikilinks([]);
+        }
+      });
+
+    return () => {
+      active = false;
+      controller.abort();
+    };
+  }, [object.id, object.workspace_id, selectedVersion.id]);
 
   useEffect(() => {
     if (object.status !== "active") {
@@ -911,6 +946,7 @@ export function ObjectView({
           body={selectedVersion.body}
           workspaceId={object.workspace_id}
           objectId={object.id}
+          wikilinks={wikilinks}
           onOpenObject={onOpenObject}
         />
       </article>

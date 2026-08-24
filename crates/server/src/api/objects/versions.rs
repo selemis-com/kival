@@ -9,12 +9,13 @@ use axum::{
 use kival_kernel::{
     EventKind, ObjectVersion, UpdateObjectVersion, fetch_object_in_tx, fetch_object_version,
     fetch_object_version_by_number, fetch_object_version_creator_for_mutation,
-    fetch_object_version_in_tx, list_object_version_creators, list_object_versions,
-    maintain_object_references, update_object_version,
+    fetch_object_version_in_tx, list_object_version_creators, list_object_version_wikilinks,
+    list_object_versions, maintain_object_references, update_object_version,
 };
 use kival_sdk::{
     ListParams, ListResponse, ObjectResponse, ObjectVersion as ApiObjectVersion,
-    ObjectVersionResponse, UpdateObjectRequest,
+    ObjectVersionResponse, ObjectVersionWikilink, ObjectVersionWikilinksResponse,
+    UpdateObjectRequest,
 };
 use kival_types::ObjectRole;
 use serde_json::json;
@@ -203,20 +204,68 @@ pub(crate) async fn handle_get_version(
     actor: AuthenticatedUser,
     Path((workspace_id, object_id, version)): Path<(Uuid, Uuid, String)>,
 ) -> ApiResult<Json<ObjectVersionResponse>> {
-    let version = if let Ok(version_id) = Uuid::parse_str(&version) {
-        fetch_version(state.as_ref(), actor.id, workspace_id, object_id, version_id).await?
-    } else {
-        let version_number = version.parse::<i64>().map_err(|_error| {
-            ApiError::bad_request("version must be a UUID or positive version number")
-        })?;
-        if version_number < 1 {
-            return Err(ApiError::bad_request("version number must be at least 1"));
-        }
-        fetch_version_by_number(state.as_ref(), actor.id, workspace_id, object_id, version_number)
-            .await?
-    };
+    let version =
+        fetch_version_identifier(state.as_ref(), actor.id, workspace_id, object_id, &version)
+            .await?;
+    let mut versions = vec![api_object_version(version)];
+    hydrate_version_creators(state.db(), actor.id, workspace_id, object_id, &mut versions).await?;
+    let version = versions.pop().expect("one fetched object version");
 
     Ok(Json(ObjectVersionResponse { version }))
+}
+
+/// Lists wikilinks derived from one immutable object version.
+pub(crate) async fn handle_get_version_wikilinks(
+    State(state): State<Arc<ServerState>>,
+    actor: AuthenticatedUser,
+    Path((workspace_id, object_id, version)): Path<(Uuid, Uuid, String)>,
+) -> ApiResult<Json<ObjectVersionWikilinksResponse>> {
+    let version =
+        fetch_version_identifier(state.as_ref(), actor.id, workspace_id, object_id, &version)
+            .await?;
+    let items =
+        list_object_version_wikilinks(state.db(), actor.id, workspace_id, object_id, version.id)
+            .await?
+            .into_iter()
+            .map(|reference| ObjectVersionWikilink {
+                raw_target: reference.raw_target,
+                display_text: reference.display_text,
+                target_object_id: reference.target_object_id,
+            })
+            .collect();
+
+    Ok(Json(ObjectVersionWikilinksResponse { items }))
+}
+
+/// Resolves the version identifier accepted by object-version read endpoints.
+async fn fetch_version_identifier(
+    state: &ServerState,
+    actor_id: Uuid,
+    workspace_id: Uuid,
+    object_id: Uuid,
+    version: &str,
+) -> ApiResult<ObjectVersion> {
+    if let Ok(version_id) = Uuid::parse_str(version) {
+        return Ok(
+            fetch_object_version(state.db(), actor_id, workspace_id, object_id, version_id).await?
+        );
+    }
+
+    let version_number = version.parse::<i64>().map_err(|_error| {
+        ApiError::bad_request("version must be a UUID or positive version number")
+    })?;
+    if version_number < 1 {
+        return Err(ApiError::bad_request("version number must be at least 1"));
+    }
+
+    Ok(fetch_object_version_by_number(
+        state.db(),
+        actor_id,
+        workspace_id,
+        object_id,
+        version_number,
+    )
+    .await?)
 }
 
 /// Fetches an object version inside an existing mutation transaction.
@@ -242,27 +291,6 @@ pub(super) async fn fetch_version(
 ) -> ApiResult<ApiObjectVersion> {
     let version =
         fetch_object_version(state.db(), actor_id, workspace_id, object_id, version_id).await?;
-    let mut versions = vec![api_object_version(version)];
-    hydrate_version_creators(state.db(), actor_id, workspace_id, object_id, &mut versions).await?;
-    Ok(versions.pop().expect("one fetched object version"))
-}
-
-/// Fetches an object version by object and monotonic version number.
-async fn fetch_version_by_number(
-    state: &ServerState,
-    actor_id: Uuid,
-    workspace_id: Uuid,
-    object_id: Uuid,
-    version_number: i64,
-) -> ApiResult<ApiObjectVersion> {
-    let version = fetch_object_version_by_number(
-        state.db(),
-        actor_id,
-        workspace_id,
-        object_id,
-        version_number,
-    )
-    .await?;
     let mut versions = vec![api_object_version(version)];
     hydrate_version_creators(state.db(), actor_id, workspace_id, object_id, &mut versions).await?;
     Ok(versions.pop().expect("one fetched object version"))
