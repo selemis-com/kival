@@ -1,83 +1,33 @@
 import { styles } from "../../shared/styles/index";
 import type { SearchHit } from "../../shared/types";
 
-export type GroupedSearchResult = {
+export type WorkspaceSearchResult = {
   objectId: string;
   versionId: string;
   versionNumber: number;
   title: string;
-  snippets: string[];
-  categories: string[];
-  matchCount: number;
+  status: SearchHit["status"];
+  metadata: SearchHit["metadata"];
+  snippet: string;
+  category: string;
   termCoverage?: SearchHit["term_coverage"];
 };
-
-const categoryPriority = ["title", "body", "metadata"];
 
 function normalizeSearchCategory(category: string) {
   return category.replaceAll("_", " ");
 }
 
-export function groupWorkspaceSearchResults(hits: SearchHit[]): GroupedSearchResult[] {
-  const grouped = new Map<string, GroupedSearchResult>();
-
-  for (const hit of hits) {
-    const objectId = hit.object_id;
-    const resultKey = `${objectId}:${hit.version_id}`;
-
-    const category = normalizeSearchCategory(hit.matched_category);
-    const existing = grouped.get(resultKey);
-
-    if (existing) {
-      existing.matchCount += 1;
-
-      if (!existing.categories.includes(category)) {
-        existing.categories.push(category);
-      }
-
-      if (existing.title === existing.snippets[0]) {
-        existing.title = hit.title;
-      }
-
-      if (hit.snippet && hit.snippet !== hit.title && !existing.snippets.includes(hit.snippet)) {
-        existing.snippets.push(hit.snippet);
-      }
-
-      continue;
-    }
-
-    grouped.set(resultKey, {
-      objectId,
-      versionId: hit.version_id,
-      versionNumber: hit.version_number,
-      title: hit.title,
-      snippets: hit.snippet && hit.snippet !== hit.title ? [hit.snippet] : [],
-      categories: [category],
-      matchCount: 1,
-      termCoverage: hit.term_coverage,
-    });
-  }
-
-  return Array.from(grouped.values()).map((result) => ({
-    ...result,
-    categories: result.categories.sort((left, right) => {
-      const leftPriority = categoryPriority.indexOf(left);
-      const rightPriority = categoryPriority.indexOf(right);
-
-      if (leftPriority === -1 && rightPriority === -1) {
-        return left.localeCompare(right);
-      }
-
-      if (leftPriority === -1) {
-        return 1;
-      }
-
-      if (rightPriority === -1) {
-        return -1;
-      }
-
-      return leftPriority - rightPriority;
-    }),
+export function mapWorkspaceSearchResults(hits: SearchHit[]): WorkspaceSearchResult[] {
+  return hits.map((hit) => ({
+    objectId: hit.object_id,
+    versionId: hit.version_id,
+    versionNumber: hit.version_number,
+    title: hit.title,
+    status: hit.status,
+    metadata: hit.metadata,
+    snippet: hit.snippet && hit.snippet !== hit.title ? hit.snippet : "",
+    category: normalizeSearchCategory(hit.matched_category),
+    termCoverage: hit.term_coverage,
   }));
 }
 
