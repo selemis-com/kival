@@ -35,9 +35,9 @@ pub use error::{ApiErrorBody, ApiErrorResponse};
 pub use events::{Event, EventListParams, EventOrder};
 pub use graph::{
     BacklinkSourceObject, CreateObjectEdgeRequest, CreateObjectGrantRequest, GrantPrincipal,
-    ObjectBacklink, ObjectBacklinkReference, ObjectBacklinksParams, ObjectBacklinksResponse,
-    ObjectEdge, ObjectEdgeResponse, ObjectGrant, ObjectGrantResponse, ObjectGraphDirection,
-    ObjectGraphEdge, ObjectGraphNode, ObjectGraphParams, ObjectGraphResponse,
+    GraphEdgeKind, ObjectBacklink, ObjectBacklinkReference, ObjectBacklinksParams,
+    ObjectBacklinksResponse, ObjectEdge, ObjectEdgeResponse, ObjectGrant, ObjectGrantResponse,
+    ObjectGraphDirection, ObjectGraphEdge, ObjectGraphNode, ObjectGraphParams, ObjectGraphResponse,
     ObjectGraphTruncation, ObjectRole, UpdateObjectGrantRequest, WorkspaceGraphEdge,
     WorkspaceGraphLimits, WorkspaceGraphNode, WorkspaceGraphParams, WorkspaceGraphResponse,
 };
@@ -54,8 +54,8 @@ pub use notifications::{
 pub use objects::{
     CreateObjectRequest, ObjectAttachment, ObjectAttachmentResponse, ObjectListItem,
     ObjectListOrder, ObjectListParams, ObjectResource, ObjectResponse, ObjectVersion,
-    ObjectVersionResponse, ReuseObjectAttachmentRequest, UpdateObjectRequest,
-    UploadObjectAttachmentParams,
+    ObjectVersionResponse, ObjectVersionWikilink, ObjectVersionWikilinksResponse,
+    ReuseObjectAttachmentRequest, UpdateObjectRequest, UploadObjectAttachmentParams,
 };
 pub use pagination::{DEFAULT_LIMIT, ListParams, ListResponse, MAX_LIMIT};
 pub use search::{

@@ -141,6 +141,7 @@ in vec2 a_corner;
 in vec2 a_source;
 in vec2 a_target;
 in float a_state;
+in float a_kind;
 
 uniform vec2 u_center;
 uniform vec2 u_resolution;
@@ -148,8 +149,10 @@ uniform float u_zoom;
 uniform float u_pixel_ratio;
 
 out float v_side;
+out float v_along;
+flat out float v_length;
 flat out float v_state;
-flat out vec3 v_color;
+flat out float v_kind;
 
 void main() {
   vec2 sourcePixel = (a_source - u_center) * u_zoom;
@@ -166,7 +169,10 @@ void main() {
 
   gl_Position = vec4(clip.x, -clip.y, 0.0, 1.0);
   v_side = a_corner.y;
+  v_along = along;
+  v_length = lengthPixels;
   v_state = a_state;
+  v_kind = a_kind;
 }
 `;
 
@@ -174,7 +180,10 @@ const EDGE_FRAGMENT_SHADER = `#version 300 es
 precision mediump float;
 
 in float v_side;
+in float v_along;
+flat in float v_length;
 flat in float v_state;
+flat in float v_kind;
 uniform float u_focus_progress;
 uniform vec3 u_edge_base_color;
 uniform vec3 u_edge_focused_color;
@@ -187,8 +196,16 @@ void main() {
   float alpha = mix(0.30, focusedAlpha, u_focus_progress);
   vec3 color = mix(baseColor, focusedColor, max(v_state, 0.0) * u_focus_progress);
 
-  float coverage = 1.0 - smoothstep(0.58, 1.0, abs(v_side));
-  outColor = vec4(color, alpha * coverage);
+  float referenceOnly = step(0.5, v_kind) * (1.0 - step(1.5, v_kind));
+  float relationshipCoverage = 1.0 - smoothstep(0.58, 1.0, abs(v_side));
+  float referenceCoverage = 1.0 - smoothstep(0.42, 0.86, abs(v_side));
+  float dashCount = max(v_length / 11.0, 1.0);
+  float dashPhase = fract(v_along * dashCount);
+  float dash = 1.0 - smoothstep(0.58, 0.72, dashPhase);
+  float coverage = mix(relationshipCoverage, referenceCoverage * dash, referenceOnly);
+  float kindAlpha = mix(1.0, 0.48, referenceOnly);
+
+  outColor = vec4(color, alpha * coverage * kindAlpha);
 }
 `;
 
@@ -351,6 +368,7 @@ export class GraphRenderer {
   private readonly edgeSourceBuffer: WebGLBuffer;
   private readonly edgeTargetBuffer: WebGLBuffer;
   private readonly edgeStateBuffer: WebGLBuffer;
+  private readonly edgeKindBuffer: WebGLBuffer;
   private readonly nodePositionBuffer: WebGLBuffer;
   private readonly nodeRadiusBuffer: WebGLBuffer;
   private readonly nodeStateBuffer: WebGLBuffer;
@@ -408,6 +426,7 @@ export class GraphRenderer {
     const edgeSourceBuffer = gl.createBuffer();
     const edgeTargetBuffer = gl.createBuffer();
     const edgeStateBuffer = gl.createBuffer();
+    const edgeKindBuffer = gl.createBuffer();
     const nodePositionBuffer = gl.createBuffer();
     const nodeRadiusBuffer = gl.createBuffer();
     const nodeStateBuffer = gl.createBuffer();
@@ -428,6 +447,7 @@ export class GraphRenderer {
       !edgeSourceBuffer ||
       !edgeTargetBuffer ||
       !edgeStateBuffer ||
+      !edgeKindBuffer ||
       !nodePositionBuffer ||
       !nodeRadiusBuffer ||
       !nodeStateBuffer ||
@@ -450,6 +470,7 @@ export class GraphRenderer {
     this.edgeSourceBuffer = edgeSourceBuffer;
     this.edgeTargetBuffer = edgeTargetBuffer;
     this.edgeStateBuffer = edgeStateBuffer;
+    this.edgeKindBuffer = edgeKindBuffer;
     this.nodePositionBuffer = nodePositionBuffer;
     this.nodeRadiusBuffer = nodeRadiusBuffer;
     this.nodeStateBuffer = nodeStateBuffer;
@@ -643,6 +664,7 @@ export class GraphRenderer {
     gl.deleteBuffer(this.edgeSourceBuffer);
     gl.deleteBuffer(this.edgeTargetBuffer);
     gl.deleteBuffer(this.edgeStateBuffer);
+    gl.deleteBuffer(this.edgeKindBuffer);
     gl.deleteBuffer(this.nodePositionBuffer);
     gl.deleteBuffer(this.nodeRadiusBuffer);
     gl.deleteBuffer(this.nodeStateBuffer);
@@ -986,6 +1008,15 @@ export class GraphRenderer {
     gl.vertexAttribPointer(stateLocation, 1, gl.FLOAT, false, 0, 0);
     gl.vertexAttribDivisor(stateLocation, 1);
 
+    const kindLocation = requireLocation(
+      gl.getAttribLocation(this.edgeProgram, "a_kind"),
+      "a_kind",
+    );
+    gl.bindBuffer(gl.ARRAY_BUFFER, this.edgeKindBuffer);
+    gl.enableVertexAttribArray(kindLocation);
+    gl.vertexAttribPointer(kindLocation, 1, gl.FLOAT, false, 0, 0);
+    gl.vertexAttribDivisor(kindLocation, 1);
+
     gl.bindVertexArray(null);
   }
 
@@ -1149,6 +1180,7 @@ export class GraphRenderer {
     const nodeById = new Map(this.graph.nodes.map((node) => [node.id, node]));
     const sources: number[] = [];
     const targets: number[] = [];
+    const kinds: number[] = [];
 
     for (const edge of this.graph.edges) {
       const source = nodeById.get(edge.source_object_id);
@@ -1160,6 +1192,9 @@ export class GraphRenderer {
 
       sources.push(source.x, source.y);
       targets.push(target.x, target.y);
+      kinds.push(
+        edge.kind === "reference" ? 1 : edge.kind === "relationship_and_reference" ? 2 : 0,
+      );
     }
 
     this.edgeInstanceCount = sources.length / 2;
@@ -1169,6 +1204,9 @@ export class GraphRenderer {
 
     this.gl.bindBuffer(this.gl.ARRAY_BUFFER, this.edgeTargetBuffer);
     this.gl.bufferData(this.gl.ARRAY_BUFFER, new Float32Array(targets), this.gl.STATIC_DRAW);
+
+    this.gl.bindBuffer(this.gl.ARRAY_BUFFER, this.edgeKindBuffer);
+    this.gl.bufferData(this.gl.ARRAY_BUFFER, new Float32Array(kinds), this.gl.STATIC_DRAW);
 
     this.uploadEdgeStates();
   }

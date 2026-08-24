@@ -108,6 +108,19 @@ export type ObjectResponse = {
 /** Object-version response envelope. */
 export type ObjectVersionResponse = { version: ObjectVersion };
 
+/** Wikilink derived from an immutable object version. */
+export type ObjectVersionWikilink = {
+  /** Normalized title target authored inside the double brackets. */
+  raw_target: string;
+  /** Optional display text authored after the `|` separator. */
+  display_text?: string;
+  /** Resolved target object when the requesting user can read it. */
+  target_object_id?: UUID;
+};
+
+/** Object-version wikilink response envelope. */
+export type ObjectVersionWikilinksResponse = { items: ObjectVersionWikilink[] };
+
 /** Object attachment resource. */
 export type ObjectAttachment = {
   /** Attachment ID. */

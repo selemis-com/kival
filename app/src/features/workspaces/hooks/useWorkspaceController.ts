@@ -716,6 +716,32 @@ export function useWorkspaceController({
         incoming_references: [],
       },
       edges: { items: [] },
+      graph: {
+        workspace_id: response.object.workspace_id,
+        root_object_id: response.object.id,
+        depth: 1,
+        direction: "both",
+        max_nodes: 100,
+        max_edges: 250,
+        truncated: false,
+        truncation: { nodes: false, edges: false },
+        nodes: [
+          {
+            id: response.object.id,
+            workspace_id: response.object.workspace_id,
+            current_version_id: response.object.current_version_id,
+            title: response.current_version?.title ?? response.object.title,
+            status: response.object.status,
+            created_by: response.object.created_by,
+            created_at: response.object.created_at,
+            updated_at: response.object.updated_at,
+            distance: 0,
+            incoming_count: 0,
+            outgoing_count: 0,
+          },
+        ],
+        edges: [],
+      },
     });
     setApplicationError(null);
     navigate(`/w/${mutation.workspaceId}/objects/${response.object.id}`);
@@ -876,7 +902,7 @@ export function useWorkspaceController({
     const generation = workspaceGenerationRef.current;
 
     try {
-      const [backlinks, edges] = await Promise.all([
+      const [backlinks, edges, graph] = await Promise.all([
         kival.getObjectBacklinks({
           workspaceId: currentWorkspaceId,
           objectId,
@@ -885,6 +911,13 @@ export function useWorkspaceController({
         kival.listObjectEdges({
           workspaceId: currentWorkspaceId,
           objectId,
+          signal: controller.signal,
+        }),
+        kival.getObjectGraph({
+          workspaceId: currentWorkspaceId,
+          objectId,
+          depth: 1,
+          direction: "both",
           signal: controller.signal,
         }),
       ]);
@@ -900,7 +933,7 @@ export function useWorkspaceController({
         return;
       }
 
-      setObjectContext({ backlinks, edges });
+      setObjectContext({ backlinks, edges, graph });
     } catch (cause) {
       if (cause instanceof KivalTransportError && cause.kind === "abort") {
         return;
@@ -1043,7 +1076,7 @@ export function useWorkspaceController({
       }
 
       try {
-        const [backlinks, edges] = await Promise.all([
+        const [backlinks, edges, graph] = await Promise.all([
           kival.getObjectBacklinks({
             workspaceId: currentWorkspaceId,
             objectId,
@@ -1052,6 +1085,13 @@ export function useWorkspaceController({
           kival.listObjectEdges({
             workspaceId: currentWorkspaceId,
             objectId,
+            signal: controller.signal,
+          }),
+          kival.getObjectGraph({
+            workspaceId: currentWorkspaceId,
+            objectId,
+            depth: 1,
+            direction: "both",
             signal: controller.signal,
           }),
         ]);
@@ -1066,7 +1106,7 @@ export function useWorkspaceController({
         }
 
         setSelectedObject(object);
-        setObjectContext({ backlinks, edges });
+        setObjectContext({ backlinks, edges, graph });
       } catch (cause) {
         if (cause instanceof KivalTransportError && cause.kind === "abort") {
           return;

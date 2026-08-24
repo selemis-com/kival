@@ -2,6 +2,7 @@ import type {
   ListResponse,
   ObjectBacklinksResponse,
   ObjectEdge,
+  ObjectGraphResponse,
   ObjectListItem,
   ObjectResource,
   ObjectResponse,
@@ -42,4 +43,5 @@ export type RecentObject = ObjectSummary;
 export type ObjectContext = {
   backlinks: ObjectBacklinksResponse;
   edges: ListResponse<ObjectEdge>;
+  graph: ObjectGraphResponse;
 };

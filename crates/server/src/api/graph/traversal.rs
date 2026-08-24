@@ -12,7 +12,7 @@ use kival_kernel::{
     workspace_graph_nodes,
 };
 use kival_sdk::{
-    ObjectGraphEdge, ObjectGraphNode, ObjectGraphParams, ObjectGraphResponse,
+    GraphEdgeKind, ObjectGraphEdge, ObjectGraphNode, ObjectGraphParams, ObjectGraphResponse,
     ObjectGraphTruncation, WorkspaceGraphEdge, WorkspaceGraphLimits, WorkspaceGraphNode,
     WorkspaceGraphParams, WorkspaceGraphResponse,
 };
@@ -107,26 +107,38 @@ fn workspace_graph_node_into_wire(row: WorkspaceGraphNodeRow) -> WorkspaceGraphN
     }
 }
 
-/// Converts a kernel graph edge into a workspace-graph edge.
-const fn workspace_graph_edge_into_wire(row: WorkspaceGraphEdgeRow) -> WorkspaceGraphEdge {
+/// Returns the public kind for one deduplicated graph link.
+fn graph_edge_kind(has_relationship: bool, has_reference: bool) -> GraphEdgeKind {
+    match (has_relationship, has_reference) {
+        (true, true) => GraphEdgeKind::RelationshipAndReference,
+        (true, false) => GraphEdgeKind::Relationship,
+        (false, true) => GraphEdgeKind::Reference,
+        (false, false) => unreachable!("graph link has no origin"),
+    }
+}
+
+/// Converts a kernel graph link into a workspace-graph edge.
+fn workspace_graph_edge_into_wire(row: WorkspaceGraphEdgeRow) -> WorkspaceGraphEdge {
     WorkspaceGraphEdge {
         id: row.id,
         workspace_id: row.workspace_id,
         source_object_id: row.source_object_id,
         target_object_id: row.target_object_id,
+        kind: graph_edge_kind(row.has_relationship, row.has_reference),
         created_by: row.created_by,
         created_at: row.created_at,
         updated_at: row.updated_at,
     }
 }
 
-/// Converts a kernel graph edge into an object-graph edge.
-const fn object_graph_edge_into_wire(row: WorkspaceGraphEdgeRow) -> ObjectGraphEdge {
+/// Converts a kernel graph link into an object-graph edge.
+fn object_graph_edge_into_wire(row: WorkspaceGraphEdgeRow) -> ObjectGraphEdge {
     ObjectGraphEdge {
         id: row.id,
         workspace_id: row.workspace_id,
         source_object_id: row.source_object_id,
         target_object_id: row.target_object_id,
+        kind: graph_edge_kind(row.has_relationship, row.has_reference),
         created_by: row.created_by,
         created_at: row.created_at,
         updated_at: row.updated_at,
