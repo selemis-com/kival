@@ -2,7 +2,6 @@
 
 use std::{
     collections::HashMap,
-    error::Error as _,
     sync::{Arc, Mutex, Once},
     time::Duration,
 };
@@ -434,39 +433,17 @@ async fn handle_socket(
             }
             SocketEvent::Incoming(Some(Ok(_))) => {}
             SocketEvent::Incoming(Some(Err(error))) => {
-                if is_reset_without_closing_handshake(&error) {
-                    trace!(
-                        target: "kival::server::realtime",
-                        error = ?error,
-                        "realtime client disconnected without closing handshake",
-                    );
-                } else {
-                    warn!(
-                        target: "kival::server::realtime",
-                        error = ?error,
-                        "realtime client receive failed",
-                    );
-                }
+                trace!(
+                    target: "kival::server::realtime",
+                    error = ?error,
+                    "realtime client disconnected with receive error",
+                );
                 break;
             }
         }
     }
 
     gauge!("realtime.active_connections").decrement(1.0);
-}
-
-/// Returns whether a client dropped its transport without a WebSocket close handshake.
-fn is_reset_without_closing_handshake(error: &axum::Error) -> bool {
-    error.source().and_then(|source| source.downcast_ref::<tungstenite::Error>()).is_some_and(
-        |source| {
-            matches!(
-                source,
-                tungstenite::Error::Protocol(
-                    tungstenite::error::ProtocolError::ResetWithoutClosingHandshake
-                )
-            )
-        },
-    )
 }
 
 /// Sends one bounded client message.

@@ -34,7 +34,6 @@ tower-http = { workspace = true, features = [
     "sensitive-headers",
     "trace",
 ] }
-tungstenite.workspace = true
 url.workspace = true
 uuid.workspace = true
 
