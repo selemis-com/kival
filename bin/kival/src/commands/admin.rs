@@ -1,9 +1,10 @@
 //! Admin commands.
 
 use clap::{Parser, Subcommand};
+use clap_schema::{CommandSchema, schema_handler};
 use eyre::Result;
 use kival_cli::runner::CliContext;
-use kival_sdk::{UpdateUserRequest, User, UserListParams, UserListStatus};
+use kival_sdk::{ListResponse, UpdateUserRequest, User, UserListParams, UserListStatus};
 use serde::Deserialize;
 use uuid::Uuid;
 
@@ -19,7 +20,7 @@ use crate::utils::{
 };
 
 /// Arguments for `kival admin`.
-#[derive(Debug, Parser)]
+#[derive(Debug, Parser, CommandSchema)]
 pub struct AdminCommand {
     /// The admin command to run.
     #[command(subcommand)]
@@ -27,7 +28,7 @@ pub struct AdminCommand {
 }
 
 /// The available `kival admin` commands.
-#[derive(Debug, Subcommand)]
+#[derive(Debug, Subcommand, CommandSchema)]
 pub enum AdminSubcommand {
     /// Manage users.
     #[command(name = "users")]
@@ -35,7 +36,7 @@ pub enum AdminSubcommand {
 }
 
 /// Arguments for `kival admin users`.
-#[derive(Debug, Parser)]
+#[derive(Debug, Parser, CommandSchema)]
 pub struct AdminUsersCommand {
     /// The user command to run.
     #[command(subcommand)]
@@ -43,7 +44,7 @@ pub struct AdminUsersCommand {
 }
 
 /// The available `kival admin users` commands.
-#[derive(Debug, Subcommand)]
+#[derive(Debug, Subcommand, CommandSchema)]
 pub enum AdminUsersSubcommand {
     /// List users.
     #[command(name = "list")]
@@ -155,22 +156,34 @@ impl AdminUsersCommand {
     /// Returns an error if the selected user command fails.
     pub async fn run(self, ctx: CliContext, output: OutputMode) -> Result<()> {
         match self.command {
-            AdminUsersSubcommand::List(command) => command.run(ctx, output).await,
-            AdminUsersSubcommand::Get(command) => command.run(ctx, output).await,
-            AdminUsersSubcommand::Update(command) => command.run(ctx, output).await,
-            AdminUsersSubcommand::Disable(command) => command.run(ctx, output).await,
-            AdminUsersSubcommand::Enable(command) => command.run(ctx, output).await,
+            AdminUsersSubcommand::List(command) => {
+                command.run(ctx, output).await?;
+            }
+            AdminUsersSubcommand::Get(command) => {
+                command.run(ctx, output).await?;
+            }
+            AdminUsersSubcommand::Update(command) => {
+                command.run(ctx, output).await?;
+            }
+            AdminUsersSubcommand::Disable(command) => {
+                command.run(ctx, output).await?;
+            }
+            AdminUsersSubcommand::Enable(command) => {
+                command.run(ctx, output).await?;
+            }
         }
+        Ok(())
     }
 }
 
+#[schema_handler(run)]
 impl AdminUsersListCommand {
     /// Run `kival admin users list`.
     ///
     /// # Errors
     ///
     /// Returns an error if the API key cannot be loaded or users cannot be listed.
-    pub async fn run(self, ctx: CliContext, output: OutputMode) -> Result<()> {
+    pub async fn run(self, ctx: CliContext, output: OutputMode) -> Result<ListResponse<User>> {
         let client = authenticated_client(&ctx)?;
 
         let response = client
@@ -197,31 +210,35 @@ impl AdminUsersListCommand {
                 println!();
                 println!("Next cursor: {cursor}");
             }
-        })
+        })?;
+        Ok(response)
     }
 }
 
+#[schema_handler(run)]
 impl AdminUsersGetCommand {
     /// Run `kival admin users get`.
     ///
     /// # Errors
     ///
     /// Returns an error if the API key cannot be loaded or the user cannot be fetched.
-    pub async fn run(self, ctx: CliContext, output: OutputMode) -> Result<()> {
+    pub async fn run(self, ctx: CliContext, output: OutputMode) -> Result<User> {
         let client = authenticated_client(&ctx)?;
         let user = client.get_user(self.user_id).await?;
 
-        print_output(output, &user, || print_user_line(&user, None))
+        print_output(output, &user, || print_user_line(&user, None))?;
+        Ok(user)
     }
 }
 
+#[schema_handler(run)]
 impl AdminUsersUpdateCommand {
     /// Run `kival admin users update`.
     ///
     /// # Errors
     ///
     /// Returns an error if the API key cannot be loaded or the user cannot be updated.
-    pub async fn run(self, ctx: CliContext, output: OutputMode) -> Result<()> {
+    pub async fn run(self, ctx: CliContext, output: OutputMode) -> Result<User> {
         let user_id = self.user_id;
         let input = self.into_input()?;
         let display_name = input.display_name.as_deref().map(str::trim);
@@ -242,7 +259,8 @@ impl AdminUsersUpdateCommand {
             )
             .await?;
 
-        print_output(output, &user, || print_user_line(&user, Some("updated")))
+        print_output(output, &user, || print_user_line(&user, Some("updated")))?;
+        Ok(user)
     }
 
     /// Resolves semantic update input from either `--input` or CLI payload fields.
@@ -267,31 +285,35 @@ impl AdminUsersUpdateCommand {
     }
 }
 
+#[schema_handler(run)]
 impl AdminUsersDisableCommand {
     /// Run `kival admin users disable`.
     ///
     /// # Errors
     ///
     /// Returns an error if the API key cannot be loaded or the user cannot be disabled.
-    pub async fn run(self, ctx: CliContext, output: OutputMode) -> Result<()> {
+    pub async fn run(self, ctx: CliContext, output: OutputMode) -> Result<User> {
         let client = authenticated_client(&ctx)?;
         let user = client.disable_user(self.user_id).await?;
 
-        print_output(output, &user, || print_user_line(&user, Some("disabled")))
+        print_output(output, &user, || print_user_line(&user, Some("disabled")))?;
+        Ok(user)
     }
 }
 
+#[schema_handler(run)]
 impl AdminUsersEnableCommand {
     /// Run `kival admin users enable`.
     ///
     /// # Errors
     ///
     /// Returns an error if the API key cannot be loaded or the user cannot be enabled.
-    pub async fn run(self, ctx: CliContext, output: OutputMode) -> Result<()> {
+    pub async fn run(self, ctx: CliContext, output: OutputMode) -> Result<User> {
         let client = authenticated_client(&ctx)?;
         let user = client.enable_user(self.user_id).await?;
 
-        print_output(output, &user, || print_user_line(&user, Some("enabled")))
+        print_output(output, &user, || print_user_line(&user, Some("enabled")))?;
+        Ok(user)
     }
 }
 

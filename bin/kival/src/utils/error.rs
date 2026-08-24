@@ -1,24 +1,23 @@
 //! Stable CLI error response support.
 
-use std::{borrow::Cow, path::Path};
+use std::path::Path;
 
 use eyre::Report;
 use kival_sdk::{ApiErrorKind, ClientError};
-use schemars::{JsonSchema, Schema, SchemaGenerator, json_schema};
 use serde::Serialize;
 use serde_json::Value;
 
 use crate::utils::output::print_json;
 
 /// Top-level stable CLI error response.
-#[derive(Debug, Serialize, JsonSchema)]
+#[derive(Debug, Serialize)]
 pub struct CliErrorResponse {
     /// Error payload.
     pub error: CliErrorBody,
 }
 
 /// Stable CLI error payload.
-#[derive(Debug, Serialize, JsonSchema)]
+#[derive(Debug, Serialize)]
 pub struct CliErrorBody {
     /// Stable machine-readable error code.
     pub code: CliErrorCode,
@@ -45,12 +44,6 @@ impl CliError {
     #[must_use]
     pub fn invalid_argument(message: impl Into<String>) -> Self {
         Self { code: CliErrorCode::InvalidArgument, message: message.into(), details: None }
-    }
-
-    /// Builds an invalid schema command path error.
-    #[must_use]
-    pub fn invalid_command_path(message: impl Into<String>) -> Self {
-        Self { code: CliErrorCode::InvalidCommandPath, message: message.into(), details: None }
     }
 
     /// Builds an invalid output field error.
@@ -126,8 +119,6 @@ pub enum CliErrorCode {
     PermissionDenied,
     /// A command argument is invalid.
     InvalidArgument,
-    /// A schema command path is invalid.
-    InvalidCommandPath,
     /// A resource was not found.
     ResourceNotFound,
     /// An object was not found.
@@ -169,94 +160,29 @@ impl Serialize for CliErrorCode {
     }
 }
 
-impl JsonSchema for CliErrorCode {
-    fn schema_name() -> Cow<'static, str> {
-        "CliErrorCode".into()
-    }
-
-    fn json_schema(_generator: &mut SchemaGenerator) -> Schema {
-        json_schema!({
-            "type": "string",
-            "enum": Self::PUBLIC_STRINGS,
-        })
-    }
-}
-
 impl CliErrorCode {
-    /// All stable CLI error code variants in public schema order.
-    pub const ALL: [Self; 19] = [
-        Self::AuthenticationRequired,
-        Self::PermissionDenied,
-        Self::InvalidArgument,
-        Self::InvalidCommandPath,
-        Self::ResourceNotFound,
-        Self::ObjectNotFound,
-        Self::ObjectArchived,
-        Self::VersionConflict,
-        Self::VersionSelectorOutOfRange,
-        Self::InvalidCursor,
-        Self::ServerUnavailable,
-        Self::RequestFailed,
-        Self::Internal,
-        Self::InvalidField,
-        Self::InvalidProjection,
-        Self::InputReadFailed,
-        Self::InputInvalidJson,
-        Self::InputInvalidValue,
-        Self::InputConflictingSources,
-    ];
-
-    /// Public dotted-lowercase code strings in the same order as [`Self::ALL`].
-    pub const PUBLIC_STRINGS: [&'static str; 19] = [
-        "authentication.required",
-        "permission.denied",
-        "invalid.argument",
-        "invalid.command_path",
-        "resource.not_found",
-        "object.not_found",
-        "object.archived",
-        "version.conflict",
-        "version.selector_out_of_range",
-        "invalid.cursor",
-        "server.unavailable",
-        "request.failed",
-        "internal",
-        "output.invalid_field",
-        "output.invalid_projection",
-        "input.read_failed",
-        "input.invalid_json",
-        "input.invalid_value",
-        "input.conflicting_sources",
-    ];
-
     /// Returns the public dotted-lowercase code string.
     #[must_use]
     pub const fn as_str(self) -> &'static str {
-        Self::PUBLIC_STRINGS[self.index()]
-    }
-
-    /// Returns the stable ordinal for this error code.
-    const fn index(self) -> usize {
         match self {
-            Self::AuthenticationRequired => 0,
-            Self::PermissionDenied => 1,
-            Self::InvalidArgument => 2,
-            Self::InvalidCommandPath => 3,
-            Self::ResourceNotFound => 4,
-            Self::ObjectNotFound => 5,
-            Self::ObjectArchived => 6,
-            Self::VersionConflict => 7,
-            Self::VersionSelectorOutOfRange => 8,
-            Self::InvalidCursor => 9,
-            Self::ServerUnavailable => 10,
-            Self::RequestFailed => 11,
-            Self::Internal => 12,
-            Self::InvalidField => 13,
-            Self::InvalidProjection => 14,
-            Self::InputReadFailed => 15,
-            Self::InputInvalidJson => 16,
-            Self::InputInvalidValue => 17,
-            Self::InputConflictingSources => 18,
+            Self::AuthenticationRequired => "authentication.required",
+            Self::PermissionDenied => "permission.denied",
+            Self::InvalidArgument => "invalid.argument",
+            Self::ResourceNotFound => "resource.not_found",
+            Self::ObjectNotFound => "object.not_found",
+            Self::ObjectArchived => "object.archived",
+            Self::VersionConflict => "version.conflict",
+            Self::VersionSelectorOutOfRange => "version.selector_out_of_range",
+            Self::InvalidCursor => "invalid.cursor",
+            Self::ServerUnavailable => "server.unavailable",
+            Self::RequestFailed => "request.failed",
+            Self::Internal => "internal",
+            Self::InvalidField => "output.invalid_field",
+            Self::InvalidProjection => "output.invalid_projection",
+            Self::InputReadFailed => "input.read_failed",
+            Self::InputInvalidJson => "input.invalid_json",
+            Self::InputInvalidValue => "input.invalid_value",
+            Self::InputConflictingSources => "input.conflicting_sources",
         }
     }
 }
@@ -273,11 +199,18 @@ impl CliErrorBody {
             return Self::from_client_error(client_error);
         }
 
-        if error.downcast_ref::<clap_schema::Error>().is_some() {
-            return Self {
-                code: CliErrorCode::Internal,
-                message: "Internal schema definition error.".to_owned(),
-                details: None,
+        if let Some(schema_error) = error.downcast_ref::<clap_schema::Error>() {
+            return match schema_error {
+                clap_schema::Error::UnknownCommand { .. } => Self {
+                    code: CliErrorCode::InvalidArgument,
+                    message: schema_error.to_string(),
+                    details: None,
+                },
+                _ => Self {
+                    code: CliErrorCode::Internal,
+                    message: "Internal schema definition error.".to_owned(),
+                    details: None,
+                },
             };
         }
 
@@ -362,7 +295,6 @@ const fn generic_message_for_code(code: CliErrorCode) -> &'static str {
         CliErrorCode::AuthenticationRequired => "Authentication is required.",
         CliErrorCode::PermissionDenied => "Permission denied.",
         CliErrorCode::InvalidArgument => "Invalid request.",
-        CliErrorCode::InvalidCommandPath => "Invalid command path.",
         CliErrorCode::ResourceNotFound | CliErrorCode::ObjectNotFound => "Resource was not found.",
         CliErrorCode::ObjectArchived => "Object is archived.",
         CliErrorCode::VersionConflict => "Version conflict.",
@@ -430,20 +362,12 @@ mod tests {
     }
 
     #[test]
-    fn cli_error_code_schema_uses_public_strings() {
-        let schema = schemars::schema_for!(CliErrorCode);
-        let value = serde_json::to_value(schema).expect("schema should serialize");
-        let variants = value["enum"].as_array().expect("error code schema should be enum");
-        let expected = CliErrorCode::PUBLIC_STRINGS
-            .iter()
-            .copied()
-            .map(|code| Value::String(code.to_owned()))
-            .collect::<Vec<_>>();
+    fn unknown_schema_path_is_invalid_argument() {
+        let error =
+            eyre::eyre!(clap_schema::Error::UnknownCommand { path: vec!["missing".to_owned()] });
+        let body = CliErrorBody::from_report(&error);
 
-        assert_eq!(variants, &expected);
-        assert_eq!(
-            CliErrorCode::ALL.iter().map(|code| code.as_str()).collect::<Vec<_>>(),
-            CliErrorCode::PUBLIC_STRINGS
-        );
+        assert_eq!(body.code, CliErrorCode::InvalidArgument);
+        assert_eq!(body.message, "unknown clap command path: missing");
     }
 }

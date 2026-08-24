@@ -68,6 +68,7 @@ pub struct CreateObjectRequest {
 
     /// Initial flat object metadata.
     #[serde(default = "empty_object")]
+    #[schemars(with = "std::collections::BTreeMap<String, Value>")]
     pub metadata: Value,
 }
 
@@ -144,17 +145,17 @@ pub struct ObjectResource {
     pub archived_by: Option<Uuid>,
 
     /// Creation timestamp.
-    #[schemars(with = "String")]
+    #[schemars(with = "String", extend("format" = "date-time"))]
     #[serde(with = "rfc3339")]
     pub created_at: OffsetDateTime,
 
     /// Last update timestamp.
-    #[schemars(with = "String")]
+    #[schemars(with = "String", extend("format" = "date-time"))]
     #[serde(with = "rfc3339")]
     pub updated_at: OffsetDateTime,
 
     /// Archive timestamp.
-    #[schemars(with = "Option<String>")]
+    #[schemars(with = "Option<String>", extend("format" = "date-time"))]
     #[serde(with = "rfc3339::option")]
     pub archived_at: Option<OffsetDateTime>,
 }
@@ -195,7 +196,7 @@ pub struct ObjectListItem {
     pub pinned: bool,
 
     /// Time at which the authenticated user pinned this object.
-    #[schemars(with = "Option<String>")]
+    #[schemars(with = "Option<String>", extend("format" = "date-time"))]
     #[serde(with = "rfc3339::option")]
     pub pinned_at: Option<OffsetDateTime>,
 }
@@ -227,6 +228,7 @@ pub struct ObjectVersion {
     pub body: String,
 
     /// Version metadata.
+    #[schemars(with = "std::collections::BTreeMap<String, Value>")]
     pub metadata: Value,
 
     /// User that created this version.
@@ -249,7 +251,7 @@ pub struct ObjectVersion {
     pub created_by_object_role: Option<ObjectRole>,
 
     /// Creation timestamp.
-    #[schemars(with = "String")]
+    #[schemars(with = "String", extend("format" = "date-time"))]
     #[serde(with = "rfc3339")]
     pub created_at: OffsetDateTime,
 }
@@ -318,13 +320,14 @@ pub struct ObjectAttachment {
     pub media_type: Option<String>,
 
     /// Attachment metadata.
+    #[schemars(with = "std::collections::BTreeMap<String, Value>")]
     pub metadata: Value,
 
     /// User that created this attachment.
     pub created_by: Option<Uuid>,
 
     /// Creation timestamp.
-    #[schemars(with = "String")]
+    #[schemars(with = "String", extend("format" = "date-time"))]
     #[serde(with = "rfc3339")]
     pub created_at: OffsetDateTime,
 }

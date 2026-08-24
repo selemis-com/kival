@@ -8,8 +8,7 @@ use kival_sdk::{
     CreateGroupMembershipRequest, CreateGroupRequest, Group, GroupListParams, GroupMembership,
     ListResponse, MembershipRole, PatchField, UpdateGroupRequest,
 };
-use schemars::JsonSchema;
-use serde::{Deserialize, Serialize};
+use serde::Deserialize;
 use uuid::Uuid;
 
 use crate::utils::{
@@ -96,7 +95,7 @@ pub struct GroupsGetCommand {
 }
 
 /// Semantic input for creating a group.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct CreateGroupInput {
     /// Group name.
@@ -107,7 +106,7 @@ pub struct CreateGroupInput {
 }
 
 /// Semantic input for updating a group.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct UpdateGroupInput {
     /// New group name.

@@ -58,29 +58,29 @@ pub struct Comment {
     /// Explicit stable user mentions associated with the current body.
     pub mentions: Vec<CommentMention>,
     /// Creation timestamp.
-    #[schemars(with = "String")]
+    #[schemars(with = "String", extend("format" = "date-time"))]
     #[serde(with = "rfc3339")]
     pub created_at: OffsetDateTime,
     /// Last modification timestamp.
-    #[schemars(with = "String")]
+    #[schemars(with = "String", extend("format" = "date-time"))]
     #[serde(with = "rfc3339")]
     pub updated_at: OffsetDateTime,
     /// Most recent body-edit timestamp.
-    #[schemars(with = "Option<String>")]
+    #[schemars(with = "Option<String>", extend("format" = "date-time"))]
     #[serde(with = "time::serde::rfc3339::option")]
     pub edited_at: Option<OffsetDateTime>,
     /// Soft-deletion timestamp.
-    #[schemars(with = "Option<String>")]
+    #[schemars(with = "Option<String>", extend("format" = "date-time"))]
     #[serde(with = "time::serde::rfc3339::option")]
     pub deleted_at: Option<OffsetDateTime>,
     /// User who soft-deleted the comment.
     pub deleted_by: Option<Uuid>,
     /// Timestamp at which retention removed the body.
-    #[schemars(with = "Option<String>")]
+    #[schemars(with = "Option<String>", extend("format" = "date-time"))]
     #[serde(with = "time::serde::rfc3339::option")]
     pub expired_at: Option<OffsetDateTime>,
     /// Explicit boundary consumed by retention workers.
-    #[schemars(with = "Option<String>")]
+    #[schemars(with = "Option<String>", extend("format" = "date-time"))]
     #[serde(with = "time::serde::rfc3339::option")]
     pub retention_expires_at: Option<OffsetDateTime>,
 }
@@ -97,21 +97,21 @@ pub struct CommentThread {
     /// User who created the root comment.
     pub created_by: Uuid,
     /// Creation timestamp.
-    #[schemars(with = "String")]
+    #[schemars(with = "String", extend("format" = "date-time"))]
     #[serde(with = "rfc3339")]
     pub created_at: OffsetDateTime,
     /// Last thread activity timestamp.
-    #[schemars(with = "String")]
+    #[schemars(with = "String", extend("format" = "date-time"))]
     #[serde(with = "rfc3339")]
     pub updated_at: OffsetDateTime,
     /// Resolution timestamp, when resolved.
-    #[schemars(with = "Option<String>")]
+    #[schemars(with = "Option<String>", extend("format" = "date-time"))]
     #[serde(with = "time::serde::rfc3339::option")]
     pub resolved_at: Option<OffsetDateTime>,
     /// User who most recently resolved the thread.
     pub resolved_by: Option<Uuid>,
     /// Explicit boundary consumed by retention workers.
-    #[schemars(with = "Option<String>")]
+    #[schemars(with = "Option<String>", extend("format" = "date-time"))]
     #[serde(with = "time::serde::rfc3339::option")]
     pub retention_expires_at: Option<OffsetDateTime>,
     /// Comments ordered by creation time, with the root first.

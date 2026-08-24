@@ -11,7 +11,7 @@ use crate::{ListResponse, User};
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 pub struct AuthenticatedSessionResponse {
     /// Session expiration timestamp.
-    #[schemars(with = "String")]
+    #[schemars(with = "String", extend("format" = "date-time"))]
     #[serde(with = "rfc3339")]
     pub expires_at: OffsetDateTime,
     /// Authenticated user.
@@ -38,19 +38,19 @@ pub struct Session {
     /// User ID.
     pub user_id: Uuid,
     /// Creation timestamp.
-    #[schemars(with = "String")]
+    #[schemars(with = "String", extend("format" = "date-time"))]
     #[serde(with = "rfc3339")]
     pub created_at: OffsetDateTime,
     /// Last update timestamp.
-    #[schemars(with = "String")]
+    #[schemars(with = "String", extend("format" = "date-time"))]
     #[serde(with = "rfc3339")]
     pub updated_at: OffsetDateTime,
     /// Expiration timestamp.
-    #[schemars(with = "String")]
+    #[schemars(with = "String", extend("format" = "date-time"))]
     #[serde(with = "rfc3339")]
     pub expires_at: OffsetDateTime,
     /// Revocation timestamp.
-    #[schemars(with = "Option<String>")]
+    #[schemars(with = "Option<String>", extend("format" = "date-time"))]
     #[serde(with = "rfc3339::option")]
     pub revoked_at: Option<OffsetDateTime>,
     /// User that revoked this session.
@@ -58,7 +58,7 @@ pub struct Session {
     /// Revocation reason.
     pub revocation_reason: Option<String>,
     /// Last-seen timestamp.
-    #[schemars(with = "Option<String>")]
+    #[schemars(with = "Option<String>", extend("format" = "date-time"))]
     #[serde(with = "rfc3339::option")]
     pub last_seen_at: Option<OffsetDateTime>,
     /// User agent recorded at session creation.

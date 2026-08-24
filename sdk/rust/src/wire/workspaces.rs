@@ -119,17 +119,17 @@ pub struct Workspace {
     pub archived_by: Option<Uuid>,
 
     /// Creation timestamp.
-    #[schemars(with = "String")]
+    #[schemars(with = "String", extend("format" = "date-time"))]
     #[serde(with = "rfc3339")]
     pub created_at: OffsetDateTime,
 
     /// Last update timestamp.
-    #[schemars(with = "String")]
+    #[schemars(with = "String", extend("format" = "date-time"))]
     #[serde(with = "rfc3339")]
     pub updated_at: OffsetDateTime,
 
     /// Archive timestamp.
-    #[schemars(with = "Option<String>")]
+    #[schemars(with = "Option<String>", extend("format" = "date-time"))]
     #[serde(with = "rfc3339::option")]
     pub archived_at: Option<OffsetDateTime>,
 }
@@ -152,7 +152,7 @@ pub struct WorkspaceListItem {
     pub pinned: bool,
 
     /// Time at which the authenticated user pinned this workspace.
-    #[schemars(with = "Option<String>")]
+    #[schemars(with = "Option<String>", extend("format" = "date-time"))]
     #[serde(with = "rfc3339::option")]
     pub pinned_at: Option<OffsetDateTime>,
 }
@@ -217,17 +217,17 @@ pub struct WorkspaceMembership {
     pub revoked_by: Option<Uuid>,
 
     /// Creation timestamp.
-    #[schemars(with = "String")]
+    #[schemars(with = "String", extend("format" = "date-time"))]
     #[serde(with = "rfc3339")]
     pub created_at: OffsetDateTime,
 
     /// Last update timestamp.
-    #[schemars(with = "String")]
+    #[schemars(with = "String", extend("format" = "date-time"))]
     #[serde(with = "rfc3339")]
     pub updated_at: OffsetDateTime,
 
     /// Revocation timestamp.
-    #[schemars(with = "Option<String>")]
+    #[schemars(with = "Option<String>", extend("format" = "date-time"))]
     #[serde(with = "rfc3339::option")]
     pub revoked_at: Option<OffsetDateTime>,
 }
@@ -274,17 +274,17 @@ pub struct WorkspaceGroup {
     pub archived_by: Option<Uuid>,
 
     /// Creation timestamp.
-    #[schemars(with = "String")]
+    #[schemars(with = "String", extend("format" = "date-time"))]
     #[serde(with = "rfc3339")]
     pub created_at: OffsetDateTime,
 
     /// Last update timestamp.
-    #[schemars(with = "String")]
+    #[schemars(with = "String", extend("format" = "date-time"))]
     #[serde(with = "rfc3339")]
     pub updated_at: OffsetDateTime,
 
     /// Archive timestamp.
-    #[schemars(with = "Option<String>")]
+    #[schemars(with = "Option<String>", extend("format" = "date-time"))]
     #[serde(with = "rfc3339::option")]
     pub archived_at: Option<OffsetDateTime>,
 }

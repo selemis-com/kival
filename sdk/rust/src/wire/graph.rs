@@ -63,7 +63,7 @@ pub struct ObjectBacklink {
     /// User that created the edge.
     pub created_by: Option<Uuid>,
     /// Edge creation timestamp.
-    #[schemars(with = "String")]
+    #[schemars(with = "String", extend("format" = "date-time"))]
     #[serde(with = "rfc3339")]
     pub created_at: OffsetDateTime,
 }
@@ -91,7 +91,7 @@ pub struct ObjectBacklinkReference {
     /// Exclusive UTF-8 byte offset in the source body.
     pub span_end: i32,
     /// Reference creation timestamp.
-    #[schemars(with = "String")]
+    #[schemars(with = "String", extend("format" = "date-time"))]
     #[serde(with = "rfc3339")]
     pub created_at: OffsetDateTime,
 }
@@ -162,11 +162,11 @@ pub struct ObjectGraphNode {
     /// User that created the object.
     pub created_by: Option<Uuid>,
     /// Creation timestamp.
-    #[schemars(with = "String")]
+    #[schemars(with = "String", extend("format" = "date-time"))]
     #[serde(with = "rfc3339")]
     pub created_at: OffsetDateTime,
     /// Last update timestamp.
-    #[schemars(with = "String")]
+    #[schemars(with = "String", extend("format" = "date-time"))]
     #[serde(with = "rfc3339")]
     pub updated_at: OffsetDateTime,
     /// Shortest traversal distance from the root.
@@ -205,11 +205,11 @@ pub struct ObjectGraphEdge {
     /// User that created the representative relationship or source version.
     pub created_by: Option<Uuid>,
     /// Creation timestamp.
-    #[schemars(with = "String")]
+    #[schemars(with = "String", extend("format" = "date-time"))]
     #[serde(with = "rfc3339")]
     pub created_at: OffsetDateTime,
     /// Last update timestamp.
-    #[schemars(with = "String")]
+    #[schemars(with = "String", extend("format" = "date-time"))]
     #[serde(with = "rfc3339")]
     pub updated_at: OffsetDateTime,
 }
@@ -281,11 +281,11 @@ pub struct WorkspaceGraphNode {
     /// User that created the object.
     pub created_by: Option<Uuid>,
     /// Creation timestamp.
-    #[schemars(with = "String")]
+    #[schemars(with = "String", extend("format" = "date-time"))]
     #[serde(with = "rfc3339")]
     pub created_at: OffsetDateTime,
     /// Last update timestamp.
-    #[schemars(with = "String")]
+    #[schemars(with = "String", extend("format" = "date-time"))]
     #[serde(with = "rfc3339")]
     pub updated_at: OffsetDateTime,
     /// Number of incoming explicit relationships in the visible filtered graph before edge
@@ -312,11 +312,11 @@ pub struct WorkspaceGraphEdge {
     /// User that created the representative relationship or source version.
     pub created_by: Option<Uuid>,
     /// Creation timestamp.
-    #[schemars(with = "String")]
+    #[schemars(with = "String", extend("format" = "date-time"))]
     #[serde(with = "rfc3339")]
     pub created_at: OffsetDateTime,
     /// Last update timestamp.
-    #[schemars(with = "String")]
+    #[schemars(with = "String", extend("format" = "date-time"))]
     #[serde(with = "rfc3339")]
     pub updated_at: OffsetDateTime,
 }
@@ -379,17 +379,17 @@ pub struct ObjectEdge {
     pub revoked_by: Option<Uuid>,
 
     /// Creation timestamp.
-    #[schemars(with = "String")]
+    #[schemars(with = "String", extend("format" = "date-time"))]
     #[serde(with = "rfc3339")]
     pub created_at: OffsetDateTime,
 
     /// Last update timestamp.
-    #[schemars(with = "String")]
+    #[schemars(with = "String", extend("format" = "date-time"))]
     #[serde(with = "rfc3339")]
     pub updated_at: OffsetDateTime,
 
     /// Revocation timestamp.
-    #[schemars(with = "Option<String>")]
+    #[schemars(with = "Option<String>", extend("format" = "date-time"))]
     #[serde(with = "rfc3339::option")]
     pub revoked_at: Option<OffsetDateTime>,
 }
@@ -446,17 +446,17 @@ pub struct ObjectGrant {
     pub revoked_by: Option<Uuid>,
 
     /// Creation timestamp.
-    #[schemars(with = "String")]
+    #[schemars(with = "String", extend("format" = "date-time"))]
     #[serde(with = "rfc3339")]
     pub created_at: OffsetDateTime,
 
     /// Last update timestamp.
-    #[schemars(with = "String")]
+    #[schemars(with = "String", extend("format" = "date-time"))]
     #[serde(with = "rfc3339")]
     pub updated_at: OffsetDateTime,
 
     /// Revocation timestamp.
-    #[schemars(with = "Option<String>")]
+    #[schemars(with = "Option<String>", extend("format" = "date-time"))]
     #[serde(with = "rfc3339::option")]
     pub revoked_at: Option<OffsetDateTime>,
 }

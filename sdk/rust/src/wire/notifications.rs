@@ -23,7 +23,7 @@ pub struct ObjectNotificationPreference {
     pub explicit: bool,
 
     /// Last explicit preference update, when one exists.
-    #[schemars(with = "Option<String>")]
+    #[schemars(with = "Option<String>", extend("format" = "date-time"))]
     #[serde(with = "rfc3339::option")]
     pub updated_at: Option<OffsetDateTime>,
 }
@@ -91,17 +91,17 @@ pub struct InboxEntry {
     pub comment_excerpt: Option<String>,
 
     /// Read timestamp.
-    #[schemars(with = "Option<String>")]
+    #[schemars(with = "Option<String>", extend("format" = "date-time"))]
     #[serde(with = "rfc3339::option")]
     pub read_at: Option<OffsetDateTime>,
 
     /// Creation timestamp.
-    #[schemars(with = "String")]
+    #[schemars(with = "String", extend("format" = "date-time"))]
     #[serde(with = "rfc3339")]
     pub created_at: OffsetDateTime,
 
     /// Last projection update timestamp.
-    #[schemars(with = "String")]
+    #[schemars(with = "String", extend("format" = "date-time"))]
     #[serde(with = "rfc3339")]
     pub updated_at: OffsetDateTime,
 }
