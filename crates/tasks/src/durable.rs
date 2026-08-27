@@ -4,7 +4,7 @@ use sqlx::PgPool;
 use steda::{Queue, Steda};
 
 /// Queue reserved for Kival's default durable background work.
-const KIVAL_QUEUE_NAME: &str = "kival";
+const DEFAULT_QUEUE_NAME: &str = "kival";
 
 /// Process-local handles for Kival's Steda installation.
 ///
@@ -32,7 +32,7 @@ impl DurableTasks {
     /// cannot be created or verified.
     pub async fn bootstrap(pool: PgPool) -> steda::Result<Self> {
         let steda = Steda::from_pool(pool);
-        let queue = steda.queue(KIVAL_QUEUE_NAME)?;
+        let queue = steda.queue(DEFAULT_QUEUE_NAME)?;
         queue.create().await?;
 
         Ok(Self { steda, queue })
