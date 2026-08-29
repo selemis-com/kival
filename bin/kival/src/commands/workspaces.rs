@@ -57,6 +57,9 @@ pub enum WorkspacesSubcommand {
     Get(WorkspacesGetCommand),
 
     /// Update a workspace.
+    ///
+    /// Examples: `kival workspaces update <WORKSPACE_ID> --name "New name"`,
+    /// `--clear-description`, or `--input update.json`.
     Update(WorkspacesUpdateCommand),
 
     /// Archive a workspace while retaining its stored resources and history.

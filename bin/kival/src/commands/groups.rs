@@ -44,8 +44,14 @@ pub enum GroupsSubcommand {
     /// Get a group by ID.
     Get(GroupsGetCommand),
     /// Create a group.
+    ///
+    /// Examples: `kival groups create --name "Editors"`, `kival groups create --input group.json`,
+    /// or `cat group.json | kival groups create --input -`.
     Create(GroupsCreateCommand),
     /// Update a group.
+    ///
+    /// Examples: `kival groups update <GROUP_ID> --name "Reviewers"`,
+    /// `--clear-description`, or `--input update.json`.
     Update(GroupsUpdateCommand),
     /// Archive a group while retaining its memberships and historical record.
     ///

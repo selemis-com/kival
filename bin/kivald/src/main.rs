@@ -89,9 +89,13 @@ pub enum Commands {
     Serve(ServeCommand),
 }
 
+#[expect(clippy::doc_markdown, reason = "banner")]
 /// CLI server to host Kival.
-///
-/// This is the entrypoint to the executable.
+///     __ __ __            __
+///    / //_//_/_  ______ _/ /
+///   / ,<  / / | / / __ `/ /
+///  / /| |/ /| |/ / /_/ / /
+/// /_/ |_/_/ |___/\__,_/_/
 #[derive(Debug, Parser)]
 #[argx(name = "kivald", version = SHORT_VERSION, long_version = LONG_VERSION)]
 pub struct Cli {

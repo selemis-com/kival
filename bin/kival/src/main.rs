@@ -88,9 +88,23 @@ pub enum Commands {
     Admin(AdminCommand),
 }
 
+#[expect(clippy::doc_markdown, reason = "banner")]
 /// CLI client to interact with Kival.
+///     __ __ __            __
+///    / //_//_/_  ______ _/ /
+///   / ,<  / / | / / __ `/ /
+///  / /| |/ /| |/ / /_/ / /
+/// /_/ |_/_/ |___/\__,_/_/
 ///
-/// This is the entrypoint to the executable.
+/// Machine-readable usage:
+///
+/// - `kival schema` inspects the root command and its children.
+/// - `kival schema <COMMAND>` inspects a command or command group.
+/// - `kival schema <COMMAND> --full` emits a recursive command schema.
+/// - `kival <COMMAND> -O json` emits machine-readable output.
+///
+/// For agent authentication, set `KIVAL_URL` and `KIVAL_API_KEY`, then invoke the desired
+/// command.
 #[derive(Debug, Parser)]
 #[argx(name = "kival", version = SHORT_VERSION, long_version = LONG_VERSION, schema)]
 pub struct Cli {

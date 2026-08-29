@@ -108,6 +108,9 @@ pub enum ObjectEdgesSubcommand {
     ///
     /// `--source-object-id` is the origin of the relationship and `--target-object-id` is its
     /// destination.
+    ///
+    /// Example: `kival objects edges create <WORKSPACE_ID> --source-object-id <SOURCE_ID>
+    /// --target-object-id <TARGET_ID>`.
     Create(ObjectEdgesCreateCommand),
     /// Get an object edge.
     Get(ObjectEdgesGetCommand),

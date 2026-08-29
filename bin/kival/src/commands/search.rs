@@ -13,6 +13,30 @@ use crate::utils::{
 };
 
 /// Arguments for `kival search`.
+///
+/// Leading and trailing whitespace is trimmed from the query before matching. Indexed categories
+/// are `title`, `body`, and `metadata`; metadata is searched as one serialized JSON value, so paths
+/// such as `metadata.kind` are not supported. Omit `--categories` to search every category.
+///
+/// Search modes:
+///
+/// - `auto` matches normalized full-text tokens or a literal substring and is the default.
+/// - `text` uses PostgreSQL web-search syntax with the `simple` text-search configuration.
+/// - `literal` matches one contiguous substring without tokenization.
+/// - `exact` matches only the complete stored category value.
+///
+/// `--case-sensitive` affects literal and exact comparisons, including those performed by `auto`,
+/// but not text matching. By default only current object versions are searched;
+/// `--include-history` also searches previous immutable versions. `--status` filters objects before
+/// matching, while `--context` only changes the returned snippet.
+///
+/// Examples:
+///
+/// `kival search <WORKSPACE_ID> '"release notes"' --mode text --categories body`
+///
+/// `kival search <WORKSPACE_ID> 'release notes' --mode literal --categories title,body`
+///
+/// `kival search <WORKSPACE_ID> 'superseded decision' --include-history`
 #[derive(Debug, Args)]
 
 pub struct SearchCommand {

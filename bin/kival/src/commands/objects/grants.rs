@@ -35,6 +35,9 @@ pub enum ObjectGrantsSubcommand {
     ///
     /// A grant is direct object access and is distinct from workspace or group membership. Exactly
     /// one principal must be supplied with `--user-id` or `--group-id`.
+    ///
+    /// Examples: grant a user with `--user-id <USER_ID> --role viewer`, or a linked group with
+    /// `--group-id <GROUP_ID> --role editor`.
     Create(ObjectGrantsCreateCommand),
     /// Change an active direct object grant's role.
     Update(ObjectGrantsUpdateCommand),
