@@ -1,6 +1,6 @@
 //! Shared CLI argument helpers.
 
-use clap::ValueEnum;
+use argx::ValueEnum;
 use eyre::Result;
 use kival_sdk::{
     ArchiveListStatus, EventListParams, EventOrder, GrantPrincipal, ListParams, MembershipRole,
@@ -17,7 +17,7 @@ use crate::utils::error::CliError;
 /// endpoints whose server-side defaults may differ.
 pub const DEFAULT_LIST_LIMIT: i64 = 50;
 /// String form of the default page size for Clap help metadata.
-pub const DEFAULT_LIST_LIMIT_HELP: &str = "50";
+pub const DEFAULT_LIST_LIMIT: &str = "50";
 
 /// Builds standard list parameters.
 #[must_use]

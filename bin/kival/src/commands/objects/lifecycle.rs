@@ -2,8 +2,7 @@
 
 use std::path::{Path, PathBuf};
 
-use clap::{Parser, ValueEnum};
-use clap_schema::schema_handler;
+use argx::{Args, ValueEnum};
 use eyre::{Result, WrapErr};
 use kival_cli::runner::CliContext;
 use kival_sdk::{
@@ -23,7 +22,7 @@ use super::{
 };
 use crate::utils::{
     args::{
-        CliArchiveListStatus, DEFAULT_LIST_LIMIT, DEFAULT_LIST_LIMIT_HELP, metadata_value,
+        CliArchiveListStatus, DEFAULT_LIST_LIMIT, DEFAULT_LIST_LIMIT, metadata_value,
         validate_flat_metadata, validate_flat_metadata_member,
     },
     credentials::authenticated_client,
@@ -55,58 +54,58 @@ impl From<CliObjectListOrder> for ObjectListOrder {
 }
 
 /// Arguments for `kival objects list`.
-#[derive(Debug, Parser)]
+#[derive(Debug, Args)]
 pub struct ObjectsListCommand {
     /// Workspace ID.
-    #[arg(value_name = "WORKSPACE_ID")]
+
     pub workspace_id: Uuid,
     /// Archive status filter: active, archived, or all.
-    #[arg(long, value_name = "STATUS", value_enum, default_value = "active")]
+    #[argx(long, value_enum, default = CliArchiveListStatus::Active)]
     pub status: CliArchiveListStatus,
     /// Sort order: creation time or last update time, newest first.
-    #[arg(long, value_name = "ORDER", value_enum, default_value = "created")]
+    #[argx(long, value_enum, default = CliObjectListOrder::Created)]
     pub order: CliObjectListOrder,
     /// Restrict by the authenticated user's favorite state.
-    #[arg(long, value_name = "BOOL")]
+    #[argx(long)]
     pub favorited: Option<bool>,
     /// Restrict by the authenticated user's personal pin state.
-    #[arg(long, value_name = "BOOL")]
+    #[argx(long)]
     pub pinned: Option<bool>,
     /// Maximum number of objects to return.
-    #[arg(long, value_name = "N", default_value = DEFAULT_LIST_LIMIT_HELP)]
+    #[argx(long, default = DEFAULT_LIST_LIMIT)]
     pub limit: Option<i64>,
     /// Opaque `response.next_cursor` from the previous page; reuse it with the same filters.
-    #[arg(long, value_name = "CURSOR")]
+    #[argx(long)]
     pub cursor: Option<String>,
 }
 
 /// Arguments for `kival objects get`.
-#[derive(Debug, Clone, Copy, Parser)]
+#[derive(Debug, Clone, Copy, Args)]
 pub struct ObjectsGetCommand {
     /// Object target.
-    #[command(flatten)]
+    #[argx(flatten)]
     pub target: ObjectTargetArgs,
 }
 
 /// Arguments for `kival objects body`.
-#[derive(Debug, Parser)]
+#[derive(Debug, Args)]
 pub struct ObjectsBodyCommand {
     /// Object target.
-    #[command(flatten)]
+    #[argx(flatten)]
     pub target: ObjectTargetArgs,
     /// Write the Markdown body to this file instead of stdout.
-    #[arg(long, short = 'o', value_name = "PATH")]
+    #[argx(long, short = 'o')]
     pub output: Option<PathBuf>,
     /// Overwrite an existing output file.
-    #[arg(long, requires = "output")]
+    #[argx(long, requires = "output")]
     pub force: bool,
 }
 
 /// Arguments for `kival objects edit`.
-#[derive(Debug, Clone, Copy, Parser)]
+#[derive(Debug, Clone, Copy, Args)]
 pub struct ObjectsEditCommand {
     /// Object target.
-    #[command(flatten)]
+    #[argx(flatten)]
     pub target: ObjectTargetArgs,
 }
 
@@ -172,90 +171,79 @@ pub struct UpdateObjectInput {
 }
 
 /// Arguments for `kival objects create`.
-#[derive(Debug, Parser)]
+#[derive(Debug, Args)]
 pub struct ObjectsCreateCommand {
     /// Structured input source.
-    #[command(flatten)]
+    #[argx(flatten)]
     pub input_source: StructuredInputArgs,
     /// Workspace ID. Required unless supplied by `--input`.
-    #[arg(value_name = "WORKSPACE_ID", required_unless_present = "input")]
+
     pub workspace_id: Option<Uuid>,
     /// Object title. Required unless supplied by `--input`.
-    #[arg(long, value_name = "TITLE", required_unless_present = "input")]
+    #[argx(long)]
     pub title: Option<String>,
     /// Initial object body, or `-` to read the body from standard input.
-    #[arg(long, value_name = "BODY", conflicts_with = "body_file")]
+    #[argx(long, conflicts = "body_file")]
     pub body: Option<String>,
     /// Read the initial Markdown body from PATH.
-    #[arg(
-        long,
-        value_name = "PATH",
-        value_parser = parse_body_file_path,
-        conflicts_with_all = ["body", "input"]
-    )]
+    #[argx(long, value_parser = parse_body_file_path, conflicts = ["body", "input"])]
     pub body_file: Option<PathBuf>,
     /// Initial object metadata as a flat JSON object with scalar or scalar-list values.
-    #[arg(long, value_name = "JSON")]
+    #[argx(long)]
     pub metadata: Option<String>,
 }
 
 /// Arguments for `kival objects update`.
-#[derive(Debug, Parser)]
+#[derive(Debug, Args)]
 pub struct ObjectsUpdateCommand {
     /// Structured input source.
-    #[command(flatten)]
+    #[argx(flatten)]
     pub input_source: StructuredInputArgs,
     /// Object target.
-    #[command(flatten)]
+    #[argx(flatten)]
     pub target: ObjectTargetArgs,
     /// Exact current version the update was based on. Required unless supplied by `--input`.
-    #[arg(long, value_name = "VERSION_ID", required_unless_present = "input")]
+    #[argx(long)]
     pub expected_current_version_id: Option<Uuid>,
     /// New object title.
-    #[arg(long, value_name = "TITLE")]
+    #[argx(long)]
     pub title: Option<String>,
     /// New object body, or `-` to read the body from standard input.
-    #[arg(long, value_name = "BODY", conflicts_with = "body_file")]
+    #[argx(long, conflicts = "body_file")]
     pub body: Option<String>,
     /// Read the new Markdown body from PATH.
-    #[arg(
-        long,
-        value_name = "PATH",
-        value_parser = parse_body_file_path,
-        conflicts_with_all = ["body", "input"]
-    )]
+    #[argx(long, value_parser = parse_body_file_path, conflicts = ["body", "input"])]
     pub body_file: Option<PathBuf>,
     /// New object metadata as a flat JSON object with scalar or scalar-list values.
-    #[arg(long, value_name = "JSON")]
+    #[argx(long)]
     pub metadata: Option<String>,
     /// Set one metadata key to a JSON scalar or scalar list, preserving all other metadata.
     ///
     /// Uses `KEY=JSON`; string values must be JSON strings, for example:
     /// `--metadata-set 'kind="note"'`.
-    #[arg(long, value_name = "KEY=JSON", conflicts_with_all = ["metadata", "input"])]
+    #[argx(long, conflicts = ["metadata", "input"])]
     pub metadata_set: Vec<String>,
     /// Remove one metadata key while preserving all other current metadata.
-    #[arg(long, value_name = "KEY", conflicts_with_all = ["metadata", "input"])]
+    #[argx(long, conflicts = ["metadata", "input"])]
     pub metadata_remove: Vec<String>,
 }
 
 /// Arguments for `kival objects archive`.
-#[derive(Debug, Clone, Copy, Parser)]
+#[derive(Debug, Clone, Copy, Args)]
 pub struct ObjectsArchiveCommand {
     /// Object target.
-    #[command(flatten)]
+    #[argx(flatten)]
     pub target: ObjectTargetArgs,
 }
 
 /// Arguments for `kival objects unarchive`.
-#[derive(Debug, Clone, Copy, Parser)]
+#[derive(Debug, Clone, Copy, Args)]
 pub struct ObjectsUnarchiveCommand {
     /// Object target.
-    #[command(flatten)]
+    #[argx(flatten)]
     pub target: ObjectTargetArgs,
 }
 
-#[schema_handler(run)]
 impl ObjectsListCommand {
     /// Run `kival objects list`.
     ///
@@ -297,7 +285,6 @@ impl ObjectsListCommand {
     }
 }
 
-#[schema_handler(run)]
 impl ObjectsGetCommand {
     /// Run `kival objects get`.
     ///
@@ -312,7 +299,6 @@ impl ObjectsGetCommand {
     }
 }
 
-#[schema_handler(run)]
 impl ObjectsBodyCommand {
     /// Run `kival objects body`.
     ///
@@ -368,7 +354,6 @@ impl ObjectsBodyCommand {
     }
 }
 
-#[schema_handler(run)]
 impl ObjectsEditCommand {
     /// Run `kival objects edit`.
     ///
@@ -534,7 +519,6 @@ fn print_edit_result(
     Ok(result)
 }
 
-#[schema_handler(run)]
 impl ObjectsCreateCommand {
     /// Run `kival objects create`.
     ///
@@ -596,7 +580,6 @@ impl ObjectsCreateCommand {
     }
 }
 
-#[schema_handler(run)]
 impl ObjectsUpdateCommand {
     /// Run `kival objects update`.
     ///
@@ -756,7 +739,6 @@ fn apply_metadata_mutations(
     Ok(())
 }
 
-#[schema_handler(run)]
 impl ObjectsArchiveCommand {
     /// Run `kival objects archive`.
     ///
@@ -774,7 +756,6 @@ impl ObjectsArchiveCommand {
     }
 }
 
-#[schema_handler(run)]
 impl ObjectsUnarchiveCommand {
     /// Run `kival objects unarchive`.
     ///

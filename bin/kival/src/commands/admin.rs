@@ -1,7 +1,6 @@
 //! Admin commands.
 
-use clap::{Parser, Subcommand};
-use clap_schema::{CommandSchema, schema_handler};
+use argx::{Args, Subcommand};
 use eyre::Result;
 use kival_cli::runner::CliContext;
 use kival_sdk::{ListResponse, UpdateUserRequest, User, UserListParams, UserListStatus};
@@ -9,7 +8,7 @@ use serde::Deserialize;
 use uuid::Uuid;
 
 use crate::utils::{
-    args::DEFAULT_LIST_LIMIT_HELP,
+    args::DEFAULT_LIST_LIMIT,
     credentials::authenticated_client,
     error::CliError,
     input::{
@@ -20,82 +19,86 @@ use crate::utils::{
 };
 
 /// Arguments for `kival admin`.
-#[derive(Debug, Parser, CommandSchema)]
+#[derive(Debug, Args)]
+#[argx(schema)]
 pub struct AdminCommand {
     /// The admin command to run.
-    #[command(subcommand)]
+    #[argx(subcommand)]
     pub command: AdminSubcommand,
 }
 
 /// The available `kival admin` commands.
-#[derive(Debug, Subcommand, CommandSchema)]
+#[derive(Debug, Subcommand)]
+#[argx(schema)]
 pub enum AdminSubcommand {
     /// Manage users.
-    #[command(name = "users")]
+    #[argx(name = "users")]
     Users(AdminUsersCommand),
 }
 
 /// Arguments for `kival admin users`.
-#[derive(Debug, Parser, CommandSchema)]
+#[derive(Debug, Args)]
+#[argx(schema)]
 pub struct AdminUsersCommand {
     /// The user command to run.
-    #[command(subcommand)]
+    #[argx(subcommand)]
     pub command: AdminUsersSubcommand,
 }
 
 /// The available `kival admin users` commands.
-#[derive(Debug, Subcommand, CommandSchema)]
+#[derive(Debug, Subcommand)]
+#[argx(schema)]
 pub enum AdminUsersSubcommand {
     /// List users.
-    #[command(name = "list")]
+    #[argx(name = "list")]
     List(AdminUsersListCommand),
 
     /// Get a user by ID.
-    #[command(name = "get")]
+    #[argx(name = "get")]
     Get(AdminUsersGetCommand),
 
     /// Update a user.
-    #[command(name = "update")]
+    #[argx(name = "update")]
     Update(AdminUsersUpdateCommand),
 
     /// Disable a user.
-    #[command(name = "disable")]
+    #[argx(name = "disable")]
     Disable(AdminUsersDisableCommand),
 
     /// Enable a disabled user.
-    #[command(name = "enable")]
+    #[argx(name = "enable")]
     Enable(AdminUsersEnableCommand),
 }
 
 /// Arguments for `kival admin users list`.
-#[derive(Debug, Parser)]
+#[derive(Debug, Args)]
 pub struct AdminUsersListCommand {
     /// Show disabled users only.
-    #[arg(long, conflicts_with = "all")]
+    #[argx(long, conflicts = "all")]
     pub disabled: bool,
 
     /// Show active and disabled users.
-    #[arg(long)]
+    #[argx(long)]
     pub all: bool,
 
     /// Case-insensitive username or display-name search.
-    #[arg(long, value_name = "QUERY")]
+    #[argx(long)]
     pub query: Option<String>,
 
     /// Maximum number of users to return.
-    #[arg(long, value_name = "N", default_value = DEFAULT_LIST_LIMIT_HELP)]
+    #[argx(long, default = DEFAULT_LIST_LIMIT)]
     pub limit: Option<i64>,
 
     /// Opaque `response.next_cursor` from the previous page; reuse it with the same filters.
-    #[arg(long, value_name = "CURSOR")]
+    #[argx(long)]
     pub cursor: Option<String>,
 }
 
 /// Arguments for `kival admin users get`.
-#[derive(Debug, Clone, Copy, Parser)]
+#[derive(Debug, Clone, Copy, Args)]
 pub struct AdminUsersGetCommand {
     /// User ID.
-    #[arg(value_name = "USER_ID")]
+
     pub user_id: Uuid,
 }
 
@@ -109,33 +112,33 @@ pub struct UpdateUserInput {
 }
 
 /// Arguments for `kival admin users update`.
-#[derive(Debug, Parser)]
+#[derive(Debug, Args)]
 pub struct AdminUsersUpdateCommand {
     /// Structured input source.
-    #[command(flatten)]
+    #[argx(flatten)]
     pub input_source: StructuredInputArgs,
     /// User ID.
-    #[arg(value_name = "USER_ID")]
+
     pub user_id: Uuid,
 
     /// New display name.
-    #[arg(long, value_name = "NAME")]
+    #[argx(long)]
     pub display_name: Option<String>,
 }
 
 /// Arguments for `kival admin users disable`.
-#[derive(Debug, Clone, Copy, Parser)]
+#[derive(Debug, Clone, Copy, Args)]
 pub struct AdminUsersDisableCommand {
     /// User ID.
-    #[arg(value_name = "USER_ID")]
+
     pub user_id: Uuid,
 }
 
 /// Arguments for `kival admin users enable`.
-#[derive(Debug, Clone, Copy, Parser)]
+#[derive(Debug, Clone, Copy, Args)]
 pub struct AdminUsersEnableCommand {
     /// User ID.
-    #[arg(value_name = "USER_ID")]
+
     pub user_id: Uuid,
 }
 
@@ -180,7 +183,6 @@ impl AdminUsersCommand {
     }
 }
 
-#[schema_handler(run)]
 impl AdminUsersListCommand {
     /// Run `kival admin users list`.
     ///
@@ -219,7 +221,6 @@ impl AdminUsersListCommand {
     }
 }
 
-#[schema_handler(run)]
 impl AdminUsersGetCommand {
     /// Run `kival admin users get`.
     ///
@@ -235,7 +236,6 @@ impl AdminUsersGetCommand {
     }
 }
 
-#[schema_handler(run)]
 impl AdminUsersUpdateCommand {
     /// Run `kival admin users update`.
     ///
@@ -289,7 +289,6 @@ impl AdminUsersUpdateCommand {
     }
 }
 
-#[schema_handler(run)]
 impl AdminUsersDisableCommand {
     /// Run `kival admin users disable`.
     ///
@@ -305,7 +304,6 @@ impl AdminUsersDisableCommand {
     }
 }
 
-#[schema_handler(run)]
 impl AdminUsersEnableCommand {
     /// Run `kival admin users enable`.
     ///

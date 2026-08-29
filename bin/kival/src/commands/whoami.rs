@@ -1,7 +1,6 @@
 //! API-key identity commands.
 
-use clap::Parser;
-use clap_schema::schema_handler;
+use argx::Args;
 use eyre::Result;
 use kival_cli::runner::CliContext;
 use schemars::JsonSchema;
@@ -14,7 +13,7 @@ use crate::utils::{
 };
 
 /// Arguments for `kival whoami`.
-#[derive(Debug, Clone, Copy, Parser)]
+#[derive(Debug, Clone, Copy, Args)]
 pub struct WhoamiCommand {}
 
 /// Resolved API-key identity output.
@@ -35,7 +34,6 @@ struct WhoamiUserOutput {
     username: String,
 }
 
-#[schema_handler(run)]
 impl WhoamiCommand {
     /// Resolves the configured API key and fetches its user.
     ///

@@ -7,7 +7,7 @@ use std::{
     str::FromStr,
 };
 
-use clap::Args;
+use argx::Args;
 use eyre::Result;
 use serde::{Deserialize, Deserializer, de::DeserializeOwned};
 use serde_json::{Map, Value, error::Category, json};
@@ -47,7 +47,7 @@ pub struct StructuredInputArgs {
     ///
     /// Inspect the accepted properties with `kival schema <COMMAND>`. Cannot be combined with
     /// command-line fields represented by the structured input.
-    #[arg(long, value_name = "PATH")]
+    #[argx(long)]
     pub input: Option<InputPath>,
 }
 
@@ -351,7 +351,7 @@ mod tests {
     #[test]
     fn decode_json_allows_trailing_whitespace() {
         let input: TestInput = decode_json(
-            br#"{"title":"First"}   
+            br#"{"title":"First"}
 	"#
             .as_slice(),
             None,

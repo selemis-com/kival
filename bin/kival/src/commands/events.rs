@@ -1,14 +1,13 @@
 //! Event commands.
 
-use clap::{Parser, Subcommand};
-use clap_schema::{CommandSchema, schema_handler};
+use argx::{Args, Subcommand};
 use eyre::Result;
 use kival_cli::runner::CliContext;
 use kival_sdk::{Event, ListResponse};
 use uuid::Uuid;
 
 use crate::utils::{
-    args::{DEFAULT_LIST_LIMIT_HELP, event_params},
+    args::{DEFAULT_LIST_LIMIT, event_params},
     credentials::authenticated_client,
     output::{
         OutputMode, format_human_timestamp, print_empty_list, print_output,
@@ -17,53 +16,55 @@ use crate::utils::{
 };
 
 /// Arguments for `kival events`.
-#[derive(Debug, Parser, CommandSchema)]
+#[derive(Debug, Args)]
+#[argx(schema)]
 pub struct EventsCommand {
     /// The event command to run.
-    #[command(subcommand)]
+    #[argx(subcommand)]
     pub command: EventsSubcommand,
 }
 
 /// The available `kival events` commands.
-#[derive(Debug, Subcommand, CommandSchema)]
+#[derive(Debug, Subcommand)]
+#[argx(schema)]
 pub enum EventsSubcommand {
     /// List events visible to the current user.
     ///
     /// Events are returned in ascending global sequence order. `--after-sequence` is exclusive.
     /// When multiple filters are supplied, every filter must match.
-    #[command(name = "list")]
+    #[argx(name = "list")]
     List(EventsListCommand),
 }
 
 /// Arguments for `kival events list`.
-#[derive(Debug, Parser)]
+#[derive(Debug, Args)]
 pub struct EventsListCommand {
     /// Maximum number of events to return.
-    #[arg(long, value_name = "N", default_value = DEFAULT_LIST_LIMIT_HELP)]
+    #[argx(long, default = DEFAULT_LIST_LIMIT)]
     pub limit: Option<i64>,
 
     /// Return events with a global sequence number strictly greater than SEQUENCE.
-    #[arg(long, value_name = "SEQUENCE")]
+    #[argx(long)]
     pub after_sequence: Option<i64>,
 
     /// Filter by event kind.
-    #[arg(long, value_name = "KIND")]
+    #[argx(long)]
     pub event_kind: Option<String>,
 
     /// Filter by actor user ID.
-    #[arg(long, value_name = "USER_ID")]
+    #[argx(long)]
     pub actor_user_id: Option<Uuid>,
 
     /// Filter by target user ID.
-    #[arg(long, value_name = "USER_ID")]
+    #[argx(long)]
     pub target_user_id: Option<Uuid>,
 
     /// Filter by object ID.
-    #[arg(long, value_name = "OBJECT_ID")]
+    #[argx(long)]
     pub object_id: Option<Uuid>,
 
     /// Filter by group ID.
-    #[arg(long, value_name = "GROUP_ID")]
+    #[argx(long)]
     pub group_id: Option<Uuid>,
 }
 
@@ -83,7 +84,6 @@ impl EventsCommand {
     }
 }
 
-#[schema_handler(run)]
 impl EventsListCommand {
     /// Run `kival events list`.
     ///

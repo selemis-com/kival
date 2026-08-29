@@ -1,7 +1,6 @@
 //! Public commands.
 
-use clap::{Args, Parser, Subcommand};
-use clap_schema::{CommandSchema, schema_handler};
+use argx::{Args, Subcommand};
 use eyre::Result;
 use kival_cli::runner::CliContext;
 use kival_sdk::{KivalClient, StatusResponse};
@@ -14,22 +13,24 @@ use crate::utils::{
 };
 
 /// Kival server status commands.
-#[derive(Debug, Args, CommandSchema)]
+#[derive(Debug, Args)]
+#[argx(schema)]
 pub struct ServerCommand {
     /// The server command to run.
-    #[command(subcommand)]
+    #[argx(subcommand)]
     pub command: ServerSubcommand,
 }
 
 /// Commands for inspecting Kival server status.
-#[derive(Debug, Subcommand, CommandSchema)]
+#[derive(Debug, Subcommand)]
+#[argx(schema)]
 pub enum ServerSubcommand {
     /// Check Kival server health.
-    #[command(name = "health")]
+    #[argx(name = "health")]
     Health(HealthCommand),
 
     /// Check Kival server readiness.
-    #[command(name = "ready")]
+    #[argx(name = "ready")]
     Ready(ReadyCommand),
 }
 
@@ -53,22 +54,21 @@ impl ServerCommand {
 }
 
 /// Arguments for `kival health`.
-#[derive(Debug, Parser, Serialize)]
+#[derive(Debug, Args, Serialize)]
 pub struct HealthCommand {
     /// Override the configured Kival server root URL.
-    #[arg(long, value_name = "URL")]
+    #[argx(long)]
     pub url: Option<Url>,
 }
 
 /// Arguments for `kival ready`.
-#[derive(Debug, Parser, Serialize)]
+#[derive(Debug, Args, Serialize)]
 pub struct ReadyCommand {
     /// Override the configured Kival server root URL.
-    #[arg(long, value_name = "URL")]
+    #[argx(long)]
     pub url: Option<Url>,
 }
 
-#[schema_handler(run)]
 impl HealthCommand {
     /// Run `kival health`.
     ///
@@ -87,7 +87,6 @@ impl HealthCommand {
     }
 }
 
-#[schema_handler(run)]
 impl ReadyCommand {
     /// Run `kival ready`.
     ///

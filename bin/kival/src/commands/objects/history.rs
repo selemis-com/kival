@@ -1,7 +1,6 @@
 //! Object version history, diff, and restore commands.
 
-use clap::{Parser, Subcommand};
-use clap_schema::{CommandSchema, schema_handler};
+use argx::{Args, Subcommand};
 use eyre::Result;
 use kival_cli::runner::CliContext;
 use kival_sdk::{
@@ -18,7 +17,7 @@ use super::{
     display::{print_version_line, print_version_response},
 };
 use crate::utils::{
-    args::{DEFAULT_LIST_LIMIT_HELP, list_params},
+    args::{DEFAULT_LIST_LIMIT, list_params},
     credentials::authenticated_client,
     diff::unified_diff,
     error::{CliError, CliErrorCode},
@@ -29,16 +28,16 @@ use crate::utils::{
 const DIFF_CONTEXT_LINES: usize = 3;
 
 /// Arguments for `kival objects diff`.
-#[derive(Debug, Clone, Parser)]
+#[derive(Debug, Clone, Args)]
 pub struct ObjectsDiffCommand {
     /// Object target.
-    #[command(flatten)]
+    #[argx(flatten)]
     pub target: ObjectTargetArgs,
     /// Source version selector: UUID, `g`, `0`, or a negative offset such as `-5`.
-    #[arg(long, value_name = "VERSION", allow_hyphen_values = true)]
+    #[argx(long, allow_hyphen_values)]
     pub from: String,
     /// Destination version selector; defaults to current.
-    #[arg(long, value_name = "VERSION", allow_hyphen_values = true)]
+    #[argx(long, allow_hyphen_values)]
     pub to: Option<String>,
 }
 
@@ -69,13 +68,13 @@ pub struct ObjectDiffOutput {
 }
 
 /// Arguments for `kival objects restore`.
-#[derive(Debug, Clone, Parser)]
+#[derive(Debug, Clone, Args)]
 pub struct ObjectsRestoreCommand {
     /// Object target.
-    #[command(flatten)]
+    #[argx(flatten)]
     pub target: ObjectTargetArgs,
     /// Source version selector: UUID, `g`, `0`, or a negative offset such as `-5`.
-    #[arg(long, value_name = "VERSION", allow_hyphen_values = true)]
+    #[argx(long, allow_hyphen_values)]
     pub from: String,
 }
 
@@ -95,64 +94,65 @@ pub struct ObjectRestoreOutput {
 }
 
 /// Arguments for `kival objects versions`.
-#[derive(Debug, Parser, CommandSchema)]
+#[derive(Debug, Args)]
+#[argx(schema)]
 pub struct ObjectVersionsCommand {
     /// The version command to run.
-    #[command(subcommand)]
+    #[argx(subcommand)]
     pub command: ObjectVersionsSubcommand,
 }
 
 /// The available `kival objects versions` commands.
-#[derive(Debug, Subcommand, CommandSchema)]
+#[derive(Debug, Subcommand)]
+#[argx(schema)]
 pub enum ObjectVersionsSubcommand {
     /// List object versions from newest to oldest.
-    #[command(name = "list")]
+    #[argx(name = "list")]
     List(ObjectVersionsListCommand),
     /// Get an object version.
-    #[command(name = "get")]
+    #[argx(name = "get")]
     Get(ObjectVersionsGetCommand),
     /// List server-resolved wikilinks authored in an immutable object version.
-    #[command(name = "wikilinks")]
+    #[argx(name = "wikilinks")]
     Wikilinks(ObjectVersionsWikilinksCommand),
 }
 
 /// Arguments for `kival objects versions list`.
-#[derive(Debug, Parser)]
+#[derive(Debug, Args)]
 pub struct ObjectVersionsListCommand {
     /// Object target.
-    #[command(flatten)]
+    #[argx(flatten)]
     pub target: ObjectTargetArgs,
     /// Maximum number of versions to return.
-    #[arg(long, value_name = "N", default_value = DEFAULT_LIST_LIMIT_HELP)]
+    #[argx(long, default = DEFAULT_LIST_LIMIT)]
     pub limit: Option<i64>,
     /// Opaque `response.next_cursor` from the previous page; reuse it with the same filters.
-    #[arg(long, value_name = "CURSOR")]
+    #[argx(long)]
     pub cursor: Option<String>,
 }
 
 /// Arguments for `kival objects versions get`.
-#[derive(Debug, Clone, Copy, Parser)]
+#[derive(Debug, Clone, Copy, Args)]
 pub struct ObjectVersionsGetCommand {
     /// Object target.
-    #[command(flatten)]
+    #[argx(flatten)]
     pub target: ObjectTargetArgs,
     /// Version ID.
-    #[arg(value_name = "VERSION_ID")]
+
     pub version_id: Uuid,
 }
 
 /// Arguments for `kival objects versions wikilinks`.
-#[derive(Debug, Clone, Copy, Parser)]
+#[derive(Debug, Clone, Copy, Args)]
 pub struct ObjectVersionsWikilinksCommand {
     /// Object target.
-    #[command(flatten)]
+    #[argx(flatten)]
     pub target: ObjectTargetArgs,
     /// Version ID.
-    #[arg(value_name = "VERSION_ID")]
+
     pub version_id: Uuid,
 }
 
-#[schema_handler(run)]
 impl ObjectsDiffCommand {
     /// Run `kival objects diff`.
     ///
@@ -191,7 +191,6 @@ impl ObjectsDiffCommand {
     }
 }
 
-#[schema_handler(run)]
 impl ObjectsRestoreCommand {
     /// Run `kival objects restore`.
     ///
@@ -482,7 +481,6 @@ impl ObjectVersionsCommand {
     }
 }
 
-#[schema_handler(run)]
 impl ObjectVersionsListCommand {
     /// Run `kival objects versions list`.
     ///
@@ -518,7 +516,6 @@ impl ObjectVersionsListCommand {
     }
 }
 
-#[schema_handler(run)]
 impl ObjectVersionsGetCommand {
     /// Run `kival objects versions get`.
     ///
@@ -535,7 +532,6 @@ impl ObjectVersionsGetCommand {
     }
 }
 
-#[schema_handler(run)]
 impl ObjectVersionsWikilinksCommand {
     /// Run `kival objects versions wikilinks`.
     ///

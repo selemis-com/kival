@@ -2,8 +2,7 @@
 
 use std::collections::{HashMap, HashSet};
 
-use clap::{Parser, Subcommand};
-use clap_schema::{CommandSchema, schema_handler};
+use argx::{Args, Subcommand};
 use eyre::Result;
 use kival_cli::runner::CliContext;
 use kival_sdk::{
@@ -20,7 +19,7 @@ use crate::{
     commands::events::print_event_line,
     utils::{
         args::{
-            CliArchiveListStatus, CliMembershipRole, DEFAULT_LIST_LIMIT, DEFAULT_LIST_LIMIT_HELP,
+            CliArchiveListStatus, CliMembershipRole, DEFAULT_LIST_LIMIT, DEFAULT_LIST_LIMIT,
             event_params, list_params,
         },
         credentials::authenticated_client,
@@ -37,94 +36,93 @@ use crate::{
 };
 
 /// Arguments for `kival workspaces`.
-#[derive(Debug, Parser, CommandSchema)]
+#[derive(Debug, Args)]
+#[argx(schema)]
 pub struct WorkspacesCommand {
     /// The workspace command to run.
-    #[command(subcommand)]
+    #[argx(subcommand)]
     pub command: WorkspacesSubcommand,
 }
 
 /// The available `kival workspaces` commands.
-#[derive(Debug, Subcommand, CommandSchema)]
+#[derive(Debug, Subcommand)]
+#[argx(schema)]
 pub enum WorkspacesSubcommand {
     /// List visible workspaces, newest first.
     ///
     /// Active workspaces are returned by default. Use `--status` to select archived workspaces or
     /// both lifecycle states.
-    #[command(name = "list")]
+    #[argx(name = "list")]
     List(WorkspacesListCommand),
 
     /// Get a workspace by ID.
-    #[command(name = "get")]
+    #[argx(name = "get")]
     Get(WorkspacesGetCommand),
 
     /// Update a workspace.
-    #[command(
-        name = "update",
-        after_help = "Examples:\n  kival workspaces update <WORKSPACE_ID> --name \"New name\"\n  kival workspaces update <WORKSPACE_ID> --clear-description\n  kival workspaces update <WORKSPACE_ID> --input update.json"
-    )]
+    #[argx(name = "update")]
     Update(WorkspacesUpdateCommand),
 
     /// Archive a workspace while retaining its stored resources and history.
-    #[command(name = "archive")]
+    #[argx(name = "archive")]
     Archive(WorkspacesArchiveCommand),
 
     /// Restore an archived workspace to active status.
-    #[command(name = "unarchive")]
+    #[argx(name = "unarchive")]
     Unarchive(WorkspacesUnarchiveCommand),
 
     /// List workspace events in ascending global sequence order.
     ///
     /// `--after-sequence` is exclusive. When multiple filters are supplied, every filter must
     /// match.
-    #[command(name = "events")]
+    #[argx(name = "events")]
     Events(WorkspacesEventsCommand),
 
     /// Get a bounded projection of visible active objects and active edges in a workspace.
     ///
     /// `--exclude-isolated` removes nodes with no relation. Returned
     /// limits report whether additional matching nodes or edges were omitted.
-    #[command(name = "graph")]
+    #[argx(name = "graph")]
     Graph(WorkspacesGraphCommand),
 
     /// Manage workspace memberships.
-    #[command(name = "memberships")]
+    #[argx(name = "memberships")]
     Memberships(WorkspaceMembershipsCommand),
 
     /// Manage workspace group links.
-    #[command(name = "groups")]
+    #[argx(name = "groups")]
     Groups(WorkspaceGroupsCommand),
 }
 
 /// Arguments for `kival workspaces list`.
-#[derive(Debug, Parser)]
+#[derive(Debug, Args)]
 pub struct WorkspacesListCommand {
     /// Archive status filter: active, archived, or all.
-    #[arg(long, value_name = "STATUS", value_enum, default_value = "active")]
+    #[argx(long, value_enum, default = CliArchiveListStatus::Active)]
     pub status: CliArchiveListStatus,
 
     /// Case-insensitive workspace name search.
-    #[arg(long, value_name = "QUERY")]
+    #[argx(long)]
     pub query: Option<String>,
 
     /// Restrict by the authenticated user's personal pin state.
-    #[arg(long, value_name = "BOOL")]
+    #[argx(long)]
     pub pinned: Option<bool>,
 
     /// Maximum number of workspaces to return.
-    #[arg(long, value_name = "N", default_value = DEFAULT_LIST_LIMIT_HELP)]
+    #[argx(long, default = DEFAULT_LIST_LIMIT)]
     pub limit: Option<i64>,
 
     /// Opaque `response.next_cursor` from the previous page; reuse it with the same filters.
-    #[arg(long, value_name = "CURSOR")]
+    #[argx(long)]
     pub cursor: Option<String>,
 }
 
 /// Arguments for `kival workspaces get`.
-#[derive(Debug, Clone, Copy, Parser)]
+#[derive(Debug, Clone, Copy, Args)]
 pub struct WorkspacesGetCommand {
     /// Workspace ID.
-    #[arg(value_name = "WORKSPACE_ID")]
+
     pub workspace_id: Uuid,
 }
 
@@ -141,259 +139,263 @@ pub struct UpdateWorkspaceInput {
 }
 
 /// Arguments for `kival workspaces update`.
-#[derive(Debug, Parser)]
+#[derive(Debug, Args)]
 pub struct WorkspacesUpdateCommand {
     /// Structured input source.
-    #[command(flatten)]
+    #[argx(flatten)]
     pub input_source: StructuredInputArgs,
     /// Workspace ID.
-    #[arg(value_name = "WORKSPACE_ID")]
+
     pub workspace_id: Uuid,
 
     /// Set the workspace name.
-    #[arg(long, value_name = "NAME")]
+    #[argx(long)]
     pub name: Option<String>,
 
     /// Set the workspace description.
-    #[arg(long, value_name = "DESCRIPTION", conflicts_with = "clear_description")]
+    #[argx(long, conflicts = "clear_description")]
     pub description: Option<String>,
 
     /// Clear the workspace description.
-    #[arg(long)]
+    #[argx(long)]
     pub clear_description: bool,
 }
 
 /// Arguments for `kival workspaces archive`.
-#[derive(Debug, Clone, Copy, Parser)]
+#[derive(Debug, Clone, Copy, Args)]
 pub struct WorkspacesArchiveCommand {
     /// Workspace ID.
-    #[arg(value_name = "WORKSPACE_ID")]
+
     pub workspace_id: Uuid,
 }
 
 /// Arguments for `kival workspaces unarchive`.
-#[derive(Debug, Clone, Copy, Parser)]
+#[derive(Debug, Clone, Copy, Args)]
 pub struct WorkspacesUnarchiveCommand {
     /// Workspace ID.
-    #[arg(value_name = "WORKSPACE_ID")]
+
     pub workspace_id: Uuid,
 }
 
 /// Arguments for `kival workspaces events`.
-#[derive(Debug, Parser)]
+#[derive(Debug, Args)]
 pub struct WorkspacesEventsCommand {
     /// Workspace ID.
-    #[arg(value_name = "WORKSPACE_ID")]
+
     pub workspace_id: Uuid,
     /// Maximum number of events to return.
-    #[arg(long, value_name = "N", default_value = DEFAULT_LIST_LIMIT_HELP)]
+    #[argx(long, default = DEFAULT_LIST_LIMIT)]
     pub limit: Option<i64>,
     /// Return events with a global sequence number strictly greater than SEQUENCE.
-    #[arg(long, value_name = "SEQUENCE")]
+    #[argx(long)]
     pub after_sequence: Option<i64>,
     /// Filter by event kind.
-    #[arg(long, value_name = "KIND")]
+    #[argx(long)]
     pub event_kind: Option<String>,
     /// Filter by actor user ID.
-    #[arg(long, value_name = "USER_ID")]
+    #[argx(long)]
     pub actor_user_id: Option<Uuid>,
     /// Filter by target user ID.
-    #[arg(long, value_name = "USER_ID")]
+    #[argx(long)]
     pub target_user_id: Option<Uuid>,
     /// Filter by object ID.
-    #[arg(long, value_name = "OBJECT_ID")]
+    #[argx(long)]
     pub object_id: Option<Uuid>,
     /// Filter by group ID.
-    #[arg(long, value_name = "GROUP_ID")]
+    #[argx(long)]
     pub group_id: Option<Uuid>,
 }
 
 /// Arguments for `kival workspaces graph`.
-#[derive(Debug, Clone, Copy, Parser)]
+#[derive(Debug, Clone, Copy, Args)]
 pub struct WorkspacesGraphCommand {
     /// Workspace ID.
-    #[arg(value_name = "WORKSPACE_ID")]
+
     pub workspace_id: Uuid,
     /// Maximum number of nodes to return.
-    #[arg(long, value_name = "N")]
+    #[argx(long)]
     pub limit_nodes: Option<i64>,
     /// Maximum number of edges to return.
-    #[arg(long, value_name = "N")]
+    #[argx(long)]
     pub limit_edges: Option<i64>,
     /// Exclude nodes with no relation.
-    #[arg(long)]
+    #[argx(long)]
     pub exclude_isolated: bool,
 }
 
 /// Arguments for `kival workspaces memberships`.
-#[derive(Debug, Parser, CommandSchema)]
+#[derive(Debug, Args)]
+#[argx(schema)]
 pub struct WorkspaceMembershipsCommand {
     /// The membership command to run.
-    #[command(subcommand)]
+    #[argx(subcommand)]
     pub command: WorkspaceMembershipsSubcommand,
 }
 
 /// The available `kival workspaces memberships` commands.
-#[derive(Debug, Subcommand, CommandSchema)]
+#[derive(Debug, Subcommand)]
+#[argx(schema)]
 pub enum WorkspaceMembershipsSubcommand {
     /// List active direct workspace memberships, newest first.
-    #[command(name = "list")]
+    #[argx(name = "list")]
     List(WorkspaceMembershipsListCommand),
     /// Add a user as a direct member or administrator of a workspace.
     ///
     /// This creates direct workspace membership and is distinct from access inherited through a
     /// group.
-    #[command(name = "create")]
+    #[argx(name = "create")]
     Create(WorkspaceMembershipsCreateCommand),
     /// Change an active direct workspace membership's role.
-    #[command(name = "update")]
+    #[argx(name = "update")]
     Update(WorkspaceMembershipsUpdateCommand),
     /// Revoke a direct workspace membership without deleting its historical record.
     ///
     /// This revokes only the selected direct membership; other access paths may still authorize the
     /// user.
-    #[command(name = "revoke")]
+    #[argx(name = "revoke")]
     Revoke(WorkspaceMembershipsRevokeCommand),
 }
 
 /// Arguments for `kival workspaces memberships list`.
-#[derive(Debug, Parser)]
+#[derive(Debug, Args)]
 pub struct WorkspaceMembershipsListCommand {
     /// Workspace ID.
-    #[arg(value_name = "WORKSPACE_ID")]
+
     pub workspace_id: Uuid,
     /// Maximum number of memberships to return.
-    #[arg(long, value_name = "N", default_value = DEFAULT_LIST_LIMIT_HELP)]
+    #[argx(long, default = DEFAULT_LIST_LIMIT)]
     pub limit: Option<i64>,
     /// Opaque `response.next_cursor` from the previous page; reuse it with the same filters.
-    #[arg(long, value_name = "CURSOR")]
+    #[argx(long)]
     pub cursor: Option<String>,
 }
 
 /// Arguments for `kival workspaces memberships create`.
-#[derive(Debug, Clone, Copy, Parser)]
+#[derive(Debug, Clone, Copy, Args)]
 pub struct WorkspaceMembershipsCreateCommand {
     /// Workspace ID.
-    #[arg(value_name = "WORKSPACE_ID")]
+
     pub workspace_id: Uuid,
     /// User ID.
-    #[arg(long, value_name = "USER_ID")]
+    #[argx(long)]
     pub user_id: Uuid,
     /// Workspace role: member or admin.
-    #[arg(long, value_name = "ROLE", value_enum)]
+    #[argx(long, value_enum)]
     pub role: CliMembershipRole,
 }
 
 /// Arguments for `kival workspaces memberships update`.
-#[derive(Debug, Clone, Copy, Parser)]
+#[derive(Debug, Clone, Copy, Args)]
 pub struct WorkspaceMembershipsUpdateCommand {
     /// Workspace ID.
-    #[arg(value_name = "WORKSPACE_ID")]
+
     pub workspace_id: Uuid,
     /// Membership ID.
-    #[arg(value_name = "MEMBERSHIP_ID")]
+
     pub membership_id: Uuid,
     /// New workspace role: member or admin.
-    #[arg(long, value_name = "ROLE", value_enum)]
+    #[argx(long, value_enum)]
     pub role: CliMembershipRole,
 }
 
 /// Arguments for `kival workspaces memberships revoke`.
-#[derive(Debug, Clone, Copy, Parser)]
+#[derive(Debug, Clone, Copy, Args)]
 pub struct WorkspaceMembershipsRevokeCommand {
     /// Workspace ID.
-    #[arg(value_name = "WORKSPACE_ID")]
+
     pub workspace_id: Uuid,
     /// Membership ID.
-    #[arg(value_name = "MEMBERSHIP_ID")]
+
     pub membership_id: Uuid,
 }
 
 /// Arguments for `kival workspaces groups`.
-#[derive(Debug, Parser, CommandSchema)]
+#[derive(Debug, Args)]
+#[argx(schema)]
 pub struct WorkspaceGroupsCommand {
     /// The workspace group command to run.
-    #[command(subcommand)]
+    #[argx(subcommand)]
     pub command: WorkspaceGroupsSubcommand,
 }
 
 /// The available `kival workspaces groups` commands.
-#[derive(Debug, Subcommand, CommandSchema)]
+#[derive(Debug, Subcommand)]
+#[argx(schema)]
 pub enum WorkspaceGroupsSubcommand {
     /// List groups linked to a workspace, newest links first.
     ///
     /// Active links are returned by default. Use `--status` to select archived links or both
     /// lifecycle states. A workspace-group link makes the group eligible for group-based object
     /// access in that workspace; it does not create or modify the group itself.
-    #[command(name = "list")]
+    #[argx(name = "list")]
     List(WorkspaceGroupsListCommand),
     /// Link an existing group to a workspace.
     ///
     /// The link makes the group eligible for group-based object access in this workspace. It does
     /// not change the group's own membership.
-    #[command(name = "create")]
+    #[argx(name = "create")]
     Create(WorkspaceGroupsCreateCommand),
     /// Disable a group's link to this workspace without archiving the group itself.
     ///
     /// Group memberships are unchanged. Group-based object grants in this workspace stop
     /// authorizing through the archived link until it is restored.
-    #[command(name = "archive")]
+    #[argx(name = "archive")]
     Archive(WorkspaceGroupsArchiveCommand),
     /// Restore an archived link between an active group and this workspace.
     ///
     /// Restoring the link can make existing group-based object grants effective again for active
     /// group members.
-    #[command(name = "unarchive")]
+    #[argx(name = "unarchive")]
     Unarchive(WorkspaceGroupsUnarchiveCommand),
 }
 
 /// Arguments for `kival workspaces groups list`.
-#[derive(Debug, Parser)]
+#[derive(Debug, Args)]
 pub struct WorkspaceGroupsListCommand {
     /// Workspace ID.
-    #[arg(value_name = "WORKSPACE_ID")]
+
     pub workspace_id: Uuid,
     /// Archive status filter: active, archived, or all.
-    #[arg(long, value_name = "STATUS", value_enum, default_value = "active")]
+    #[argx(long, value_enum, default = CliArchiveListStatus::Active)]
     pub status: CliArchiveListStatus,
     /// Maximum number of group links to return.
-    #[arg(long, value_name = "N", default_value = DEFAULT_LIST_LIMIT_HELP)]
+    #[argx(long, default = DEFAULT_LIST_LIMIT)]
     pub limit: Option<i64>,
     /// Opaque `response.next_cursor` from the previous page; reuse it with the same filters.
-    #[arg(long, value_name = "CURSOR")]
+    #[argx(long)]
     pub cursor: Option<String>,
 }
 
 /// Arguments for `kival workspaces groups create`.
-#[derive(Debug, Clone, Copy, Parser)]
+#[derive(Debug, Clone, Copy, Args)]
 pub struct WorkspaceGroupsCreateCommand {
     /// Workspace ID.
-    #[arg(value_name = "WORKSPACE_ID")]
+
     pub workspace_id: Uuid,
     /// Group ID.
-    #[arg(long, value_name = "GROUP_ID")]
+    #[argx(long)]
     pub group_id: Uuid,
 }
 
 /// Arguments for `kival workspaces groups archive`.
-#[derive(Debug, Clone, Copy, Parser)]
+#[derive(Debug, Clone, Copy, Args)]
 pub struct WorkspaceGroupsArchiveCommand {
     /// Workspace ID.
-    #[arg(value_name = "WORKSPACE_ID")]
+
     pub workspace_id: Uuid,
     /// Group ID.
-    #[arg(value_name = "GROUP_ID")]
+
     pub group_id: Uuid,
 }
 
 /// Arguments for `kival workspaces groups unarchive`.
-#[derive(Debug, Clone, Copy, Parser)]
+#[derive(Debug, Clone, Copy, Args)]
 pub struct WorkspaceGroupsUnarchiveCommand {
     /// Workspace ID.
-    #[arg(value_name = "WORKSPACE_ID")]
+
     pub workspace_id: Uuid,
     /// Group ID.
-    #[arg(value_name = "GROUP_ID")]
+
     pub group_id: Uuid,
 }
 
@@ -439,7 +441,6 @@ impl WorkspacesCommand {
     }
 }
 
-#[schema_handler(run)]
 impl WorkspacesGraphCommand {
     /// Run `kival workspaces graph`.
     ///
@@ -548,7 +549,6 @@ const fn pluralized<'a>(count: usize, singular: &'a str, plural: &'a str) -> &'a
     if count == 1 { singular } else { plural }
 }
 
-#[schema_handler(run)]
 impl WorkspacesListCommand {
     /// Run `kival workspaces list`.
     ///
@@ -586,7 +586,6 @@ impl WorkspacesListCommand {
     }
 }
 
-#[schema_handler(run)]
 impl WorkspacesGetCommand {
     /// Run `kival workspaces get`.
     ///
@@ -604,7 +603,6 @@ impl WorkspacesGetCommand {
     }
 }
 
-#[schema_handler(run)]
 impl WorkspacesUpdateCommand {
     /// Run `kival workspaces update`.
     ///
@@ -682,7 +680,6 @@ impl WorkspacesUpdateCommand {
     }
 }
 
-#[schema_handler(run)]
 impl WorkspacesArchiveCommand {
     /// Run `kival workspaces archive`.
     ///
@@ -700,7 +697,6 @@ impl WorkspacesArchiveCommand {
     }
 }
 
-#[schema_handler(run)]
 impl WorkspacesUnarchiveCommand {
     /// Run `kival workspaces unarchive`.
     ///
@@ -718,7 +714,6 @@ impl WorkspacesUnarchiveCommand {
     }
 }
 
-#[schema_handler(run)]
 impl WorkspacesEventsCommand {
     /// Run `kival workspaces events`.
     ///
@@ -776,7 +771,6 @@ impl WorkspaceMembershipsCommand {
     }
 }
 
-#[schema_handler(run)]
 impl WorkspaceMembershipsListCommand {
     /// Run `kival workspaces memberships list`.
     ///
@@ -808,7 +802,6 @@ impl WorkspaceMembershipsListCommand {
     }
 }
 
-#[schema_handler(run)]
 impl WorkspaceMembershipsCreateCommand {
     /// Run `kival workspaces memberships create`.
     ///
@@ -835,7 +828,6 @@ impl WorkspaceMembershipsCreateCommand {
     }
 }
 
-#[schema_handler(run)]
 impl WorkspaceMembershipsUpdateCommand {
     /// Run `kival workspaces memberships update`.
     ///
@@ -858,7 +850,6 @@ impl WorkspaceMembershipsUpdateCommand {
     }
 }
 
-#[schema_handler(run)]
 impl WorkspaceMembershipsRevokeCommand {
     /// Run `kival workspaces memberships revoke`.
     ///
@@ -901,7 +892,6 @@ impl WorkspaceGroupsCommand {
     }
 }
 
-#[schema_handler(run)]
 impl WorkspaceGroupsListCommand {
     /// Run `kival workspaces groups list`.
     ///
@@ -940,7 +930,6 @@ impl WorkspaceGroupsListCommand {
     }
 }
 
-#[schema_handler(run)]
 impl WorkspaceGroupsCreateCommand {
     /// Run `kival workspaces groups create`.
     ///
@@ -962,7 +951,6 @@ impl WorkspaceGroupsCreateCommand {
     }
 }
 
-#[schema_handler(run)]
 impl WorkspaceGroupsArchiveCommand {
     /// Run `kival workspaces groups archive`.
     ///
@@ -980,7 +968,6 @@ impl WorkspaceGroupsArchiveCommand {
     }
 }
 
-#[schema_handler(run)]
 impl WorkspaceGroupsUnarchiveCommand {
     /// Run `kival workspaces groups unarchive`.
     ///

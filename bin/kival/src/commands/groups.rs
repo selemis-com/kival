@@ -1,7 +1,6 @@
 //! Group commands.
 
-use clap::{Parser, Subcommand};
-use clap_schema::{CommandSchema, schema_handler};
+use argx::{Args, Subcommand};
 use eyre::Result;
 use kival_cli::runner::CliContext;
 use kival_sdk::{
@@ -13,7 +12,7 @@ use uuid::Uuid;
 
 use crate::utils::{
     args::{
-        CliArchiveListStatus, CliMembershipRole, DEFAULT_LIST_LIMIT, DEFAULT_LIST_LIMIT_HELP,
+        CliArchiveListStatus, CliMembershipRole, DEFAULT_LIST_LIMIT, DEFAULT_LIST_LIMIT,
         list_params,
     },
     credentials::authenticated_client,
@@ -28,72 +27,68 @@ use crate::utils::{
 };
 
 /// Arguments for `kival groups`.
-#[derive(Debug, Parser, CommandSchema)]
+#[derive(Debug, Args)]
+#[argx(schema)]
 pub struct GroupsCommand {
     /// The group command to run.
-    #[command(subcommand)]
+    #[argx(subcommand)]
     pub command: GroupsSubcommand,
 }
 
 /// The available `kival groups` commands.
-#[derive(Debug, Subcommand, CommandSchema)]
+#[derive(Debug, Subcommand)]
+#[argx(schema)]
 pub enum GroupsSubcommand {
     /// List groups, newest first.
     ///
     /// Active groups are returned by default. Use `--status` to select archived groups or both
     /// lifecycle states.
-    #[command(name = "list")]
+    #[argx(name = "list")]
     List(GroupsListCommand),
     /// Get a group by ID.
-    #[command(name = "get")]
+    #[argx(name = "get")]
     Get(GroupsGetCommand),
     /// Create a group.
-    #[command(
-        name = "create",
-        after_help = "Examples:\n  kival groups create --name \"Editors\"\n  kival groups create --input group.json\n  cat group.json | kival groups create --input -"
-    )]
+    #[argx(name = "create")]
     Create(GroupsCreateCommand),
     /// Update a group.
-    #[command(
-        name = "update",
-        after_help = "Examples:\n  kival groups update <GROUP_ID> --name \"Reviewers\"\n  kival groups update <GROUP_ID> --clear-description\n  kival groups update <GROUP_ID> --input update.json"
-    )]
+    #[argx(name = "update")]
     Update(GroupsUpdateCommand),
     /// Archive a group while retaining its memberships and historical record.
     ///
     /// Archived groups no longer participate in group-based object access.
-    #[command(name = "archive")]
+    #[argx(name = "archive")]
     Archive(GroupsArchiveCommand),
     /// Restore an archived group to active status.
-    #[command(name = "unarchive")]
+    #[argx(name = "unarchive")]
     Unarchive(GroupsUnarchiveCommand),
     /// Manage group memberships.
-    #[command(name = "memberships")]
+    #[argx(name = "memberships")]
     Memberships(GroupMembershipsCommand),
 }
 
 /// Arguments for `kival groups list`.
-#[derive(Debug, Parser)]
+#[derive(Debug, Args)]
 pub struct GroupsListCommand {
     /// Archive status filter: active, archived, or all.
-    #[arg(long, value_name = "STATUS", value_enum, default_value = "active")]
+    #[argx(long, value_enum, default = CliArchiveListStatus::Active)]
     pub status: CliArchiveListStatus,
     /// Case-insensitive group name search.
-    #[arg(long, value_name = "QUERY")]
+    #[argx(long)]
     pub query: Option<String>,
     /// Maximum number of groups to return.
-    #[arg(long, value_name = "N", default_value = DEFAULT_LIST_LIMIT_HELP)]
+    #[argx(long, default = DEFAULT_LIST_LIMIT)]
     pub limit: Option<i64>,
     /// Opaque `response.next_cursor` from the previous page; reuse it with the same filters.
-    #[arg(long, value_name = "CURSOR")]
+    #[argx(long)]
     pub cursor: Option<String>,
 }
 
 /// Arguments for `kival groups get`.
-#[derive(Debug, Clone, Copy, Parser)]
+#[derive(Debug, Clone, Copy, Args)]
 pub struct GroupsGetCommand {
     /// Group ID.
-    #[arg(value_name = "GROUP_ID")]
+
     pub group_id: Uuid,
 }
 
@@ -121,144 +116,147 @@ pub struct UpdateGroupInput {
 }
 
 /// Arguments for `kival groups create`.
-#[derive(Debug, Parser)]
+#[derive(Debug, Args)]
 pub struct GroupsCreateCommand {
     /// Structured input source.
-    #[command(flatten)]
+    #[argx(flatten)]
     pub input_source: StructuredInputArgs,
     /// Group name.
-    #[arg(long, value_name = "NAME", required_unless_present = "input")]
+    #[argx(long)]
     pub name: Option<String>,
     /// Group description.
-    #[arg(long, value_name = "DESCRIPTION")]
+    #[argx(long)]
     pub description: Option<String>,
 }
 
 /// Arguments for `kival groups update`.
-#[derive(Debug, Parser)]
+#[derive(Debug, Args)]
 pub struct GroupsUpdateCommand {
     /// Structured input source.
-    #[command(flatten)]
+    #[argx(flatten)]
     pub input_source: StructuredInputArgs,
     /// Group ID.
-    #[arg(value_name = "GROUP_ID")]
+
     pub group_id: Uuid,
     /// Set the group name.
-    #[arg(long, value_name = "NAME")]
+    #[argx(long)]
     pub name: Option<String>,
     /// Set the group description.
-    #[arg(long, value_name = "DESCRIPTION", conflicts_with = "clear_description")]
+    #[argx(long, conflicts = "clear_description")]
     pub description: Option<String>,
     /// Clear the group description.
-    #[arg(long)]
+    #[argx(long)]
     pub clear_description: bool,
 }
 
 /// Arguments for `kival groups archive`.
-#[derive(Debug, Clone, Copy, Parser)]
+#[derive(Debug, Clone, Copy, Args)]
 pub struct GroupsArchiveCommand {
     /// Group ID.
-    #[arg(value_name = "GROUP_ID")]
+
     pub group_id: Uuid,
 }
 
 /// Arguments for `kival groups unarchive`.
-#[derive(Debug, Clone, Copy, Parser)]
+#[derive(Debug, Clone, Copy, Args)]
+#[argx(schema)]
 pub struct GroupsUnarchiveCommand {
     /// Group ID.
-    #[arg(value_name = "GROUP_ID")]
+
     pub group_id: Uuid,
 }
 
 /// Arguments for `kival groups memberships`.
-#[derive(Debug, Parser, CommandSchema)]
+#[derive(Debug, Args)]
+#[argx(schema)]
 pub struct GroupMembershipsCommand {
     /// The membership command to run.
-    #[command(subcommand)]
+    #[argx(subcommand)]
     pub command: GroupMembershipsSubcommand,
 }
 
 /// The available `kival groups memberships` commands.
-#[derive(Debug, Subcommand, CommandSchema)]
+#[derive(Debug, Subcommand)]
+#[argx(schema)]
 pub enum GroupMembershipsSubcommand {
     /// List active group memberships, newest first.
-    #[command(name = "list")]
+    #[argx(name = "list")]
     List(GroupMembershipsListCommand),
 
     /// Add a user as a member or administrator of a group.
     ///
     /// Group membership can contribute to object access only where the group is actively linked to
     /// the workspace and has an active object grant.
-    #[command(name = "create")]
+    #[argx(name = "create")]
     Create(GroupMembershipsCreateCommand),
 
     /// Change an active group membership's role.
-    #[command(name = "update")]
+    #[argx(name = "update")]
     Update(GroupMembershipsUpdateCommand),
 
     /// Revoke a group membership without deleting its historical record.
     ///
     /// Revocation removes access derived through this membership but does not revoke the user's
     /// independent direct access.
-    #[command(name = "revoke")]
+    #[argx(name = "revoke")]
     Revoke(GroupMembershipsRevokeCommand),
 }
 
 /// Arguments for `kival groups memberships list`.
-#[derive(Debug, Parser)]
+#[derive(Debug, Args)]
 pub struct GroupMembershipsListCommand {
     /// Group ID.
-    #[arg(value_name = "GROUP_ID")]
+
     pub group_id: Uuid,
 
     /// Maximum number of memberships to return.
-    #[arg(long, value_name = "N", default_value = DEFAULT_LIST_LIMIT_HELP)]
+    #[argx(long, default = DEFAULT_LIST_LIMIT)]
     pub limit: Option<i64>,
 
     /// Opaque `response.next_cursor` from the previous page; reuse it with the same filters.
-    #[arg(long, value_name = "CURSOR")]
+    #[argx(long)]
     pub cursor: Option<String>,
 }
 
 /// Arguments for `kival groups memberships create`.
-#[derive(Debug, Clone, Copy, Parser)]
+#[derive(Debug, Clone, Copy, Args)]
 pub struct GroupMembershipsCreateCommand {
     /// Group ID.
-    #[arg(value_name = "GROUP_ID")]
+
     pub group_id: Uuid,
 
     /// User ID.
-    #[arg(long, value_name = "USER_ID")]
+    #[argx(long)]
     pub user_id: Uuid,
 
     /// Group role: member or admin.
-    #[arg(long, value_name = "ROLE", value_enum)]
+    #[argx(long, value_enum)]
     pub role: CliMembershipRole,
 }
 
 /// Arguments for `kival groups memberships update`.
-#[derive(Debug, Clone, Copy, Parser)]
+#[derive(Debug, Clone, Copy, Args)]
 pub struct GroupMembershipsUpdateCommand {
     /// Group ID.
-    #[arg(value_name = "GROUP_ID")]
+
     pub group_id: Uuid,
     /// Membership ID.
-    #[arg(value_name = "MEMBERSHIP_ID")]
+
     pub membership_id: Uuid,
     /// New group role: member or admin.
-    #[arg(long, value_name = "ROLE", value_enum)]
+    #[argx(long, value_enum)]
     pub role: CliMembershipRole,
 }
 
 /// Arguments for `kival groups memberships revoke`.
-#[derive(Debug, Clone, Copy, Parser)]
+#[derive(Debug, Clone, Copy, Args)]
 pub struct GroupMembershipsRevokeCommand {
     /// Group ID.
-    #[arg(value_name = "GROUP_ID")]
+
     pub group_id: Uuid,
 
     /// Membership ID.
-    #[arg(value_name = "MEMBERSHIP_ID")]
+
     pub membership_id: Uuid,
 }
 
@@ -299,7 +297,6 @@ impl GroupsCommand {
     }
 }
 
-#[schema_handler(run)]
 impl GroupsListCommand {
     /// Run `kival groups list`.
     ///
@@ -323,7 +320,6 @@ impl GroupsListCommand {
     }
 }
 
-#[schema_handler(run)]
 impl GroupsGetCommand {
     /// Run `kival groups get`.
     ///
@@ -338,7 +334,6 @@ impl GroupsGetCommand {
     }
 }
 
-#[schema_handler(run)]
 impl GroupsCreateCommand {
     /// Run `kival groups create`.
     ///
@@ -382,7 +377,6 @@ impl GroupsCreateCommand {
     }
 }
 
-#[schema_handler(run)]
 impl GroupsUpdateCommand {
     /// Run `kival groups update`.
     ///
@@ -453,7 +447,6 @@ impl GroupsUpdateCommand {
     }
 }
 
-#[schema_handler(run)]
 impl GroupsArchiveCommand {
     /// Run `kival groups archive`.
     ///
@@ -468,7 +461,6 @@ impl GroupsArchiveCommand {
     }
 }
 
-#[schema_handler(run)]
 impl GroupsUnarchiveCommand {
     /// Run `kival groups unarchive`.
     ///
@@ -508,7 +500,6 @@ impl GroupMembershipsCommand {
     }
 }
 
-#[schema_handler(run)]
 impl GroupMembershipsListCommand {
     /// Run `kival groups memberships list`.
     ///
@@ -540,7 +531,6 @@ impl GroupMembershipsListCommand {
     }
 }
 
-#[schema_handler(run)]
 impl GroupMembershipsCreateCommand {
     /// Run `kival groups memberships create`.
     ///
@@ -567,7 +557,6 @@ impl GroupMembershipsCreateCommand {
     }
 }
 
-#[schema_handler(run)]
 impl GroupMembershipsUpdateCommand {
     /// Run `kival groups memberships update`.
     ///
@@ -590,7 +579,6 @@ impl GroupMembershipsUpdateCommand {
     }
 }
 
-#[schema_handler(run)]
 impl GroupMembershipsRevokeCommand {
     /// Run `kival groups memberships revoke`.
     ///

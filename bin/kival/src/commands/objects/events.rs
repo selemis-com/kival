@@ -1,7 +1,6 @@
 //! Object event-listing command.
 
-use clap::Parser;
-use clap_schema::schema_handler;
+use argx::Args;
 use eyre::Result;
 use kival_cli::runner::CliContext;
 use kival_sdk::{Event, ListResponse};
@@ -11,39 +10,38 @@ use super::ObjectTargetArgs;
 use crate::{
     commands::events::print_event_line,
     utils::{
-        args::{DEFAULT_LIST_LIMIT_HELP, event_params},
+        args::{DEFAULT_LIST_LIMIT, event_params},
         credentials::authenticated_client,
         output::{OutputMode, print_empty_list, print_output},
     },
 };
 
 /// Arguments for `kival objects events`.
-#[derive(Debug, Parser)]
+#[derive(Debug, Args)]
 pub struct ObjectEventsCommand {
     /// Object target.
-    #[command(flatten)]
+    #[argx(flatten)]
     pub target: ObjectTargetArgs,
     /// Maximum number of events to return.
-    #[arg(long, value_name = "N", default_value = DEFAULT_LIST_LIMIT_HELP)]
+    #[argx(long, default = DEFAULT_LIST_LIMIT)]
     pub limit: Option<i64>,
     /// Return events with a global sequence number strictly greater than SEQUENCE.
-    #[arg(long, value_name = "SEQUENCE")]
+    #[argx(long)]
     pub after_sequence: Option<i64>,
     /// Filter by event kind.
-    #[arg(long, value_name = "KIND")]
+    #[argx(long)]
     pub event_kind: Option<String>,
     /// Filter by actor user ID.
-    #[arg(long, value_name = "USER_ID")]
+    #[argx(long)]
     pub actor_user_id: Option<Uuid>,
     /// Filter by target user ID.
-    #[arg(long, value_name = "USER_ID")]
+    #[argx(long)]
     pub target_user_id: Option<Uuid>,
     /// Filter by group ID.
-    #[arg(long, value_name = "GROUP_ID")]
+    #[argx(long)]
     pub group_id: Option<Uuid>,
 }
 
-#[schema_handler(run)]
 impl ObjectEventsCommand {
     /// Run `kival objects events`.
     ///

@@ -2,8 +2,7 @@
 
 use std::path::{Path, PathBuf};
 
-use clap::{Parser, Subcommand};
-use clap_schema::{CommandSchema, schema_handler};
+use argx::{Args, Subcommand};
 use eyre::Result;
 use kival_cli::runner::CliContext;
 use kival_sdk::{
@@ -18,7 +17,7 @@ use super::{
     io::{ensure_output_available, write_output_file},
 };
 use crate::utils::{
-    args::{DEFAULT_LIST_LIMIT_HELP, list_params, metadata_value},
+    args::{DEFAULT_LIST_LIMIT, list_params, metadata_value},
     credentials::authenticated_client,
     error::CliError,
     output::{
@@ -28,107 +27,109 @@ use crate::utils::{
 };
 
 /// Arguments for `kival objects attachments`.
-#[derive(Debug, Parser, CommandSchema)]
+#[derive(Debug, Args)]
+#[argx(schema)]
 pub struct ObjectAttachmentsCommand {
     /// The attachment command to run.
-    #[command(subcommand)]
+    #[argx(subcommand)]
     pub command: ObjectAttachmentsSubcommand,
 }
 
 /// The available `kival objects attachments` commands.
-#[derive(Debug, Subcommand, CommandSchema)]
+#[derive(Debug, Subcommand)]
+#[argx(schema)]
 pub enum ObjectAttachmentsSubcommand {
     /// List object attachments, newest first.
-    #[command(name = "list")]
+    #[argx(name = "list")]
     List(ObjectAttachmentsListCommand),
     /// Upload a file and create an attachment record on an object.
     ///
     /// `--version-id` associates the attachment with a specific version of the target object; omit
     /// it for an object-level attachment.
-    #[command(name = "upload")]
+    #[argx(name = "upload")]
     Upload(ObjectAttachmentsUploadCommand),
     /// Reuse accessible attachment content on another object without re-uploading it.
     ///
     /// The source attachment must be inspectable by the current user, and the target object must be
     /// editable. Reuse creates a new attachment record on the target that references the existing
     /// stored content and records the source attachment as provenance.
-    #[command(name = "reuse")]
+    #[argx(name = "reuse")]
     Reuse(ObjectAttachmentsReuseCommand),
     /// Get object attachment metadata.
     ///
     /// This command returns the attachment record only; it does not download the attachment bytes.
-    #[command(name = "get")]
+    #[argx(name = "get")]
     Get(ObjectAttachmentsGetCommand),
     /// Get object attachment content and write it to a file.
-    #[command(name = "content")]
+    #[argx(name = "content")]
     Content(ObjectAttachmentsContentCommand),
 }
 
 /// Arguments for `kival objects attachments list`.
-#[derive(Debug, Parser)]
+#[derive(Debug, Args)]
 pub struct ObjectAttachmentsListCommand {
     /// Object target.
-    #[command(flatten)]
+    #[argx(flatten)]
     pub target: ObjectTargetArgs,
     /// Maximum number of attachments to return.
-    #[arg(long, value_name = "N", default_value = DEFAULT_LIST_LIMIT_HELP)]
+    #[argx(long, default = DEFAULT_LIST_LIMIT)]
     pub limit: Option<i64>,
     /// Opaque `response.next_cursor` from the previous page; reuse it with the same filters.
-    #[arg(long, value_name = "CURSOR")]
+    #[argx(long)]
     pub cursor: Option<String>,
 }
 
 /// Arguments for `kival objects attachments upload`.
-#[derive(Debug, Parser)]
+#[derive(Debug, Args)]
 pub struct ObjectAttachmentsUploadCommand {
     /// Object target.
-    #[command(flatten)]
+    #[argx(flatten)]
     pub target: ObjectTargetArgs,
     /// File to upload.
-    #[arg(long, value_name = "FILE")]
+    #[argx(long)]
     pub file: PathBuf,
     /// Associate the attachment with this version of the target object.
-    #[arg(long, value_name = "VERSION_ID")]
+    #[argx(long)]
     pub version_id: Option<Uuid>,
     /// Optional attachment display name. Defaults to the file name.
-    #[arg(long, value_name = "NAME")]
+    #[argx(long)]
     pub name: Option<String>,
     /// Optional media type.
-    #[arg(long, value_name = "MEDIA_TYPE")]
+    #[argx(long)]
     pub media_type: Option<String>,
     /// Attachment metadata as a flat JSON object with scalar or scalar-list values.
-    #[arg(long, value_name = "JSON")]
+    #[argx(long)]
     pub metadata: Option<String>,
 }
 
 /// Arguments for kival objects attachments reuse.
-#[derive(Debug, Clone, Copy, Parser)]
+#[derive(Debug, Clone, Copy, Args)]
 pub struct ObjectAttachmentsReuseCommand {
     /// Target object.
-    #[command(flatten)]
+    #[argx(flatten)]
     pub target: ObjectTargetArgs,
     /// Source attachment ID whose content the current user is authorized to inspect.
-    #[arg(value_name = "SOURCE_ATTACHMENT_ID")]
+
     pub source_attachment_id: Uuid,
     /// Associate the new attachment record with this version of the target object.
-    #[arg(long, value_name = "VERSION_ID")]
+    #[argx(long)]
     pub version_id: Option<Uuid>,
 }
 
 /// Arguments for `kival objects attachments content`.
-#[derive(Debug, Parser)]
+#[derive(Debug, Args)]
 pub struct ObjectAttachmentsContentCommand {
     /// Object target.
-    #[command(flatten)]
+    #[argx(flatten)]
     pub target: ObjectTargetArgs,
     /// Attachment ID.
-    #[arg(value_name = "ATTACHMENT_ID")]
+
     pub attachment_id: Uuid,
     /// File to write the attachment content to.
-    #[arg(long, value_name = "FILE")]
+    #[argx(long)]
     pub output: PathBuf,
     /// Overwrite the output file if it already exists.
-    #[arg(long)]
+    #[argx(long)]
     pub force: bool,
 }
 
@@ -144,13 +145,13 @@ pub struct ObjectAttachmentContentOutput {
 }
 
 /// Arguments for `kival objects attachments get`.
-#[derive(Debug, Clone, Copy, Parser)]
+#[derive(Debug, Clone, Copy, Args)]
 pub struct ObjectAttachmentsGetCommand {
     /// Object target.
-    #[command(flatten)]
+    #[argx(flatten)]
     pub target: ObjectTargetArgs,
     /// Attachment ID.
-    #[arg(value_name = "ATTACHMENT_ID")]
+
     pub attachment_id: Uuid,
 }
 
@@ -182,7 +183,6 @@ impl ObjectAttachmentsCommand {
     }
 }
 
-#[schema_handler(run)]
 impl ObjectAttachmentsListCommand {
     /// Run `kival objects attachments list`.
     ///
@@ -218,7 +218,6 @@ impl ObjectAttachmentsListCommand {
     }
 }
 
-#[schema_handler(run)]
 impl ObjectAttachmentsUploadCommand {
     /// Run `kival objects attachments upload`.
     ///
@@ -287,7 +286,6 @@ fn infer_media_type_from_path(path: &Path) -> Option<&'static str> {
     }
 }
 
-#[schema_handler(run)]
 impl ObjectAttachmentsReuseCommand {
     /// Runs attachment reuse.
     ///
@@ -313,7 +311,6 @@ impl ObjectAttachmentsReuseCommand {
     }
 }
 
-#[schema_handler(run)]
 impl ObjectAttachmentsContentCommand {
     /// Run `kival objects attachments content`.
     ///
@@ -355,7 +352,6 @@ impl ObjectAttachmentsContentCommand {
     }
 }
 
-#[schema_handler(run)]
 impl ObjectAttachmentsGetCommand {
     /// Run `kival objects attachments get`.
     ///

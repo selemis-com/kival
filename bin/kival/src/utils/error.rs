@@ -199,21 +199,6 @@ impl CliErrorBody {
             return Self::from_client_error(client_error);
         }
 
-        if let Some(schema_error) = error.downcast_ref::<clap_schema::Error>() {
-            return match schema_error {
-                clap_schema::Error::UnknownCommand { .. } => Self {
-                    code: CliErrorCode::InvalidArgument,
-                    message: schema_error.to_string(),
-                    details: None,
-                },
-                _ => Self {
-                    code: CliErrorCode::Internal,
-                    message: "Internal schema definition error.".to_owned(),
-                    details: None,
-                },
-            };
-        }
-
         Self { code: CliErrorCode::Internal, message: "Internal error.".to_owned(), details: None }
     }
 
@@ -221,12 +206,6 @@ impl CliErrorBody {
     #[must_use]
     pub fn from_cli_error(error: &CliError) -> Self {
         Self { code: error.code, message: error.message.clone(), details: error.details.clone() }
-    }
-
-    /// Builds an error body from a clap parse error.
-    #[must_use]
-    pub fn from_clap_error(error: &clap::Error) -> Self {
-        Self { code: CliErrorCode::InvalidArgument, message: error.to_string(), details: None }
     }
 
     /// Builds an error body from a client error.
@@ -361,13 +340,4 @@ mod tests {
         assert_eq!(body.message, "description must not be empty");
     }
 
-    #[test]
-    fn unknown_schema_path_is_invalid_argument() {
-        let error =
-            eyre::eyre!(clap_schema::Error::UnknownCommand { path: vec!["missing".to_owned()] });
-        let body = CliErrorBody::from_report(&error);
-
-        assert_eq!(body.code, CliErrorCode::InvalidArgument);
-        assert_eq!(body.message, "unknown clap command path: missing");
-    }
 }

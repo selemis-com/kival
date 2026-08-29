@@ -73,7 +73,7 @@ impl Projection {
     }
 }
 
-/// Parses comma-delimited clap values into a normalized projection.
+/// Parses repeated `--field` values into a normalized projection.
 ///
 /// # Errors
 ///
@@ -292,7 +292,6 @@ fn unknown_field_error(schema: &Value, field: &str) -> eyre::Report {
 
 #[cfg(test)]
 mod tests {
-    use clap_schema::CliSchema;
     use serde_json::json;
 
     use super::*;
