@@ -5,33 +5,13 @@ use serde::Serialize;
 use time::OffsetDateTime;
 use uuid::Uuid;
 
-use crate::utils::fields::{Projection, project_value};
-
 /// Connector for a non-final item in a tree branch.
 pub(crate) const TREE_BRANCH: &str = "├─";
 /// Connector for the final item in a tree branch.
 pub(crate) const TREE_LAST: &str = "└─";
 
-/// Output mode for command results.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub enum OutputMode {
-    /// Human-readable text output.
-    Text,
-
-    /// Machine-readable JSON output.
-    Json {
-        /// Optional successful-output field projection.
-        projection: Option<Projection>,
-    },
-}
-
-impl OutputMode {
-    /// Returns the output mode implied by global output flags.
-    #[must_use]
-    pub fn from_options(json: bool, projection: Option<Projection>) -> Self {
-        if json { Self::Json { projection } } else { Self::Text }
-    }
-}
+/// Output mode for command results, owned by Argx.
+pub type OutputMode = argx::Output;
 
 /// Prints a serializable value as JSON.
 ///
@@ -46,29 +26,29 @@ where
     Ok(())
 }
 
-/// Prints either text output or JSON output.
+/// Prints either application-defined text output or Argx-managed structured output.
 ///
-/// The `text` closure is only evaluated in text mode.
+/// The `text` closure is only evaluated in text mode. Argx owns structured serialization, schema
+/// validation, and field projection.
 ///
 /// # Errors
 ///
-/// Returns an error if the value cannot be serialized in JSON mode.
-pub fn print_output<T, F>(mode: OutputMode, value: &T, text: F) -> Result<()>
+/// Returns an error if the value cannot be serialized or projected in structured output mode.
+pub fn print_output<T, F>(mode: &OutputMode, value: &T, text: F) -> Result<()>
 where
     T: Serialize,
     F: FnOnce(),
 {
-    match mode {
-        OutputMode::Text => {
+    match mode.format() {
+        argx::OutputFormat::Text => {
             text();
             Ok(())
         }
-        OutputMode::Json { projection: None } => print_json(value),
-        OutputMode::Json { projection: Some(projection) } => {
-            let value = serde_json::to_value(value)?;
-            let value = project_value(&value, &projection)?;
-            print_json(&value)
+        argx::OutputFormat::Json => {
+            println!("{}", serde_json::to_string_pretty(&mode.value(value)?)?);
+            Ok(())
         }
+        _ => eyre::bail!("unsupported output format"),
     }
 }
 

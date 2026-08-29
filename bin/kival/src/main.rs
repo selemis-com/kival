@@ -2,7 +2,7 @@
 
 use std::path::Path;
 
-use argx::{Defaults, Environment, Parser, Subcommand, Toml};
+use argx::{Defaults, Environment, OutputFormat, Parser, Subcommand, Toml};
 use eyre::Result;
 use kival_cli::{args::datadir::DatadirArgs, runner::CliRunner, sigsegv};
 use url::Url;
@@ -16,7 +16,6 @@ use crate::{
     },
     utils::{
         error::CliError,
-        fields::parse_projection,
         output::OutputMode,
         version::{LONG_VERSION, SHORT_VERSION},
     },
@@ -96,16 +95,6 @@ pub struct Cli {
     #[argx(subcommand)]
     pub command: Commands,
 
-    /// Emit JSON output instead of human-readable output, where supported.
-    #[argx(short, long, global)]
-    pub json: bool,
-
-    /// Select a property from JSON output. May be repeated.
-    ///
-    /// Nested paths use dot notation. This is an output projection option, not a search filter.
-    #[argx(short, long = "field", global, requires = "json")]
-    pub field: Vec<String>,
-
     /// The data directory to use.
     #[argx(flatten)]
     pub datadir: DatadirArgs,
@@ -125,23 +114,19 @@ impl Cli {
     /// # Errors
     ///
     /// Returns an error if runtime creation or command execution fails.
-    pub fn run(self) -> Result<()> {
-        let Self { command, json, field, datadir, api_key, url } = self;
+    pub fn run(self, output: OutputMode) -> Result<()> {
+        let Self { command, datadir, api_key, url } = self;
 
         utils::credentials::set_command_overrides(api_key, url)?;
 
-        match &command {
-            Commands::Completions(_) if json => {
-                return Err(CliError::invalid_argument(
-                    "completions output is shell script text and does not support --json",
-                )
-                .into());
-            }
-            _ => {}
+        if matches!(command, Commands::Completions(_))
+            && (output.format() != OutputFormat::Text || !output.fields().is_empty())
+        {
+            return Err(CliError::invalid_argument(
+                "completions output is shell script text and does not support structured output",
+            )
+            .into());
         }
-
-        let projection = parse_projection(&field)?;
-        let output = OutputMode::from_options(json, projection);
 
         match command {
             Commands::Completions(command) => Ok(command.run(&output)?),
@@ -211,8 +196,15 @@ fn main() {
         }
     }
 
-    // Parse command-line arguments and run the appropriate command.
-    if let Err(err) = Cli::parse().run() {
+    // Generated completion adapters use Argx's process protocol before ordinary parsing.
+    if Cli::handle_completion() {
+        return;
+    }
+
+    // Parse command-line arguments together with Argx's built-in output options.
+    let invocation = Cli::try_parse_invocation().unwrap_or_else(|error| error.exit());
+    let (cli, output) = invocation.into_parts();
+    if let Err(err) = cli.run(output) {
         eprintln!("Error: {err}");
         std::process::exit(1);
     }
@@ -225,14 +217,19 @@ mod tests {
     use super::{Cli, Commands};
 
     #[test]
-    fn field_is_repeatable_and_requires_json() {
-        assert!(Cli::try_parse_from(["kival", "whoami", "--field", "id"]).is_err());
+    fn output_fields_are_owned_by_argx() {
+        assert!(Cli::try_parse_invocation_from(["kival", "whoami", "-F", "user.id"]).is_err());
 
-        let cli = Cli::try_parse_from([
-            "kival", "whoami", "--json", "--field", "id", "--field", "username",
+        let invocation = Cli::try_parse_invocation_from([
+            "kival",
+            "whoami",
+            "-O",
+            "json",
+            "-F",
+            "user.id,user.username",
         ])
-        .expect("repeated fields should parse");
-        assert_eq!(cli.field, ["id", "username"]);
+        .expect("Argx output selection should parse");
+        assert_eq!(invocation.output.fields(), ["user.id", "user.username"]);
     }
 
     #[test]

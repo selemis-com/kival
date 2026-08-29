@@ -293,7 +293,7 @@ impl GroupsListCommand {
                 q: self.query,
             })
             .await?;
-        print_output(output, &response, || {
+        print_output(&output, &response, || {
             print_group_page(&response.items, response.next_cursor.as_deref())
         })?;
         Ok(response)
@@ -314,7 +314,7 @@ impl GroupsGetCommand {
     ) -> std::result::Result<Group, CliError> {
         let client = authenticated_client(&ctx)?;
         let group = client.get_group(self.group_id).await?;
-        print_output(output, &group, || print_group_line(&group, None))?;
+        print_output(&output, &group, || print_group_line(&group, None))?;
         Ok(group)
     }
 }
@@ -347,7 +347,7 @@ impl GroupsCreateCommand {
                 description: description.map(ToOwned::to_owned),
             })
             .await?;
-        print_output(output, &group, || print_group_line(&group, Some("created")))?;
+        print_output(&output, &group, || print_group_line(&group, Some("created")))?;
         Ok(group)
     }
 
@@ -404,7 +404,7 @@ impl GroupsUpdateCommand {
                 UpdateGroupRequest { name: name.map(ToOwned::to_owned), description },
             )
             .await?;
-        print_output(output, &group, || print_group_line(&group, Some("updated")))?;
+        print_output(&output, &group, || print_group_line(&group, Some("updated")))?;
         Ok(group)
     }
 
@@ -456,7 +456,7 @@ impl GroupsArchiveCommand {
     ) -> std::result::Result<Group, CliError> {
         let client = authenticated_client(&ctx)?;
         let group = client.archive_group(self.group_id).await?;
-        print_output(output, &group, || print_group_line(&group, Some("archived")))?;
+        print_output(&output, &group, || print_group_line(&group, Some("archived")))?;
         Ok(group)
     }
 }
@@ -475,7 +475,7 @@ impl GroupsUnarchiveCommand {
     ) -> std::result::Result<Group, CliError> {
         let client = authenticated_client(&ctx)?;
         let group = client.unarchive_group(self.group_id).await?;
-        print_output(output, &group, || print_group_line(&group, Some("unarchived")))?;
+        print_output(&output, &group, || print_group_line(&group, Some("unarchived")))?;
         Ok(group)
     }
 }
@@ -521,7 +521,7 @@ impl GroupMembershipsListCommand {
         let response = client
             .list_group_memberships(self.group_id, &list_params(self.limit, self.cursor))
             .await?;
-        print_output(output, &response, || {
+        print_output(&output, &response, || {
             if response.items.is_empty() {
                 print_empty_list("memberships");
             } else {
@@ -561,7 +561,7 @@ impl GroupMembershipsCreateCommand {
                 },
             )
             .await?;
-        print_output(output, &membership, || {
+        print_output(&output, &membership, || {
             print_group_membership_line(&membership, Some("created"));
         })?;
         Ok(membership)
@@ -588,7 +588,7 @@ impl GroupMembershipsUpdateCommand {
                 UpdateGroupMembershipRequest { group_role: self.role.into() },
             )
             .await?;
-        print_output(output, &membership, || {
+        print_output(&output, &membership, || {
             print_group_membership_line(&membership, Some("updated"));
         })?;
         Ok(membership)
@@ -609,7 +609,7 @@ impl GroupMembershipsRevokeCommand {
     ) -> std::result::Result<GroupMembership, CliError> {
         let client = authenticated_client(&ctx)?;
         let membership = client.revoke_group_membership(self.group_id, self.membership_id).await?;
-        print_output(output, &membership, || {
+        print_output(&output, &membership, || {
             print_group_membership_line(&membership, Some("revoked"));
         })?;
         Ok(membership)

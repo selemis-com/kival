@@ -288,7 +288,7 @@ impl CommentsListCommand {
             CommentsListOutput::Threads { items: response.items, next_cursor: response.next_cursor }
         };
 
-        print_output(output, &result, || print_list_output(&result))?;
+        print_output(&output, &result, || print_list_output(&result))?;
         Ok(result)
     }
 }
@@ -316,7 +316,7 @@ impl CommentsMentionsCommand {
                 },
             )
             .await?;
-        print_output(output, &response, || {
+        print_output(&output, &response, || {
             if response.items.is_empty() {
                 print_empty_list("mention candidates");
             } else {
@@ -352,7 +352,7 @@ impl CommentsCreateCommand {
         let thread = client
             .create_comment_thread(target.workspace_id, target.object_id, &input.into_request())
             .await?;
-        print_output(output, &thread, || print_thread_action(&thread, "created"))?;
+        print_output(&output, &thread, || print_thread_action(&thread, "created"))?;
         Ok(thread)
     }
 
@@ -387,7 +387,7 @@ impl CommentsReplyCommand {
                 &input.into_request(),
             )
             .await?;
-        print_output(output, &comment, || print_comment_action(&comment, "created"))?;
+        print_output(&output, &comment, || print_comment_action(&comment, "created"))?;
         Ok(comment)
     }
 
@@ -424,7 +424,7 @@ impl CommentsUpdateCommand {
                 },
             )
             .await?;
-        print_output(output, &comment, || print_comment_action(&comment, "updated"))?;
+        print_output(&output, &comment, || print_comment_action(&comment, "updated"))?;
         Ok(comment)
     }
 
@@ -450,7 +450,7 @@ impl CommentsDeleteCommand {
         let comment = client
             .delete_comment(self.target.workspace_id, self.target.object_id, self.comment_id)
             .await?;
-        print_output(output, &comment, || print_comment_action(&comment, "deleted"))?;
+        print_output(&output, &comment, || print_comment_action(&comment, "deleted"))?;
         Ok(comment)
     }
 }
@@ -471,7 +471,7 @@ impl CommentsResolveCommand {
         let thread = client
             .resolve_comment_thread(self.target.workspace_id, self.target.object_id, self.thread_id)
             .await?;
-        print_output(output, &thread, || print_thread_action(&thread, "resolved"))?;
+        print_output(&output, &thread, || print_thread_action(&thread, "resolved"))?;
         Ok(thread)
     }
 }
@@ -492,7 +492,7 @@ impl CommentsReopenCommand {
         let thread = client
             .reopen_comment_thread(self.target.workspace_id, self.target.object_id, self.thread_id)
             .await?;
-        print_output(output, &thread, || print_thread_action(&thread, "reopened"))?;
+        print_output(&output, &thread, || print_thread_action(&thread, "reopened"))?;
         Ok(thread)
     }
 }

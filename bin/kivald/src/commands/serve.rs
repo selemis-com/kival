@@ -53,7 +53,7 @@ pub struct ServeCommand {
     pub canonical_url: Option<String>,
 
     /// Additional exact browser origins allowed to perform passkey ceremonies.
-    #[argx(long = "allowed-origin")]
+    #[argx(long = "allowed-origin", delimited)]
     pub allowed_origins: Option<Vec<String>>,
 
     /// Maximum PostgreSQL connections owned by this Kival process.

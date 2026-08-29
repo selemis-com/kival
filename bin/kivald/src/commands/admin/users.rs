@@ -224,7 +224,7 @@ mod tests {
 
     #[test]
     fn lifecycle_commands_accept_username_or_user_id() {
-        let disable = TestCli::try_parse_from(["disable", "alice"])
+        let disable = TestCli::try_parse_args(["disable", "alice"])
             .expect("disable command should parse")
             .command;
         let AdminUsersSubcommand::Disable(disable) = disable else {
@@ -234,7 +234,7 @@ mod tests {
 
         let user_id = uuid::Uuid::now_v7();
         let user_id_text = user_id.to_string();
-        let enable = TestCli::try_parse_from(["enable", &user_id_text])
+        let enable = TestCli::try_parse_args(["enable", &user_id_text])
             .expect("enable command should parse")
             .command;
         let AdminUsersSubcommand::Enable(enable) = enable else {

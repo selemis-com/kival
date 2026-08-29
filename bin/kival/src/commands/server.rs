@@ -87,7 +87,7 @@ impl HealthCommand {
         let client = KivalClient::new(config.url)?;
         let health = client.health().await?;
 
-        print_output(output, &health, || {
+        print_output(&output, &health, || {
             println!("{}", health.status);
         })?;
         Ok(health)
@@ -114,7 +114,7 @@ impl ReadyCommand {
         let client = KivalClient::new(config.url)?;
         let ready = client.ready().await?;
 
-        print_output(output, &ready, || {
+        print_output(&output, &ready, || {
             println!("{}", ready.status);
         })?;
         Ok(ready)

@@ -142,7 +142,7 @@ impl ObjectGrantsListCommand {
                 &list_params(self.limit, self.cursor),
             )
             .await?;
-        print_output(output, &response, || {
+        print_output(&output, &response, || {
             if response.items.is_empty() {
                 print_empty_list("grants");
             } else {
@@ -180,7 +180,7 @@ impl ObjectGrantsCreateCommand {
                 CreateObjectGrantRequest { principal, object_role: role },
             )
             .await?;
-        print_output(output, &grant, || print_grant_line(&grant, Some("created")))?;
+        print_output(&output, &grant, || print_grant_line(&grant, Some("created")))?;
         Ok(grant)
     }
 }
@@ -206,7 +206,7 @@ impl ObjectGrantsUpdateCommand {
                 UpdateObjectGrantRequest { object_role: self.role.into() },
             )
             .await?;
-        print_output(output, &grant, || print_grant_line(&grant, Some("updated")))?;
+        print_output(&output, &grant, || print_grant_line(&grant, Some("updated")))?;
         Ok(grant)
     }
 }
@@ -227,7 +227,7 @@ impl ObjectGrantsRevokeCommand {
         let grant = client
             .revoke_object_grant(self.target.workspace_id, self.target.object_id, self.grant_id)
             .await?;
-        print_output(output, &grant, || print_grant_line(&grant, Some("revoked")))?;
+        print_output(&output, &grant, || print_grant_line(&grant, Some("revoked")))?;
         Ok(grant)
     }
 }

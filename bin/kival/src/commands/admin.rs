@@ -202,7 +202,7 @@ impl AdminUsersListCommand {
             })
             .await?;
 
-        print_output(output, &response, || {
+        print_output(&output, &response, || {
             for user in &response.items {
                 print_user_line(user, None);
             }
@@ -231,7 +231,7 @@ impl AdminUsersGetCommand {
         let client = authenticated_client(&ctx)?;
         let user = client.get_user(self.user_id).await?;
 
-        print_output(output, &user, || print_user_line(&user, None))?;
+        print_output(&output, &user, || print_user_line(&user, None))?;
         Ok(user)
     }
 }
@@ -268,7 +268,7 @@ impl AdminUsersUpdateCommand {
             )
             .await?;
 
-        print_output(output, &user, || print_user_line(&user, Some("updated")))?;
+        print_output(&output, &user, || print_user_line(&user, Some("updated")))?;
         Ok(user)
     }
 
@@ -309,7 +309,7 @@ impl AdminUsersDisableCommand {
         let client = authenticated_client(&ctx)?;
         let user = client.disable_user(self.user_id).await?;
 
-        print_output(output, &user, || print_user_line(&user, Some("disabled")))?;
+        print_output(&output, &user, || print_user_line(&user, Some("disabled")))?;
         Ok(user)
     }
 }
@@ -329,7 +329,7 @@ impl AdminUsersEnableCommand {
         let client = authenticated_client(&ctx)?;
         let user = client.enable_user(self.user_id).await?;
 
-        print_output(output, &user, || print_user_line(&user, Some("enabled")))?;
+        print_output(&output, &user, || print_user_line(&user, Some("enabled")))?;
         Ok(user)
     }
 }

@@ -67,7 +67,7 @@ impl ObjectEventsCommand {
         let response = client
             .list_object_events(self.target.workspace_id, self.target.object_id, &params)
             .await?;
-        print_output(output, &response, || {
+        print_output(&output, &response, || {
             if response.items.is_empty() {
                 print_empty_list("events");
             } else {

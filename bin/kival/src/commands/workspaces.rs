@@ -429,7 +429,7 @@ impl WorkspacesGraphCommand {
             )
             .await?;
 
-        print_output(output, &response, || {
+        print_output(&output, &response, || {
             print_workspace_graph(&response);
         })?;
         Ok(response)
@@ -542,7 +542,7 @@ impl WorkspacesListCommand {
             })
             .await?;
 
-        print_output(output, &response, || {
+        print_output(&output, &response, || {
             if response.items.is_empty() {
                 print_empty_list("workspaces");
             } else {
@@ -575,7 +575,7 @@ impl WorkspacesGetCommand {
         let client = authenticated_client(&ctx)?;
         let workspace = client.get_workspace(self.workspace_id).await?;
 
-        print_output(output, &workspace, || {
+        print_output(&output, &workspace, || {
             print_workspace_line(&workspace, None);
         })?;
         Ok(workspace)
@@ -624,7 +624,7 @@ impl WorkspacesUpdateCommand {
             )
             .await?;
 
-        print_output(output, &workspace, || {
+        print_output(&output, &workspace, || {
             print_workspace_line(&workspace, Some("updated"));
         })?;
         Ok(workspace)
@@ -679,7 +679,7 @@ impl WorkspacesArchiveCommand {
         let client = authenticated_client(&ctx)?;
         let workspace = client.archive_workspace(self.workspace_id).await?;
 
-        print_output(output, &workspace, || {
+        print_output(&output, &workspace, || {
             print_workspace_line(&workspace, Some("archived"));
         })?;
         Ok(workspace)
@@ -701,7 +701,7 @@ impl WorkspacesUnarchiveCommand {
         let client = authenticated_client(&ctx)?;
         let workspace = client.unarchive_workspace(self.workspace_id).await?;
 
-        print_output(output, &workspace, || {
+        print_output(&output, &workspace, || {
             print_workspace_line(&workspace, Some("unarchived"));
         })?;
         Ok(workspace)
@@ -732,7 +732,7 @@ impl WorkspacesEventsCommand {
         let client = authenticated_client(&ctx)?;
         let response = client.list_workspace_events(self.workspace_id, &params).await?;
 
-        print_output(output, &response, || {
+        print_output(&output, &response, || {
             if response.items.is_empty() {
                 print_empty_list("events");
             } else {
@@ -786,7 +786,7 @@ impl WorkspaceMembershipsListCommand {
         let response = client
             .list_workspace_memberships(self.workspace_id, &list_params(self.limit, self.cursor))
             .await?;
-        print_output(output, &response, || {
+        print_output(&output, &response, || {
             if response.items.is_empty() {
                 print_empty_list("memberships");
             } else {
@@ -826,7 +826,7 @@ impl WorkspaceMembershipsCreateCommand {
                 },
             )
             .await?;
-        print_output(output, &membership, || {
+        print_output(&output, &membership, || {
             print_membership_line(&membership, Some("created"));
         })?;
         Ok(membership)
@@ -853,7 +853,7 @@ impl WorkspaceMembershipsUpdateCommand {
                 UpdateWorkspaceMembershipRequest { workspace_role: self.role.into() },
             )
             .await?;
-        print_output(output, &membership, || {
+        print_output(&output, &membership, || {
             print_membership_line(&membership, Some("updated"));
         })?;
         Ok(membership)
@@ -875,7 +875,7 @@ impl WorkspaceMembershipsRevokeCommand {
         let client = authenticated_client(&ctx)?;
         let membership =
             client.revoke_workspace_membership(self.workspace_id, self.membership_id).await?;
-        print_output(output, &membership, || {
+        print_output(&output, &membership, || {
             print_membership_line(&membership, Some("revoked"));
         })?;
         Ok(membership)
@@ -930,7 +930,7 @@ impl WorkspaceGroupsListCommand {
                 },
             )
             .await?;
-        print_output(output, &response, || {
+        print_output(&output, &response, || {
             if response.items.is_empty() {
                 print_empty_list("workspace group links");
             } else {
@@ -965,7 +965,7 @@ impl WorkspaceGroupsCreateCommand {
                 CreateWorkspaceGroupRequest { group_id: self.group_id },
             )
             .await?;
-        print_output(output, &workspace_group, || {
+        print_output(&output, &workspace_group, || {
             print_workspace_group_line(&workspace_group, Some("linked"));
         })?;
         Ok(workspace_group)
@@ -987,7 +987,7 @@ impl WorkspaceGroupsArchiveCommand {
         let client = authenticated_client(&ctx)?;
         let workspace_group =
             client.archive_workspace_group(self.workspace_id, self.group_id).await?;
-        print_output(output, &workspace_group, || {
+        print_output(&output, &workspace_group, || {
             print_workspace_group_line(&workspace_group, Some("archived"));
         })?;
         Ok(workspace_group)
@@ -1009,7 +1009,7 @@ impl WorkspaceGroupsUnarchiveCommand {
         let client = authenticated_client(&ctx)?;
         let workspace_group =
             client.unarchive_workspace_group(self.workspace_id, self.group_id).await?;
-        print_output(output, &workspace_group, || {
+        print_output(&output, &workspace_group, || {
             print_workspace_group_line(&workspace_group, Some("unarchived"));
         })?;
         Ok(workspace_group)

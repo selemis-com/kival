@@ -185,7 +185,7 @@ impl ObjectsDiffCommand {
                 .await?;
 
         let result = object_diff_output(self.target.object_id, &from_version, &to_version);
-        print_output(output, &result, || {
+        print_output(&output, &result, || {
             print!("{}", result.diff);
         })?;
         Ok(result)
@@ -217,7 +217,7 @@ impl ObjectsRestoreCommand {
                 client.get_object(self.target.workspace_id, self.target.object_id).await?;
             let unchanged = validate_restore_noop(current_version.id, &refreshed)?;
             return Ok(print_restore_result(
-                output,
+                &output,
                 self.target.object_id,
                 source.id,
                 unchanged,
@@ -236,7 +236,7 @@ impl ObjectsRestoreCommand {
             CliError::invalid_argument("object has no current version after restore")
         })?;
 
-        Ok(print_restore_result(output, self.target.object_id, source.id, restored, true)?)
+        Ok(print_restore_result(&output, self.target.object_id, source.id, restored, true)?)
     }
 }
 
@@ -317,7 +317,7 @@ fn restore_update_request(current_version_id: Uuid, source: &ObjectVersion) -> U
 ///
 /// Returns an error when structured output serialization fails.
 fn print_restore_result(
-    output: OutputMode,
+    output: &OutputMode,
     object_id: Uuid,
     source_version_id: Uuid,
     current_version: &ObjectVersion,
@@ -507,7 +507,7 @@ impl ObjectVersionsListCommand {
                 &list_params(self.limit, self.cursor),
             )
             .await?;
-        print_output(output, &response, || {
+        print_output(&output, &response, || {
             if response.items.is_empty() {
                 print_empty_list("versions");
             } else {
@@ -539,7 +539,7 @@ impl ObjectVersionsGetCommand {
         let version = client
             .get_object_version(self.target.workspace_id, self.target.object_id, self.version_id)
             .await?;
-        print_output(output, &version, || print_version_response(&version))?;
+        print_output(&output, &version, || print_version_response(&version))?;
         Ok(version)
     }
 }
@@ -565,7 +565,7 @@ impl ObjectVersionsWikilinksCommand {
             )
             .await?;
         let response = ObjectVersionWikilinksResponse { items };
-        print_output(output, &response, || {
+        print_output(&output, &response, || {
             if response.items.is_empty() {
                 print_empty_list("wikilinks");
             } else {

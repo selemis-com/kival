@@ -53,7 +53,7 @@ impl WhoamiCommand {
             },
         };
 
-        print_output(output, &value, || {
+        print_output(&output, &value, || {
             println!(
                 "{} username={} display_name={}",
                 value.user.id,

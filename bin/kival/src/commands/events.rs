@@ -109,7 +109,7 @@ impl EventsListCommand {
         let client = authenticated_client(&ctx)?;
         let response = client.list_events(&params).await?;
 
-        print_output(output, &response, || {
+        print_output(&output, &response, || {
             if response.items.is_empty() {
                 print_empty_list("events");
             } else {

@@ -92,10 +92,10 @@ pub struct ObjectsBodyCommand {
     #[argx(flatten)]
     pub target: ObjectTargetArgs,
     /// Write the Markdown body to this file instead of stdout.
-    #[argx(long, short = 'o')]
-    pub output: Option<PathBuf>,
+    #[argx(short = 'o', long = "file")]
+    pub file: Option<PathBuf>,
     /// Overwrite an existing output file.
-    #[argx(long, requires = "output")]
+    #[argx(long, requires = "file")]
     pub force: bool,
 }
 
@@ -269,7 +269,7 @@ impl ObjectsListCommand {
                 },
             )
             .await?;
-        print_output(output, &response, || {
+        print_output(&output, &response, || {
             if response.items.is_empty() {
                 print_empty_list("objects");
             } else {
@@ -299,7 +299,7 @@ impl ObjectsGetCommand {
     ) -> std::result::Result<ObjectResponse, CliError> {
         let client = authenticated_client(&ctx)?;
         let response = client.get_object(self.target.workspace_id, self.target.object_id).await?;
-        print_output(output, &response, || print_object_response(&response, None))?;
+        print_output(&output, &response, || print_object_response(&response, None))?;
         Ok(response)
     }
 }
@@ -316,7 +316,7 @@ impl ObjectsBodyCommand {
         ctx: CliContext,
         output: OutputMode,
     ) -> std::result::Result<ObjectBodyOutput, CliError> {
-        if let Some(path) = self.output.as_deref() {
+        if let Some(path) = self.file.as_deref() {
             ensure_output_available(path, self.force)?;
         }
 
@@ -327,7 +327,7 @@ impl ObjectsBodyCommand {
             .ok_or_else(|| CliError::invalid_argument("object has no current version"))?;
         let bytes_written = version.body.len();
 
-        if let Some(path) = self.output {
+        if let Some(path) = self.file {
             write_output_file(&path, version.body.as_bytes(), self.force)?;
             let result = ObjectBodyOutput {
                 object_id: self.target.object_id,
@@ -336,7 +336,7 @@ impl ObjectsBodyCommand {
                 output: Some(path.display().to_string()),
                 bytes_written,
             };
-            print_output(output, &result, || {
+            print_output(&output, &result, || {
                 println!(
                     "{} version={} action=written output={} bytes_written={}",
                     result.object_id,
@@ -355,7 +355,7 @@ impl ObjectsBodyCommand {
             output: None,
             bytes_written,
         };
-        print_output(output, &result, || {
+        print_output(&output, &result, || {
             if let Some(body) = &result.body {
                 print!("{body}");
             }
@@ -393,7 +393,7 @@ impl ObjectsEditCommand {
             Ok(Some(request)) => request,
             Ok(None) => {
                 edited.discard()?;
-                return Ok(print_edit_result(output, &current, false)?);
+                return Ok(print_edit_result(&output, &current, false)?);
             }
             Err(error) => {
                 return Err(local_edit_error(&error.to_string(), edited.path()));
@@ -413,7 +413,7 @@ impl ObjectsEditCommand {
         edited.discard().wrap_err(
             "object was updated, but the temporary object document could not be removed",
         )?;
-        Ok(print_edit_result(output, &response, true)?)
+        Ok(print_edit_result(&output, &response, true)?)
     }
 }
 
@@ -522,7 +522,7 @@ fn object_edit_output(response: &ObjectResponse, changed: bool) -> Result<Object
 ///
 /// Returns an error if the result cannot be built or structured output serialization fails.
 fn print_edit_result(
-    output: OutputMode,
+    output: &OutputMode,
     response: &ObjectResponse,
     changed: bool,
 ) -> Result<ObjectEditOutput> {
@@ -562,7 +562,7 @@ impl ObjectsCreateCommand {
                 },
             )
             .await?;
-        print_output(output, &response, || print_object_response(&response, Some("created")))?;
+        print_output(&output, &response, || print_object_response(&response, Some("created")))?;
         Ok(response)
     }
 
@@ -659,7 +659,7 @@ impl ObjectsUpdateCommand {
             metadata: input.metadata.map(Value::Object),
         };
         let response = client.update_object(target.workspace_id, target.object_id, request).await?;
-        print_output(output, &response, || print_object_response(&response, Some("updated")))?;
+        print_output(&output, &response, || print_object_response(&response, Some("updated")))?;
         Ok(response)
     }
 
@@ -778,7 +778,7 @@ impl ObjectsArchiveCommand {
         let client = authenticated_client(&ctx)?;
         let response =
             client.archive_object(self.target.workspace_id, self.target.object_id).await?;
-        print_output(output, &response, || {
+        print_output(&output, &response, || {
             print_object_line(&response.object, Some("archived"));
         })?;
         Ok(response)
@@ -800,7 +800,7 @@ impl ObjectsUnarchiveCommand {
         let client = authenticated_client(&ctx)?;
         let response =
             client.unarchive_object(self.target.workspace_id, self.target.object_id).await?;
-        print_output(output, &response, || {
+        print_output(&output, &response, || {
             print_object_line(&response.object, Some("unarchived"));
         })?;
         Ok(response)

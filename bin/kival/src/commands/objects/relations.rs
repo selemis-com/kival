@@ -188,7 +188,7 @@ impl ObjectsGraphCommand {
             )
             .await?;
 
-        print_output(output, &graph, || {
+        print_output(&output, &graph, || {
             print_object_graph(&graph);
         })?;
         Ok(graph)
@@ -307,7 +307,7 @@ impl ObjectsBacklinksCommand {
             )
             .await?;
 
-        print_output(output, &response, || print_backlinks(&response))?;
+        print_output(&output, &response, || print_backlinks(&response))?;
         Ok(response)
     }
 }
@@ -357,7 +357,7 @@ impl ObjectEdgesListCommand {
                 &list_params(self.limit, self.cursor),
             )
             .await?;
-        print_output(output, &response, || {
+        print_output(&output, &response, || {
             if response.items.is_empty() {
                 print_empty_list("edges");
             } else {
@@ -393,7 +393,7 @@ impl ObjectEdgesCreateCommand {
                 },
             )
             .await?;
-        print_output(output, &edge, || print_edge_line(&edge, Some("created")))?;
+        print_output(&output, &edge, || print_edge_line(&edge, Some("created")))?;
         Ok(edge)
     }
 }
@@ -412,7 +412,7 @@ impl ObjectEdgesGetCommand {
     ) -> std::result::Result<ObjectEdge, CliError> {
         let client = authenticated_client(&ctx)?;
         let edge = client.get_object_edge(self.workspace_id, self.edge_id).await?;
-        print_output(output, &edge, || print_edge_line(&edge, None))?;
+        print_output(&output, &edge, || print_edge_line(&edge, None))?;
         Ok(edge)
     }
 }
@@ -431,7 +431,7 @@ impl ObjectEdgesRevokeCommand {
     ) -> std::result::Result<ObjectEdge, CliError> {
         let client = authenticated_client(&ctx)?;
         let edge = client.revoke_object_edge(self.workspace_id, self.edge_id).await?;
-        print_output(output, &edge, || print_edge_line(&edge, Some("revoked")))?;
+        print_output(&output, &edge, || print_edge_line(&edge, Some("revoked")))?;
         Ok(edge)
     }
 }

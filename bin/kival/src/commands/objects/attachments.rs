@@ -118,8 +118,8 @@ pub struct ObjectAttachmentsContentCommand {
     /// Attachment ID.
     pub attachment_id: Uuid,
     /// File to write the attachment content to.
-    #[argx(long)]
-    pub output: PathBuf,
+    #[argx(short = 'o', long = "file")]
+    pub file: PathBuf,
     /// Overwrite the output file if it already exists.
     #[argx(long)]
     pub force: bool,
@@ -195,7 +195,7 @@ impl ObjectAttachmentsListCommand {
                 &list_params(self.limit, self.cursor),
             )
             .await?;
-        print_output(output, &response, || {
+        print_output(&output, &response, || {
             if response.items.is_empty() {
                 print_empty_list("attachments");
             } else {
@@ -249,7 +249,7 @@ impl ObjectAttachmentsUploadCommand {
                 bytes,
             )
             .await?;
-        print_output(output, &attachment, || {
+        print_output(&output, &attachment, || {
             print_attachment_line(&attachment, Some("uploaded"));
         })?;
         Ok(attachment)
@@ -307,7 +307,7 @@ impl ObjectAttachmentsReuseCommand {
                 },
             )
             .await?;
-        print_output(output, &attachment, || {
+        print_output(&output, &attachment, || {
             print_attachment_line(&attachment, Some("reused"));
         })?;
         Ok(attachment)
@@ -326,7 +326,7 @@ impl ObjectAttachmentsContentCommand {
         ctx: CliContext,
         output: OutputMode,
     ) -> std::result::Result<ObjectAttachmentContentOutput, CliError> {
-        ensure_output_available(&self.output, self.force)?;
+        ensure_output_available(&self.file, self.force)?;
 
         let client = authenticated_client(&ctx)?;
         let bytes = client
@@ -337,14 +337,14 @@ impl ObjectAttachmentsContentCommand {
             )
             .await?;
 
-        write_output_file(&self.output, &bytes, self.force)?;
+        write_output_file(&self.file, &bytes, self.force)?;
 
         let result = ObjectAttachmentContentOutput {
             attachment_id: self.attachment_id,
-            output: self.output.display().to_string(),
+            output: self.file.display().to_string(),
             bytes_written: bytes.len(),
         };
-        print_output(output, &result, || {
+        print_output(&output, &result, || {
             println!(
                 "{} action=written output={} bytes_written={}",
                 result.attachment_id,
@@ -376,7 +376,7 @@ impl ObjectAttachmentsGetCommand {
                 self.attachment_id,
             )
             .await?;
-        print_output(output, &attachment, || print_attachment_line(&attachment, None))?;
+        print_output(&output, &attachment, || print_attachment_line(&attachment, None))?;
         Ok(attachment)
     }
 }
