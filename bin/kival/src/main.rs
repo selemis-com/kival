@@ -5,7 +5,6 @@ use eyre::Result;
 use kival_cli::{
     args::datadir::DatadirArgs, commands::config::ConfigCommand, runner::CliRunner, sigsegv,
 };
-use kival_config::config;
 use url::Url;
 
 use crate::{
@@ -26,17 +25,16 @@ use crate::{
 pub mod commands;
 pub mod utils;
 
-config! {
-    /// The `kival` configuration.
-    pub struct ClientConfig {
-        /// Kival server root URL.
-        pub url: Url = Url::parse("http://127.0.0.1:3000")
-            .expect("default client URL must be valid"),
+#[derive(Debug, Clone, serde::Serialize, argx::Config)]
+#[argx(prefix = "KIVAL")]
+pub struct ClientConfig {
+    /// Kival server root URL.
+    #[argx(default = Url::parse("http://127.0.0.1:3000").expect("default client URL must be valid"))]
+    pub url: Url,
 
-        /// Default API key used when no explicit credential is supplied.
-        pub api_key: Option<String> = None,
-    }
-
+    /// Default API key used when no explicit credential is supplied.
+    #[argx(default)]
+    pub api_key: Option<String>,
 }
 
 /// Kival client configuration command payload.

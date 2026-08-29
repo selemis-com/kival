@@ -1,27 +1,20 @@
 //! Client configuration helpers.
 
 use eyre::{Context, Result};
-use kival_cli::{commands::config::load_config_for_command, runner::CliContext};
-use kival_config::DEFAULT_CONFIG_FILENAME;
-use serde::Serialize;
+use kival_cli::{
+    commands::config::{DEFAULT_CONFIG_FILENAME, load_config},
+    runner::CliContext,
+};
 
 use crate::ClientConfig;
 
-/// Loads the `kival` config for a specific command.
-///
-/// Command fields such as `--url` are merged over the config file, and built-in defaults are
-/// resolved by the generated accessor methods on [`ClientConfig`].
+/// Loads effective client configuration.
 ///
 /// # Errors
 ///
-/// Returns an error if the command cannot be converted into a config layer or the config file
-/// cannot be loaded.
-pub fn load_client_config_for_command<P>(ctx: &CliContext, command: &P) -> Result<ClientConfig>
-where
-    P: Serialize,
-{
+/// Returns an error if the configuration file or environment cannot be resolved.
+pub fn load_client_config(ctx: &CliContext) -> Result<ClientConfig> {
     let config_path = ctx.datadir.join(DEFAULT_CONFIG_FILENAME);
-
-    load_config_for_command::<ClientConfig, _>(&config_path, command)
+    load_config::<ClientConfig>(&config_path)
         .wrap_err_with(|| format!("failed to load kival config `{}`", config_path.display()))
 }

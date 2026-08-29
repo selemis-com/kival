@@ -5,13 +5,9 @@ use std::sync::OnceLock;
 use eyre::Result;
 use kival_cli::runner::CliContext;
 use kival_sdk::KivalClient;
-use serde::Serialize;
 use url::Url;
 
-use crate::utils::{config::load_client_config_for_command, error::CliError};
-
-/// Environment variable used for ephemeral API-key overrides.
-const API_KEY_ENV: &str = "KIVAL_API_KEY";
+use crate::utils::{config::load_client_config, error::CliError};
 
 /// Top-level command-line credential overrides.
 #[derive(Debug)]
@@ -24,10 +20,6 @@ struct CommandOverrides {
 
 /// Process-wide command overrides initialized before async command dispatch.
 static COMMAND_OVERRIDES: OnceLock<CommandOverrides> = OnceLock::new();
-
-/// Empty command configuration layer used to load only file/default values.
-#[derive(Debug, Clone, Copy, Serialize)]
-struct EmptyOverlay {}
 
 /// Records top-level command-line overrides once, before command dispatch.
 ///
@@ -50,36 +42,20 @@ pub fn set_command_overrides(api_key: Option<String>, url: Option<Url>) -> Resul
 ///
 /// Returns an error when no key is available or configuration is invalid.
 pub fn authenticated_client(ctx: &CliContext) -> Result<KivalClient> {
-    let config = load_client_config_for_command::<EmptyOverlay>(ctx, &EmptyOverlay {})?;
+    let config = load_client_config(ctx)?;
     let overrides = COMMAND_OVERRIDES.get();
     let api_key = if let Some(value) = overrides.and_then(|value| value.api_key.clone()) {
         value
-    } else if let Some(value) = api_key_from_environment()? {
-        value
     } else {
-        config.api_key().ok_or_else(|| {
+        config.api_key.ok_or_else(|| {
             CliError::invalid_argument(
                 "no API key configured; use --api-key, KIVAL_API_KEY, or set api_key in the kival config",
             )
         })?
     };
     validate_api_key(&api_key, "configured API key")?;
-    let url = overrides.and_then(|value| value.url.clone()).unwrap_or_else(|| config.url());
+    let url = overrides.and_then(|value| value.url.clone()).unwrap_or(config.url);
     Ok(KivalClient::new(url)?.with_api_key(api_key))
-}
-
-/// Reads and validates the optional environment API key.
-fn api_key_from_environment() -> Result<Option<String>> {
-    match std::env::var(API_KEY_ENV) {
-        Ok(value) => {
-            validate_api_key(&value, API_KEY_ENV)?;
-            Ok(Some(value))
-        }
-        Err(std::env::VarError::NotPresent) => Ok(None),
-        Err(std::env::VarError::NotUnicode(_)) => {
-            Err(CliError::invalid_argument("KIVAL_API_KEY must contain valid UTF-8").into())
-        }
-    }
 }
 
 /// Rejects empty or whitespace-padded bearer credentials.

@@ -2,7 +2,7 @@
 
 mod initialization;
 
-use argx::{Args, Parser, Subcommand};
+use argx::{Args, Subcommand};
 use eyre::{Context, Result, bail};
 use kival_tracing::info;
 use serde::Serialize;

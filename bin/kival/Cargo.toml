@@ -24,7 +24,6 @@ uuid = { workspace = true, features = ["v7"] }
 
 # Crates
 kival-cli.workspace = true
-kival-config.workspace = true
 kival-sdk = { workspace = true, features = ["client"] }
 
 [[bin]]

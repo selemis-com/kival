@@ -12,7 +12,7 @@ use uuid::Uuid;
 
 use crate::utils::{
     args::{
-        CliArchiveListStatus, CliMembershipRole, DEFAULT_LIST_LIMIT, DEFAULT_LIST_LIMIT,
+        CliArchiveListStatus, CliMembershipRole, DEFAULT_LIST_LIMIT,
         list_params,
     },
     credentials::authenticated_client,

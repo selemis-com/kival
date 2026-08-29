@@ -1,6 +1,6 @@
 //! Deployment-operator user provisioning.
 
-use argx::{Args, Parser, Subcommand};
+use argx::{Args, Subcommand};
 use eyre::{Context, Result, bail};
 use kival_kernel::{
     EventKind, PasskeyEnrollmentPurpose, create_user, is_bootstrapped, lock_admin_provisioning,

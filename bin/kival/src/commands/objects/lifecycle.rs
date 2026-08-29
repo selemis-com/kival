@@ -22,7 +22,7 @@ use super::{
 };
 use crate::utils::{
     args::{
-        CliArchiveListStatus, DEFAULT_LIST_LIMIT, DEFAULT_LIST_LIMIT, metadata_value,
+        CliArchiveListStatus, DEFAULT_LIST_LIMIT, metadata_value,
         validate_flat_metadata, validate_flat_metadata_member,
     },
     credentials::authenticated_client,

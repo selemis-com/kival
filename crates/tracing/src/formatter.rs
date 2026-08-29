@@ -2,7 +2,7 @@
 
 use std::{fmt, fmt::Display};
 
-use clap::ValueEnum;
+use argx::ValueEnum;
 use tracing_appender::non_blocking::NonBlocking;
 use tracing_subscriber::{EnvFilter, Layer, Registry, fmt::layer};
 

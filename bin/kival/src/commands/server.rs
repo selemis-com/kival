@@ -76,8 +76,11 @@ impl HealthCommand {
     ///
     /// Returns an error if the server cannot be reached or the health response cannot be decoded.
     pub async fn run(self, ctx: CliContext, output: OutputMode) -> Result<StatusResponse> {
-        let config = config::load_client_config_for_command(&ctx, &self)?;
-        let client = KivalClient::new(config.url())?;
+        let mut config = config::load_client_config(&ctx)?;
+        if let Some(url) = self.url {
+            config.url = url;
+        }
+        let client = KivalClient::new(config.url)?;
         let health = client.health().await?;
 
         print_output(output, &health, || {
@@ -95,8 +98,11 @@ impl ReadyCommand {
     /// Returns an error if the server cannot be reached, is not ready, or the readiness response
     /// cannot be decoded.
     pub async fn run(self, ctx: CliContext, output: OutputMode) -> Result<StatusResponse> {
-        let config = config::load_client_config_for_command(&ctx, &self)?;
-        let client = KivalClient::new(config.url())?;
+        let mut config = config::load_client_config(&ctx)?;
+        if let Some(url) = self.url {
+            config.url = url;
+        }
+        let client = KivalClient::new(config.url)?;
         let ready = client.ready().await?;
 
         print_output(output, &ready, || {

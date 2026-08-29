@@ -1,58 +1,49 @@
-//! The `config` command for the Kival CLI.
+//! Shared configuration loading and the `config` command.
 
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
-use argx::Args;
-use kival_config::{ConfigDefaults, ConfigLayer, DEFAULT_CONFIG_FILENAME, load_config};
+use argx::{Args, ConfigLoader, Defaults, Environment, Toml, config::Config};
 use kival_tracing::trace;
-use serde::{Serialize, de::DeserializeOwned};
+use serde::Serialize;
 use thiserror::Error;
 
 use crate::args::datadir::DatadirArgs;
 
+/// The default filename for Kival configuration files.
+pub const DEFAULT_CONFIG_FILENAME: &str = "kival.toml";
+
 /// Result type for the `config` command.
 pub type Result<T> = std::result::Result<T, ConfigError>;
 
-/// Loads configuration from disk and resolves it for a parsed command.
+/// Loads effective configuration from defaults, an optional TOML file, and the process environment.
 ///
-/// CLI and environment values already resolved by Clap take precedence over
-/// values from the configuration file.
+/// The configuration file is optional. When present, it overrides declared defaults. Environment
+/// values have the highest precedence of these shared sources. Command-specific argv overrides are
+/// applied by the binary after parsing so subcommand-local options remain part of the command tree.
 ///
 /// # Errors
 ///
-/// Returns an error if command options cannot be converted to a config layer or
-/// if the config file cannot be loaded.
-pub fn load_config_for_command<T, P>(path: &PathBuf, command: &P) -> eyre::Result<T>
+/// Returns an error if Argx cannot read, interpolate, parse, or resolve the configuration.
+pub fn load_config<T>(path: &Path) -> Result<T>
 where
-    T: Default + Serialize + DeserializeOwned + ConfigLayer,
-    P: Serialize,
+    T: Config,
 {
-    let value = toml::Value::try_from(command)?;
-    let command_config: T = value.try_into()?;
-    Ok(command_config.merge(load_config::<T>(path)?))
+    let loader = ConfigLoader::<T>::default().layer(Defaults);
+    let loader = if path.exists() { loader.layer(Toml::new(path)) } else { loader };
+
+    loader.layer(Environment).resolve().map_err(ConfigError::Argx)
 }
 
 /// Errors for the `config` command.
 #[derive(Debug, Error)]
 pub enum ConfigError {
-    /// Config load errors (whatever `load_config` returns).
-    ///
-    /// We keep it boxed so we don’t couple the CLI error surface to the config crate’s exact type.
-    #[error("failed to load config from {path:?}: {source}")]
-    Load {
-        /// The config path we attempted.
-        path: PathBuf,
-        /// Underlying error.
-        source: Box<dyn std::error::Error + Send + Sync>,
-    },
+    /// Argx configuration loading or resolution failed.
+    #[error(transparent)]
+    Argx(#[from] argx::ConfigError),
 
-    /// TOML serialization errors.
+    /// TOML serialization failed.
     #[error(transparent)]
     TomlSer(#[from] toml::ser::Error),
-
-    /// I/O errors.
-    #[error(transparent)]
-    Io(#[from] std::io::Error),
 }
 
 /// The command arguments for the `config` command.
@@ -62,7 +53,7 @@ pub struct ConfigCommand {
     #[argx(long)]
     pub config: Option<PathBuf>,
 
-    /// Show the default config
+    /// Show only declared defaults.
     #[argx(long, conflicts = "config")]
     default: bool,
 
@@ -79,43 +70,38 @@ impl ConfigCommand {
     /// Returns an error if configuration cannot be loaded or serialized for output.
     pub async fn run<T>(&self) -> Result<()>
     where
-        T: ConfigDefaults + ConfigLayer + Default + Serialize + DeserializeOwned,
+        T: Config + Serialize,
     {
-        let config = self.run_inner::<T>().await?.merge(T::with_defaults());
+        let config = self.run_inner::<T>().await?;
         println!("{}", toml::to_string_pretty(&config)?);
         Ok(())
     }
 
-    /// Run the inner logic of the `config` command.
+    /// Resolve the configuration selected by this command.
     ///
     /// # Errors
     ///
-    /// Returns an error if the configuration file cannot be loaded or parsed.
+    /// Returns an error if configuration cannot be loaded or resolved.
     pub async fn run_inner<T>(&self) -> Result<T>
     where
-        T: ConfigDefaults + ConfigLayer + Default + Serialize + DeserializeOwned,
+        T: Config,
     {
         let Self { config, default, datadir } = self;
 
         if *default {
-            trace!("Using default configuration");
-            return Ok(T::with_defaults());
+            trace!("Using declared configuration defaults");
+            return ConfigLoader::<T>::default()
+                .layer(Defaults)
+                .resolve()
+                .map_err(ConfigError::Argx);
         }
 
-        let config_path = config.as_ref().map_or_else(
-            || {
-                trace!("No config file provided, using default location.");
-                  datadir.resolve_path().join(DEFAULT_CONFIG_FILENAME)
-            },
-            |p| {
-                trace!(
-                    "Loading config from {p:?}, if not found, will create a new one with default configuration."
-                );
-                p.clone()
-            },
-        );
+        let config_path = config.as_ref().cloned().unwrap_or_else(|| {
+            trace!("No config file provided, using default location");
+            datadir.resolve_path().join(DEFAULT_CONFIG_FILENAME)
+        });
 
-        load_config::<T>(&config_path)
-            .map_err(|err| ConfigError::Load { path: config_path, source: err.into() })
+        trace!(path = %config_path.display(), "Loading configuration");
+        load_config(&config_path)
     }
 }

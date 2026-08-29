@@ -19,7 +19,7 @@ use crate::{
     commands::events::print_event_line,
     utils::{
         args::{
-            CliArchiveListStatus, CliMembershipRole, DEFAULT_LIST_LIMIT, DEFAULT_LIST_LIMIT,
+            CliArchiveListStatus, CliMembershipRole, DEFAULT_LIST_LIMIT,
             event_params, list_params,
         },
         credentials::authenticated_client,

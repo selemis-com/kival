@@ -3,7 +3,7 @@
 use std::collections::BTreeMap;
 
 use eyre::Result;
-use serde_json::{Map, Value, json};
+use serde_json::{Map, Value};
 
 use crate::utils::error::CliError;
 
@@ -88,18 +88,6 @@ pub fn parse_projection(values: &[String]) -> Result<Option<Projection>> {
     Ok((!projection.is_empty()).then_some(projection))
 }
 
-/// Validates a projection against a Schemars-generated output schema.
-///
-/// # Errors
-///
-/// Returns a stable CLI projection error for unknown fields or unsupported schema structures.
-pub fn validate_projection(schema: &Value, projection: &Projection) -> Result<()> {
-    for (field, child) in &projection.children {
-        validate_child(schema, schema, field, child, field)?;
-    }
-    Ok(())
-}
-
 /// Projects a JSON value according to a validated projection.
 ///
 /// # Errors
@@ -132,162 +120,6 @@ pub fn project_value(value: &Value, projection: &Projection) -> Result<Value> {
         )
         .into()),
     }
-}
-
-/// Validates one selected object field and recurses into any child selections.
-fn validate_child(
-    root: &Value,
-    schema: &Value,
-    field: &str,
-    projection: &Projection,
-    path: &str,
-) -> Result<()> {
-    let schema = non_null_schema(root, schema, path)?;
-
-    if projection.include_all || projection.children.is_empty() {
-        if object_property(root, schema, field, path)?.is_some() {
-            return Ok(());
-        }
-        return Err(unknown_field_error(schema, path));
-    }
-
-    let property = object_property(root, schema, field, path)?
-        .ok_or_else(|| unknown_field_error(schema, path))?;
-    let property = array_item_schema(root, property, path)?;
-
-    for (child_field, child_projection) in &projection.children {
-        let child_path = format!("{path}.{child_field}");
-        validate_child(root, property, child_field, child_projection, &child_path)?;
-    }
-
-    Ok(())
-}
-
-/// Returns the schema for an object property or a projection error for non-objects.
-fn object_property<'a>(
-    root: &'a Value,
-    schema: &'a Value,
-    field: &str,
-    path: &str,
-) -> Result<Option<&'a Value>> {
-    let schema = non_null_schema(root, schema, path)?;
-
-    if let Some(properties) = schema.get("properties").and_then(Value::as_object) {
-        return Ok(properties.get(field));
-    }
-
-    if schema_allows_type(schema, "object") {
-        return Err(CliError::invalid_projection(
-            format!("Output schema for `{path}` does not declare selectable fields."),
-            Some(path.to_owned()),
-        )
-        .into());
-    }
-
-    Err(CliError::invalid_projection(
-        format!("Output field `{path}` cannot be traversed."),
-        Some(path.to_owned()),
-    )
-    .into())
-}
-
-/// Descends through array item schemas until a non-array schema is reached.
-fn array_item_schema<'a>(root: &'a Value, mut schema: &'a Value, path: &str) -> Result<&'a Value> {
-    loop {
-        schema = non_null_schema(root, schema, path)?;
-        if !schema_allows_type(schema, "array") {
-            return Ok(schema);
-        }
-        schema = schema.get("items").ok_or_else(|| {
-            CliError::invalid_projection(
-                format!("Output array field `{path}` does not declare item schema."),
-                Some(path.to_owned()),
-            )
-        })?;
-    }
-}
-
-/// Resolves references and unwraps nullable unions to their non-null branch.
-fn non_null_schema<'a>(root: &'a Value, schema: &'a Value, path: &str) -> Result<&'a Value> {
-    let schema = resolve_schema(root, schema, path)?;
-
-    if let Some(any_of) = schema.get("anyOf").and_then(Value::as_array) {
-        return non_null_branch(root, any_of, path);
-    }
-    if let Some(one_of) = schema.get("oneOf").and_then(Value::as_array) {
-        return non_null_branch(root, one_of, path);
-    }
-
-    Ok(schema)
-}
-
-/// Returns the single non-null branch from an `anyOf` or `oneOf` schema.
-fn non_null_branch<'a>(root: &'a Value, branches: &'a [Value], path: &str) -> Result<&'a Value> {
-    let branches =
-        branches.iter().filter(|branch| !schema_allows_type(branch, "null")).collect::<Vec<_>>();
-
-    match branches.as_slice() {
-        [branch] => resolve_schema(root, branch, path),
-        [] => Err(CliError::invalid_projection(
-            format!("Output field `{path}` only permits null."),
-            Some(path.to_owned()),
-        )
-        .into()),
-        _ => Err(CliError::invalid_projection(
-            format!("Output schema for `{path}` uses an unsupported union."),
-            Some(path.to_owned()),
-        )
-        .into()),
-    }
-}
-
-/// Resolves local `$defs` references produced by Schemars.
-fn resolve_schema<'a>(root: &'a Value, schema: &'a Value, path: &str) -> Result<&'a Value> {
-    let Some(reference) = schema.get("$ref").and_then(Value::as_str) else {
-        return Ok(schema);
-    };
-    let Some(name) = reference.strip_prefix("#/$defs/") else {
-        return Err(CliError::invalid_projection(
-            format!("Output schema for `{path}` uses unsupported reference `{reference}`."),
-            Some(path.to_owned()),
-        )
-        .into());
-    };
-
-    root.get("$defs")
-        .and_then(Value::as_object)
-        .and_then(|definitions| definitions.get(name))
-        .ok_or_else(|| {
-            CliError::invalid_projection(
-                format!("Output schema reference `{reference}` could not be resolved."),
-                Some(path.to_owned()),
-            )
-            .into()
-        })
-}
-
-/// Returns whether a schema declares the requested JSON Schema type.
-fn schema_allows_type(schema: &Value, expected: &str) -> bool {
-    match schema.get("type") {
-        Some(Value::String(kind)) => kind == expected,
-        Some(Value::Array(kinds)) => kinds.iter().any(|kind| kind.as_str() == Some(expected)),
-        _ => false,
-    }
-}
-
-/// Builds the stable unknown-field error with immediately selectable sibling fields.
-fn unknown_field_error(schema: &Value, field: &str) -> eyre::Report {
-    let available = schema
-        .get("properties")
-        .and_then(Value::as_object)
-        .map(|properties| properties.keys().cloned().map(Value::String).collect::<Vec<_>>());
-
-    let details = available.map_or_else(
-        || json!({ "field": field }),
-        |available| json!({ "field": field, "available": available }),
-    );
-
-    CliError::invalid_field(format!("Unknown output field `{field}`."), details).into()
 }
 
 #[cfg(test)]
@@ -378,84 +210,8 @@ mod tests {
         );
     }
 
-    #[test]
-    fn validates_refs_arrays_nullable_and_unknown_fields() {
-        let schema = json!({
-            "type": "object",
-            "properties": {
-                "items": { "type": "array", "items": { "$ref": "#/$defs/Item" } },
-                "next_cursor": { "type": ["string", "null"] }
-            },
-            "$defs": {
-                "Item": {
-                    "type": "object",
-                    "properties": {
-                        "id": { "type": "string" },
-                        "title": { "anyOf": [{ "type": "string" }, { "type": "null" }] }
-                    }
-                }
-            }
-        });
 
-        let projection = parse_projection(&fields(&["items.id", "items.title", "next_cursor"]))
-            .unwrap()
-            .unwrap();
-        validate_projection(&schema, &projection).unwrap();
 
-        let error = validate_projection(
-            &schema,
-            &parse_projection(&fields(&["items.nope"])).unwrap().unwrap(),
-        )
-        .unwrap_err();
-        let body = CliErrorBody::from_report(&error);
-        assert_eq!(body.code, CliErrorCode::InvalidField);
-        assert_eq!(body.details.as_ref().unwrap()["field"], "items.nope");
-    }
-
-    #[test]
-    fn reports_available_fields_for_nullable_root_object() {
-        let schema = json!({
-            "anyOf": [
-                {
-                    "type": "object",
-                    "properties": {
-                        "id": { "type": "string" },
-                        "title": { "type": "string" }
-                    }
-                },
-                {
-                    "type": "null"
-                }
-            ]
-        });
-        let projection = parse_projection(&fields(&["nope"])).unwrap().unwrap();
-
-        let error = validate_projection(&schema, &projection).unwrap_err();
-        let body = CliErrorBody::from_report(&error);
-
-        assert_eq!(body.code, CliErrorCode::InvalidField);
-        assert_eq!(
-            body.details,
-            Some(json!({
-                "field": "nope",
-                "available": ["id", "title"]
-            }))
-        );
-    }
-
-    #[test]
-    fn validates_actual_object_response_schema() {
-        let contract = crate::Cli::schema().expect("CLI schema should build");
-        let schema = contract
-            .command(&["objects", "get"])
-            .expect("objects get should be discoverable")
-            .output
-            .expect("objects get has JSON output");
-        let projection =
-            parse_projection(&fields(&["object.id", "current_version.id"])).unwrap().unwrap();
-
-        validate_projection(&schema, &projection).unwrap();
-    }
 
     fn fields(values: &[&str]) -> Vec<String> {
         values.iter().map(|value| (*value).to_owned()).collect()

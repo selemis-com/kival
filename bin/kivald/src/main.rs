@@ -13,7 +13,6 @@ use kival_cli::{
     runner::CliRunner,
     sigsegv,
 };
-use kival_config::config;
 
 use crate::{
     commands::{admin::AdminCommand, serve::ServeCommand},
@@ -27,29 +26,43 @@ pub mod commands;
 mod database;
 pub mod utils;
 
-config! {
-    /// The `kivald` configuration.
-    pub struct ServerConfig {
-        /// Address the HTTP server should bind to.
-        pub listen: SocketAddr = "127.0.0.1:3000".parse().expect("valid default listen address"),
+#[derive(Debug, Clone, serde::Serialize, argx::Config)]
+pub struct ServerConfig {
+    /// Address the HTTP server should bind to.
+    #[argx(
+        default = "127.0.0.1:3000".parse().expect("valid default listen address"),
+        env = "KIVAL_SERVER_LISTEN"
+    )]
+    pub listen: SocketAddr,
 
-        /// Canonical URL of this Kival deployment.
-        pub canonical_url: String = "http://localhost:3000".to_owned(),
+    /// Canonical URL of this Kival deployment.
+    #[argx(default = "http://localhost:3000".to_owned(), env = "KIVAL_CANONICAL_URL")]
+    pub canonical_url: String,
 
-        /// Additional exact browser origins allowed to perform passkey ceremonies.
-        pub allowed_origins: Vec<String> = Vec::new(),
+    /// Additional exact browser origins allowed to perform passkey ceremonies.
+    #[argx(default)]
+    pub allowed_origins: Vec<String>,
 
-        /// Maximum PostgreSQL connections owned by this Kival server process.
-        pub database_max_connections: NonZeroU32 = NonZeroU32::new(8).expect("non-zero default"),
+    /// Maximum PostgreSQL connections owned by this Kival server process.
+    #[argx(
+        default = NonZeroU32::new(8).expect("non-zero default"),
+        env = "KIVAL_DATABASE_MAX_CONNECTIONS"
+    )]
+    pub database_max_connections: NonZeroU32,
 
-        /// Maximum seconds a request waits for an available PostgreSQL connection.
-        pub database_acquire_timeout_seconds: NonZeroU64 =
-            NonZeroU64::new(5).expect("non-zero default"),
+    /// Maximum seconds a request waits for an available PostgreSQL connection.
+    #[argx(
+        default = NonZeroU64::new(5).expect("non-zero default"),
+        env = "KIVAL_DATABASE_ACQUIRE_TIMEOUT_SECONDS"
+    )]
+    pub database_acquire_timeout_seconds: NonZeroU64,
 
-        /// Maximum seconds to wait for graceful shutdown.
-        pub graceful_shutdown_timeout_seconds: NonZeroU64 =
-            NonZeroU64::new(30).expect("non-zero default"),
-    }
+    /// Maximum seconds to wait for graceful shutdown.
+    #[argx(
+        default = NonZeroU64::new(30).expect("non-zero default"),
+        env = "KIVAL_GRACEFUL_SHUTDOWN_TIMEOUT_SECONDS"
+    )]
+    pub graceful_shutdown_timeout_seconds: NonZeroU64,
 }
 
 /// The available CLI commands for the `kivald` CLI.

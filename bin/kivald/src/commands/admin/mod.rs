@@ -2,14 +2,15 @@
 
 use std::path::PathBuf;
 
-use argx::{Args, Parser, Subcommand};
+use argx::{Args, Subcommand};
 use eyre::{Context, Result};
-use kival_cli::{commands::config::load_config_for_command, runner::CliContext};
-use kival_config::DEFAULT_CONFIG_FILENAME;
+use kival_cli::{
+    commands::config::{DEFAULT_CONFIG_FILENAME, load_config},
+    runner::CliContext,
+};
 use kival_kernel::open_pool_with_options;
 use kival_server::WebAuthnConfig;
 use kival_tracing::trace;
-use serde::Serialize;
 use sqlx::PgPool;
 
 use crate::{
@@ -27,11 +28,10 @@ mod users;
 mod workspaces;
 
 /// The `admin` command arguments.
-#[derive(Debug, Args, Serialize)]
+#[derive(Debug, Args)]
 pub struct AdminCommand {
     /// The path to the configuration file to use.
     #[argx(long, global)]
-    #[serde(skip)]
     pub config: Option<PathBuf>,
 
     /// Canonical URL used to generate passkey enrollment links.
@@ -44,7 +44,7 @@ pub struct AdminCommand {
 }
 
 /// The available `admin` subcommands.
-#[derive(Debug, Subcommand, Serialize)]
+#[derive(Debug, Subcommand)]
 pub(crate) enum AdminSubcommand {
     /// Bootstrap the first global admin user.
     Bootstrap(AdminBootstrapCommand),
@@ -59,12 +59,6 @@ pub(crate) enum AdminSubcommand {
     Workspaces(AdminWorkspacesCommand),
 }
 
-/// Configuration overrides accepted by deployment-operator commands.
-#[derive(Serialize)]
-struct AdminConfigOverrides<'a> {
-    /// Optional canonical public URL used to generate enrollment links.
-    canonical_url: &'a Option<String>,
-}
 
 impl AdminCommand {
     /// Run the `admin` command.
@@ -78,12 +72,12 @@ impl AdminCommand {
 
         let config_path =
             config.clone().unwrap_or_else(|| ctx.datadir.join(DEFAULT_CONFIG_FILENAME));
-        let config = load_config_for_command::<ServerConfig, _>(
-            &config_path,
-            &AdminConfigOverrides { canonical_url },
-        )?;
+        let mut config = load_config::<ServerConfig>(&config_path)?;
+        if let Some(canonical_url) = canonical_url {
+            config.canonical_url.clone_from(canonical_url);
+        }
 
-        let canonical_url = config.canonical_url();
+        let canonical_url = config.canonical_url;
         let webauthn = WebAuthnConfig::from_canonical_url(&canonical_url)?;
         let origin = webauthn.origin();
         let db_pool = open_admin_pool().await?;
