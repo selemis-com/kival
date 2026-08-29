@@ -40,9 +40,13 @@ pub struct ServeCommand {
     #[argx(long)]
     pub config: Option<PathBuf>,
 
-    /// Enable Prometheus metrics on this address.
+    /// Enable Prometheus metrics.
     #[argx(long)]
-    pub metrics: Option<SocketAddr>,
+    pub metrics: bool,
+
+    /// Address the Prometheus metrics server should bind to.
+    #[argx(long)]
+    pub metrics_address: Option<SocketAddr>,
 
     /// Address the HTTP server should bind to.
     #[argx(long)]
@@ -100,7 +104,9 @@ impl ServeCommand {
     /// The supervised HTTP or metrics task panics if its server fails after setup so the task
     /// manager can propagate the critical failure to the CLI runner.
     pub async fn run(&self, ctx: CliContext, quiet: bool) -> Result<Duration> {
-        let Self { config, metrics, .. } = self;
+        let Self { config, metrics, metrics_address, .. } = self;
+        let metrics_address = metrics
+            .then(|| metrics_address.unwrap_or_else(|| SocketAddr::from(([127, 0, 0, 1], 9001))));
 
         if !quiet {
             println!("{BANNER}\n\n{LONG_VERSION}\n");
@@ -167,7 +173,7 @@ impl ServeCommand {
         let blob_store = BlobStore::filesystem(&blob_path)?;
         info!(target: "kival::cli", "Blob store opened at: {}", blob_path.display());
 
-        if let Some(metrics_address) = metrics {
+        if let Some(metrics_address) = metrics_address {
             let db_pool_metrics = db_pool.clone();
             let durable_task_metrics = durable_tasks.queue().metrics();
             let hooks = Hooks::builder()
@@ -266,7 +272,7 @@ impl ServeCommand {
 
             let metrics_handle = start_metrics_server(
                 "kival",
-                metrics_address,
+                &metrics_address,
                 VersionInfo {
                     version: KIVAL_RELEASE_VERSION,
                     build_timestamp: KIVAL_BUILD_TIMESTAMP,

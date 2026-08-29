@@ -249,17 +249,27 @@ mod tests {
     }
 
     #[test]
-    fn serve_metrics_listener_requires_an_explicit_address() {
+    fn serve_metrics_listener_is_optional() {
         let cli = Cli::try_parse_from(["kivald", "serve"]).expect("serve should parse");
         let Commands::Serve(serve) = cli.command else {
             panic!("serve command should parse");
         };
-        assert!(serve.metrics.is_none());
+        assert!(!serve.metrics);
+        assert!(serve.metrics_address.is_none());
 
-        assert!(
-            Cli::try_parse_from(["kivald", "serve", "--metrics", "--listen", "127.0.0.1:3000"])
-                .is_err()
-        );
+        let cli = Cli::try_parse_from([
+            "kivald",
+            "serve",
+            "--metrics",
+            "--listen",
+            "127.0.0.1:3000",
+        ])
+        .expect("bare metrics flag should parse");
+        let Commands::Serve(serve) = cli.command else {
+            panic!("serve command should parse");
+        };
+        assert!(serve.metrics);
+        assert!(serve.metrics_address.is_none());
     }
 
     #[test]
@@ -268,6 +278,7 @@ mod tests {
             "kivald",
             "serve",
             "--metrics",
+            "--metrics-address",
             "0.0.0.0:9100",
             "--listen",
             "0.0.0.0:3000",
@@ -277,8 +288,9 @@ mod tests {
             panic!("serve command should parse");
         };
 
+        assert!(serve.metrics);
         assert_eq!(
-            serve.metrics,
+            serve.metrics_address,
             Some("0.0.0.0:9100".parse().expect("metrics address should parse"))
         );
         assert_eq!(serve.listen, Some("0.0.0.0:3000".parse().expect("HTTP address should parse")));
@@ -286,7 +298,10 @@ mod tests {
 
     #[test]
     fn serve_rejects_invalid_or_removed_listener_options() {
-        assert!(Cli::try_parse_from(["kivald", "serve", "--metrics", "not-an-address"]).is_err());
+        assert!(
+            Cli::try_parse_from(["kivald", "serve", "--metrics-address", "not-an-address"])
+                .is_err()
+        );
         assert!(Cli::try_parse_from(["kivald", "serve", "--listen", "localhost"]).is_err());
         assert!(Cli::try_parse_from(["kivald", "serve", "--metrics-port", "9001"]).is_err());
         assert!(Cli::try_parse_from(["kivald", "serve", "--server-port", "3000"]).is_err());
