@@ -89,11 +89,10 @@ pub enum Commands {
     Serve(ServeCommand),
 }
 
-#[expect(clippy::doc_markdown, reason = "banner")]
 /// CLI server to host Kival.
 ///     __ __ __            __
 ///    / //_//_/_  ______ _/ /
-///   / ,<  / / | / / __ `/ /
+///   / ,<  / / | / / __ \`/ /
 ///  / /| |/ /| |/ / /_/ / /
 /// /_/ |_/_/ |___/\__,_/_/
 #[derive(Debug, Parser)]

@@ -83,10 +83,10 @@ pub enum ObjectsSubcommand {
     /// Restore an immutable version as a new current version of the same object.
     ///
     /// Version selectors are an exact immutable version UUID, `g` for genesis, `0` for current, or
-    /// `-N` for N versions before current. Restore never rewrites history: the selected title, body,
-    /// and metadata are appended as a new current version. Permissions and other non-versioned
-    /// object state are unchanged. If the selected state is already current, no redundant version
-    /// is created.
+    /// `-N` for N versions before current. Restore never rewrites history: the selected title,
+    /// body, and metadata are appended as a new current version. Permissions and other
+    /// non-versioned object state are unchanged. If the selected state is already current, no
+    /// redundant version is created.
     ///
     /// Examples: `kival objects restore <WORKSPACE_ID> <OBJECT_ID> --from -1`, `--from g`, or
     /// `--from <VERSION_ID>`.

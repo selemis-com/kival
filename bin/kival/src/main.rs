@@ -88,11 +88,10 @@ pub enum Commands {
     Admin(AdminCommand),
 }
 
-#[expect(clippy::doc_markdown, reason = "banner")]
 /// CLI client to interact with Kival.
 ///     __ __ __            __
 ///    / //_//_/_  ______ _/ /
-///   / ,<  / / | / / __ `/ /
+///   / ,<  / / | / / __ \`/ /
 ///  / /| |/ /| |/ / /_/ / /
 /// /_/ |_/_/ |___/\__,_/_/
 ///
