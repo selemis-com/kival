@@ -197,7 +197,7 @@ inherits = "profiling"
 
 [workspace.dependencies]
 # Vendor
-argx = { version = "0.1.0", features = ["toml"] }
+argx = { path = "../argx/crates/argx", features = ["toml"] }
 axum = { version = "0.8.9", default-features = false }
 base64 = "0.22.1"
 bytes = "1.12.0"

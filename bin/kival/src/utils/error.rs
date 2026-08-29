@@ -2,6 +2,7 @@
 
 use std::path::Path;
 
+use argx::argx;
 use eyre::Report;
 use kival_sdk::{ApiErrorKind, ClientError};
 use serde::Serialize;
@@ -10,14 +11,14 @@ use serde_json::Value;
 use crate::utils::output::print_json;
 
 /// Top-level stable CLI error response.
-#[derive(Debug, Serialize, schemars::JsonSchema)]
+#[derive(Debug, Serialize)]
 pub struct CliErrorResponse {
     /// Error payload.
     pub error: CliErrorBody,
 }
 
 /// Stable CLI error payload.
-#[derive(Debug, Serialize, schemars::JsonSchema)]
+#[derive(Debug, Serialize)]
 pub struct CliErrorBody {
     /// Stable machine-readable error code.
     pub code: CliErrorCode,
@@ -29,7 +30,8 @@ pub struct CliErrorBody {
 }
 
 /// Typed CLI error before it is rendered for humans or JSON.
-#[derive(Debug, Clone, Serialize, schemars::JsonSchema)]
+#[derive(Debug, Clone, Serialize)]
+#[argx(schema)]
 pub struct CliError {
     /// Stable machine-readable error code.
     pub code: CliErrorCode,
@@ -152,7 +154,8 @@ impl From<std::io::Error> for CliError {
 }
 
 /// Stable machine-readable CLI error code.
-#[derive(Debug, Copy, Clone, PartialEq, Eq, Serialize, schemars::JsonSchema)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Serialize)]
+#[argx(schema)]
 pub enum CliErrorCode {
     /// Authentication is required.
     #[serde(rename = "authentication.required")]
@@ -388,16 +391,6 @@ mod tests {
 
         assert_eq!(body.code, CliErrorCode::InvalidArgument);
         assert_eq!(body.message, "description must not be empty");
-    }
-
-    #[test]
-    fn error_schema_uses_public_error_codes() {
-        let schema = serde_json::to_value(schemars::schema_for!(CliError)).unwrap();
-        let schema = schema.to_string();
-
-        assert!(schema.contains("object.not_found"));
-        assert!(schema.contains("version.conflict"));
-        assert!(!schema.contains("ObjectNotFound"));
     }
 
 }

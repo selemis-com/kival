@@ -2,7 +2,6 @@
 
 use argx::{argx, Args};
 use kival_cli::runner::CliContext;
-use schemars::JsonSchema;
 use serde::Serialize;
 use uuid::Uuid;
 
@@ -17,14 +16,16 @@ use crate::utils::{
 pub struct WhoamiCommand {}
 
 /// Resolved API-key identity output.
-#[derive(Debug, Clone, Serialize, JsonSchema)]
+#[derive(Debug, Clone, Serialize)]
+#[argx(schema)]
 pub struct WhoamiOutput {
     /// User associated with the resolved API key.
     user: WhoamiUserOutput,
 }
 
 /// User fields returned by `kival whoami`.
-#[derive(Debug, Clone, Serialize, JsonSchema)]
+#[derive(Debug, Clone, Serialize)]
+#[argx(schema)]
 struct WhoamiUserOutput {
     /// Stable user identifier.
     id: Uuid,

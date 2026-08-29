@@ -9,7 +9,6 @@ use kival_sdk::{
     ArchiveStatus, CreateObjectRequest, ListResponse, ObjectListItem, ObjectListOrder,
     ObjectListParams, ObjectResponse, ObjectRole, ObjectVersion, UpdateObjectRequest,
 };
-use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use serde_json::{Map, Value, json};
 use uuid::Uuid;
@@ -111,7 +110,8 @@ pub struct ObjectsEditCommand {
 }
 
 /// Result of an external editor session.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, JsonSchema)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[argx(schema)]
 pub struct ObjectEditOutput {
     /// Object edited through the external editor.
     pub object_id: Uuid,
@@ -122,7 +122,8 @@ pub struct ObjectEditOutput {
 }
 
 /// Result of reading an object body.
-#[derive(Debug, Serialize, JsonSchema)]
+#[derive(Debug, Serialize)]
+#[argx(schema)]
 pub struct ObjectBodyOutput {
     /// Object ID whose current body was read.
     pub object_id: Uuid,

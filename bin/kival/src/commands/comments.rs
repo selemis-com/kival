@@ -7,7 +7,6 @@ use kival_sdk::{
     Comment, CommentMentionCandidate, CommentMentionCandidateParams, CommentStatus, CommentThread,
     CreateCommentRequest, KivalClient, ListParams, ListResponse, MAX_LIMIT, UpdateCommentRequest,
 };
-use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
@@ -105,7 +104,8 @@ pub struct CommentsListCommand {
 }
 
 /// Structured output from `kival comments list`.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, JsonSchema)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[argx(schema)]
 #[serde(tag = "collection", rename_all = "snake_case")]
 pub enum CommentsListOutput {
     /// A page of discussion threads. Each thread includes its initial bounded comment page.

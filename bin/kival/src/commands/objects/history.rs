@@ -7,7 +7,6 @@ use kival_sdk::{
     ArchiveStatus, KivalClient, ListResponse, ObjectResponse, ObjectRole, ObjectVersion,
     ObjectVersionWikilinksResponse, UpdateObjectRequest,
 };
-use schemars::JsonSchema;
 use serde::Serialize;
 use serde_json::json;
 use uuid::Uuid;
@@ -54,7 +53,8 @@ enum VersionSelector {
 }
 
 /// Structured result of comparing two immutable object-version bodies.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, JsonSchema)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[argx(schema)]
 pub struct ObjectDiffOutput {
     /// Object whose versions were compared.
     pub object_id: Uuid,
@@ -80,7 +80,8 @@ pub struct ObjectsRestoreCommand {
 }
 
 /// Structured result of restoring an immutable object-version state.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, JsonSchema)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[argx(schema)]
 pub struct ObjectRestoreOutput {
     /// Object whose current state was restored.
     pub object_id: Uuid,

@@ -8,7 +8,6 @@ use kival_cli::runner::CliContext;
 use kival_sdk::{
     ListResponse, ObjectAttachment, ReuseObjectAttachmentRequest, UploadObjectAttachmentParams,
 };
-use schemars::JsonSchema;
 use serde::Serialize;
 use uuid::Uuid;
 
@@ -135,7 +134,8 @@ pub struct ObjectAttachmentsContentCommand {
 }
 
 /// Successful attachment content result.
-#[derive(Debug, Serialize, JsonSchema)]
+#[derive(Debug, Serialize)]
+#[argx(schema)]
 pub struct ObjectAttachmentContentOutput {
     /// Attachment ID that was fetched.
     pub attachment_id: Uuid,
