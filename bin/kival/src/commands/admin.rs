@@ -1,13 +1,12 @@
 //! Admin commands.
 
-use argx::{argx, Args, Subcommand};
+use argx::{Args, Subcommand, argx};
 use eyre::Result;
 use kival_cli::runner::CliContext;
 use kival_sdk::{ListResponse, UpdateUserRequest, User, UserListParams, UserListStatus};
 use serde::Deserialize;
 use uuid::Uuid;
 
-use crate::utils::error::CliError;
 use crate::utils::{
     args::DEFAULT_LIST_LIMIT,
     credentials::authenticated_client,
@@ -99,7 +98,6 @@ pub struct AdminUsersListCommand {
 #[derive(Debug, Clone, Copy, Args)]
 pub struct AdminUsersGetCommand {
     /// User ID.
-
     pub user_id: Uuid,
 }
 
@@ -119,7 +117,6 @@ pub struct AdminUsersUpdateCommand {
     #[argx(flatten)]
     pub input_source: StructuredInputArgs,
     /// User ID.
-
     pub user_id: Uuid,
 
     /// New display name.
@@ -131,7 +128,6 @@ pub struct AdminUsersUpdateCommand {
 #[derive(Debug, Clone, Copy, Args)]
 pub struct AdminUsersDisableCommand {
     /// User ID.
-
     pub user_id: Uuid,
 }
 
@@ -139,7 +135,6 @@ pub struct AdminUsersDisableCommand {
 #[derive(Debug, Clone, Copy, Args)]
 pub struct AdminUsersEnableCommand {
     /// User ID.
-
     pub user_id: Uuid,
 }
 
@@ -191,7 +186,11 @@ impl AdminUsersListCommand {
     /// # Errors
     ///
     /// Returns an error if the API key cannot be loaded or users cannot be listed.
-    pub async fn run(self, ctx: CliContext, output: OutputMode) -> std::result::Result<ListResponse<User>, CliError> {
+    pub async fn run(
+        self,
+        ctx: CliContext,
+        output: OutputMode,
+    ) -> std::result::Result<ListResponse<User>, CliError> {
         let client = authenticated_client(&ctx)?;
 
         let response = client
@@ -230,7 +229,11 @@ impl AdminUsersGetCommand {
     /// # Errors
     ///
     /// Returns an error if the API key cannot be loaded or the user cannot be fetched.
-    pub async fn run(self, ctx: CliContext, output: OutputMode) -> std::result::Result<User, CliError> {
+    pub async fn run(
+        self,
+        ctx: CliContext,
+        output: OutputMode,
+    ) -> std::result::Result<User, CliError> {
         let client = authenticated_client(&ctx)?;
         let user = client.get_user(self.user_id).await?;
 
@@ -246,17 +249,21 @@ impl AdminUsersUpdateCommand {
     /// # Errors
     ///
     /// Returns an error if the API key cannot be loaded or the user cannot be updated.
-    pub async fn run(self, ctx: CliContext, output: OutputMode) -> std::result::Result<User, CliError> {
+    pub async fn run(
+        self,
+        ctx: CliContext,
+        output: OutputMode,
+    ) -> std::result::Result<User, CliError> {
         let user_id = self.user_id;
         let input = self.into_input()?;
         let display_name = input.display_name.as_deref().map(str::trim);
 
         if display_name.is_none() {
-            return Err(CliError::invalid_argument("at least one field must be provided").into());
+            return Err(CliError::invalid_argument("at least one field must be provided"));
         }
 
         if matches!(display_name, Some("")) {
-            return Err(CliError::invalid_argument("display name must not be empty").into());
+            return Err(CliError::invalid_argument("display name must not be empty"));
         }
 
         let client = authenticated_client(&ctx)?;
@@ -300,7 +307,11 @@ impl AdminUsersDisableCommand {
     /// # Errors
     ///
     /// Returns an error if the API key cannot be loaded or the user cannot be disabled.
-    pub async fn run(self, ctx: CliContext, output: OutputMode) -> std::result::Result<User, CliError> {
+    pub async fn run(
+        self,
+        ctx: CliContext,
+        output: OutputMode,
+    ) -> std::result::Result<User, CliError> {
         let client = authenticated_client(&ctx)?;
         let user = client.disable_user(self.user_id).await?;
 
@@ -316,7 +327,11 @@ impl AdminUsersEnableCommand {
     /// # Errors
     ///
     /// Returns an error if the API key cannot be loaded or the user cannot be enabled.
-    pub async fn run(self, ctx: CliContext, output: OutputMode) -> std::result::Result<User, CliError> {
+    pub async fn run(
+        self,
+        ctx: CliContext,
+        output: OutputMode,
+    ) -> std::result::Result<User, CliError> {
         let client = authenticated_client(&ctx)?;
         let user = client.enable_user(self.user_id).await?;
 

@@ -20,7 +20,6 @@ const ENROLLMENT_CODE_PREFIX: &str = "kvl_enroll_";
 #[derive(Debug, Args, Serialize)]
 pub(crate) struct AdminRecoverCommand {
     /// User ID or username whose passkeys should be reset.
-
     pub user: String,
 
     /// Also revoke every active API key owned by the user.

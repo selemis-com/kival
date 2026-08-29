@@ -2,7 +2,7 @@
 
 use std::path::{Path, PathBuf};
 
-use argx::{argx, Args, ValueEnum};
+use argx::{Args, ValueEnum, argx};
 use eyre::{Result, WrapErr};
 use kival_cli::runner::CliContext;
 use kival_sdk::{
@@ -19,11 +19,10 @@ use super::{
     document::{ObjectDocument, parse_object_document, render_object_document},
     io::{ensure_output_available, resolve_body, write_output_file},
 };
-use crate::utils::error::CliError;
 use crate::utils::{
     args::{
-        CliArchiveListStatus, DEFAULT_LIST_LIMIT, metadata_value,
-        validate_flat_metadata, validate_flat_metadata_member,
+        CliArchiveListStatus, DEFAULT_LIST_LIMIT, metadata_value, validate_flat_metadata,
+        validate_flat_metadata_member,
     },
     credentials::authenticated_client,
     editor::edit_document,
@@ -57,7 +56,6 @@ impl From<CliObjectListOrder> for ObjectListOrder {
 #[derive(Debug, Args)]
 pub struct ObjectsListCommand {
     /// Workspace ID.
-
     pub workspace_id: Uuid,
     /// Archive status filter: active, archived, or all.
     #[argx(long, value_enum, default = CliArchiveListStatus::Active)]
@@ -179,7 +177,6 @@ pub struct ObjectsCreateCommand {
     #[argx(flatten)]
     pub input_source: StructuredInputArgs,
     /// Workspace ID. Required unless supplied by `--input`.
-
     pub workspace_id: Option<Uuid>,
     /// Object title. Required unless supplied by `--input`.
     #[argx(long)]
@@ -295,7 +292,11 @@ impl ObjectsGetCommand {
     /// # Errors
     ///
     /// Returns an error if the object cannot be fetched.
-    pub async fn run(self, ctx: CliContext, output: OutputMode) -> std::result::Result<ObjectResponse, CliError> {
+    pub async fn run(
+        self,
+        ctx: CliContext,
+        output: OutputMode,
+    ) -> std::result::Result<ObjectResponse, CliError> {
         let client = authenticated_client(&ctx)?;
         let response = client.get_object(self.target.workspace_id, self.target.object_id).await?;
         print_output(output, &response, || print_object_response(&response, None))?;
@@ -310,7 +311,11 @@ impl ObjectsBodyCommand {
     /// # Errors
     ///
     /// Returns an error if the object cannot be fetched or the output file cannot be written.
-    pub async fn run(self, ctx: CliContext, output: OutputMode) -> std::result::Result<ObjectBodyOutput, CliError> {
+    pub async fn run(
+        self,
+        ctx: CliContext,
+        output: OutputMode,
+    ) -> std::result::Result<ObjectBodyOutput, CliError> {
         if let Some(path) = self.output.as_deref() {
             ensure_output_available(path, self.force)?;
         }
@@ -367,7 +372,11 @@ impl ObjectsEditCommand {
     ///
     /// Returns an error when the object cannot be read or edited, the external editor fails, or
     /// the object changes before the edited state can be stored.
-    pub async fn run(self, ctx: CliContext, output: OutputMode) -> std::result::Result<ObjectEditOutput, CliError> {
+    pub async fn run(
+        self,
+        ctx: CliContext,
+        output: OutputMode,
+    ) -> std::result::Result<ObjectEditOutput, CliError> {
         let client = authenticated_client(&ctx)?;
         let current = client.get_object(self.target.workspace_id, self.target.object_id).await?;
         let version = editable_version(&current)?;
@@ -377,7 +386,7 @@ impl ObjectsEditCommand {
         let parsed = match parse_object_document(edited.document()) {
             Ok(parsed) => parsed,
             Err(error) => {
-                return Err(local_edit_error(&error.to_string(), edited.path()).into());
+                return Err(local_edit_error(&error.to_string(), edited.path()));
             }
         };
         let request = match update_edit_request(version.id, &initial, parsed) {
@@ -387,7 +396,7 @@ impl ObjectsEditCommand {
                 return Ok(print_edit_result(output, &current, false)?);
             }
             Err(error) => {
-                return Err(local_edit_error(&error.to_string(), edited.path()).into());
+                return Err(local_edit_error(&error.to_string(), edited.path()));
             }
         };
         let response = match client
@@ -397,7 +406,7 @@ impl ObjectsEditCommand {
             Ok(response) => response,
             Err(error) => {
                 let body = CliErrorBody::from_client_error(&error);
-                return Err(edit_recovery_error(&body, edited.path()).into());
+                return Err(edit_recovery_error(&body, edited.path()));
             }
         };
 
@@ -532,11 +541,15 @@ impl ObjectsCreateCommand {
     /// # Errors
     ///
     /// Returns an error if the object cannot be created.
-    pub async fn run(self, ctx: CliContext, output: OutputMode) -> std::result::Result<ObjectResponse, CliError> {
+    pub async fn run(
+        self,
+        ctx: CliContext,
+        output: OutputMode,
+    ) -> std::result::Result<ObjectResponse, CliError> {
         let input = self.into_input()?;
         let title = input.title.trim();
         if title.is_empty() {
-            return Err(CliError::invalid_argument("title must not be empty").into());
+            return Err(CliError::invalid_argument("title must not be empty"));
         }
         let client = authenticated_client(&ctx)?;
         let response = client
@@ -594,7 +607,11 @@ impl ObjectsUpdateCommand {
     /// # Errors
     ///
     /// Returns an error if the object cannot be updated.
-    pub async fn run(self, ctx: CliContext, output: OutputMode) -> std::result::Result<ObjectResponse, CliError> {
+    pub async fn run(
+        self,
+        ctx: CliContext,
+        output: OutputMode,
+    ) -> std::result::Result<ObjectResponse, CliError> {
         let target = self.target;
         let metadata_sets = parse_metadata_sets(&self.metadata_set)?;
         let metadata_remove = self.metadata_remove.clone();
@@ -605,10 +622,10 @@ impl ObjectsUpdateCommand {
             && input.metadata.is_none()
             && !has_metadata_mutations
         {
-            return Err(CliError::invalid_argument("at least one field must be provided").into());
+            return Err(CliError::invalid_argument("at least one field must be provided"));
         }
         if input.title.as_deref().is_some_and(|title| title.trim().is_empty()) {
-            return Err(CliError::invalid_argument("title must not be empty").into());
+            return Err(CliError::invalid_argument("title must not be empty"));
         }
 
         let client = authenticated_client(&ctx)?;
@@ -625,8 +642,7 @@ impl ObjectsUpdateCommand {
                         "expected_current_version_id": input.expected_current_version_id,
                         "actual_current_version_id": version.id,
                     })),
-                }
-                .into());
+                });
             }
             let Value::Object(mut metadata) = version.metadata else {
                 return Err(eyre::eyre!("current object metadata is not a JSON object").into());
@@ -754,7 +770,11 @@ impl ObjectsArchiveCommand {
     /// # Errors
     ///
     /// Returns an error if the object cannot be archived.
-    pub async fn run(self, ctx: CliContext, output: OutputMode) -> std::result::Result<ObjectResponse, CliError> {
+    pub async fn run(
+        self,
+        ctx: CliContext,
+        output: OutputMode,
+    ) -> std::result::Result<ObjectResponse, CliError> {
         let client = authenticated_client(&ctx)?;
         let response =
             client.archive_object(self.target.workspace_id, self.target.object_id).await?;
@@ -772,7 +792,11 @@ impl ObjectsUnarchiveCommand {
     /// # Errors
     ///
     /// Returns an error if the object cannot be unarchived.
-    pub async fn run(self, ctx: CliContext, output: OutputMode) -> std::result::Result<ObjectResponse, CliError> {
+    pub async fn run(
+        self,
+        ctx: CliContext,
+        output: OutputMode,
+    ) -> std::result::Result<ObjectResponse, CliError> {
         let client = authenticated_client(&ctx)?;
         let response =
             client.unarchive_object(self.target.workspace_id, self.target.object_id).await?;

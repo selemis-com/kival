@@ -1,6 +1,6 @@
 //! Group commands.
 
-use argx::{argx, Args, Subcommand};
+use argx::{Args, Subcommand, argx};
 use eyre::Result;
 use kival_cli::runner::CliContext;
 use kival_sdk::{
@@ -10,12 +10,8 @@ use kival_sdk::{
 use serde::Deserialize;
 use uuid::Uuid;
 
-use crate::utils::error::CliError;
 use crate::utils::{
-    args::{
-        CliArchiveListStatus, CliMembershipRole, DEFAULT_LIST_LIMIT,
-        list_params,
-    },
+    args::{CliArchiveListStatus, CliMembershipRole, DEFAULT_LIST_LIMIT, list_params},
     credentials::authenticated_client,
     error::CliError,
     input::{
@@ -89,7 +85,6 @@ pub struct GroupsListCommand {
 #[derive(Debug, Clone, Copy, Args)]
 pub struct GroupsGetCommand {
     /// Group ID.
-
     pub group_id: Uuid,
 }
 
@@ -137,7 +132,6 @@ pub struct GroupsUpdateCommand {
     #[argx(flatten)]
     pub input_source: StructuredInputArgs,
     /// Group ID.
-
     pub group_id: Uuid,
     /// Set the group name.
     #[argx(long)]
@@ -154,7 +148,6 @@ pub struct GroupsUpdateCommand {
 #[derive(Debug, Clone, Copy, Args)]
 pub struct GroupsArchiveCommand {
     /// Group ID.
-
     pub group_id: Uuid,
 }
 
@@ -162,7 +155,6 @@ pub struct GroupsArchiveCommand {
 #[derive(Debug, Clone, Copy, Args)]
 pub struct GroupsUnarchiveCommand {
     /// Group ID.
-
     pub group_id: Uuid,
 }
 
@@ -206,7 +198,6 @@ pub enum GroupMembershipsSubcommand {
 #[derive(Debug, Args)]
 pub struct GroupMembershipsListCommand {
     /// Group ID.
-
     pub group_id: Uuid,
 
     /// Maximum number of memberships to return.
@@ -222,7 +213,6 @@ pub struct GroupMembershipsListCommand {
 #[derive(Debug, Clone, Copy, Args)]
 pub struct GroupMembershipsCreateCommand {
     /// Group ID.
-
     pub group_id: Uuid,
 
     /// User ID.
@@ -238,10 +228,8 @@ pub struct GroupMembershipsCreateCommand {
 #[derive(Debug, Clone, Copy, Args)]
 pub struct GroupMembershipsUpdateCommand {
     /// Group ID.
-
     pub group_id: Uuid,
     /// Membership ID.
-
     pub membership_id: Uuid,
     /// New group role: member or admin.
     #[argx(long, value_enum)]
@@ -252,11 +240,9 @@ pub struct GroupMembershipsUpdateCommand {
 #[derive(Debug, Clone, Copy, Args)]
 pub struct GroupMembershipsRevokeCommand {
     /// Group ID.
-
     pub group_id: Uuid,
 
     /// Membership ID.
-
     pub membership_id: Uuid,
 }
 
@@ -304,7 +290,11 @@ impl GroupsListCommand {
     /// # Errors
     ///
     /// Returns an error if groups cannot be listed.
-    pub async fn run(self, ctx: CliContext, output: OutputMode) -> std::result::Result<ListResponse<Group>, CliError> {
+    pub async fn run(
+        self,
+        ctx: CliContext,
+        output: OutputMode,
+    ) -> std::result::Result<ListResponse<Group>, CliError> {
         let client = authenticated_client(&ctx)?;
         let response = client
             .list_groups(&GroupListParams {
@@ -328,7 +318,11 @@ impl GroupsGetCommand {
     /// # Errors
     ///
     /// Returns an error if the group cannot be fetched.
-    pub async fn run(self, ctx: CliContext, output: OutputMode) -> std::result::Result<Group, CliError> {
+    pub async fn run(
+        self,
+        ctx: CliContext,
+        output: OutputMode,
+    ) -> std::result::Result<Group, CliError> {
         let client = authenticated_client(&ctx)?;
         let group = client.get_group(self.group_id).await?;
         print_output(output, &group, || print_group_line(&group, None))?;
@@ -343,15 +337,19 @@ impl GroupsCreateCommand {
     /// # Errors
     ///
     /// Returns an error if the group cannot be created.
-    pub async fn run(self, ctx: CliContext, output: OutputMode) -> std::result::Result<Group, CliError> {
+    pub async fn run(
+        self,
+        ctx: CliContext,
+        output: OutputMode,
+    ) -> std::result::Result<Group, CliError> {
         let input = self.into_input()?;
         let name = input.name.trim();
         if name.is_empty() {
-            return Err(CliError::invalid_argument("name must not be empty").into());
+            return Err(CliError::invalid_argument("name must not be empty"));
         }
         let description = input.description.as_deref().map(str::trim);
         if matches!(description, Some("")) {
-            return Err(CliError::invalid_argument("description must not be empty").into());
+            return Err(CliError::invalid_argument("description must not be empty"));
         }
         let client = authenticated_client(&ctx)?;
         let group = client
@@ -387,19 +385,23 @@ impl GroupsUpdateCommand {
     /// # Errors
     ///
     /// Returns an error if the group cannot be updated.
-    pub async fn run(self, ctx: CliContext, output: OutputMode) -> std::result::Result<Group, CliError> {
+    pub async fn run(
+        self,
+        ctx: CliContext,
+        output: OutputMode,
+    ) -> std::result::Result<Group, CliError> {
         let group_id = self.group_id;
         let input = self.into_input()?;
         let name = input.name.as_deref().map(str::trim);
         let description = input.description.as_ref().map(|value| value.as_deref().map(str::trim));
         if name.is_none() && input.description.is_none() {
-            return Err(CliError::invalid_argument("at least one field must be provided").into());
+            return Err(CliError::invalid_argument("at least one field must be provided"));
         }
         if matches!(name, Some("")) {
-            return Err(CliError::invalid_argument("name must not be empty").into());
+            return Err(CliError::invalid_argument("name must not be empty"));
         }
         if matches!(description, Some(Some(""))) {
-            return Err(CliError::invalid_argument("description must not be empty").into());
+            return Err(CliError::invalid_argument("description must not be empty"));
         }
         let client = authenticated_client(&ctx)?;
         let description = match description {
@@ -458,7 +460,11 @@ impl GroupsArchiveCommand {
     /// # Errors
     ///
     /// Returns an error if the group cannot be archived.
-    pub async fn run(self, ctx: CliContext, output: OutputMode) -> std::result::Result<Group, CliError> {
+    pub async fn run(
+        self,
+        ctx: CliContext,
+        output: OutputMode,
+    ) -> std::result::Result<Group, CliError> {
         let client = authenticated_client(&ctx)?;
         let group = client.archive_group(self.group_id).await?;
         print_output(output, &group, || print_group_line(&group, Some("archived")))?;
@@ -473,7 +479,11 @@ impl GroupsUnarchiveCommand {
     /// # Errors
     ///
     /// Returns an error if the group cannot be unarchived.
-    pub async fn run(self, ctx: CliContext, output: OutputMode) -> std::result::Result<Group, CliError> {
+    pub async fn run(
+        self,
+        ctx: CliContext,
+        output: OutputMode,
+    ) -> std::result::Result<Group, CliError> {
         let client = authenticated_client(&ctx)?;
         let group = client.unarchive_group(self.group_id).await?;
         print_output(output, &group, || print_group_line(&group, Some("unarchived")))?;
@@ -545,7 +555,11 @@ impl GroupMembershipsCreateCommand {
     /// # Errors
     ///
     /// Returns an error if the membership cannot be created.
-    pub async fn run(self, ctx: CliContext, output: OutputMode) -> std::result::Result<GroupMembership, CliError> {
+    pub async fn run(
+        self,
+        ctx: CliContext,
+        output: OutputMode,
+    ) -> std::result::Result<GroupMembership, CliError> {
         let role = MembershipRole::from(self.role);
         let client = authenticated_client(&ctx)?;
         let membership = client
@@ -572,7 +586,11 @@ impl GroupMembershipsUpdateCommand {
     /// # Errors
     ///
     /// Returns an error if the active membership role cannot be updated.
-    pub async fn run(self, ctx: CliContext, output: OutputMode) -> std::result::Result<GroupMembership, CliError> {
+    pub async fn run(
+        self,
+        ctx: CliContext,
+        output: OutputMode,
+    ) -> std::result::Result<GroupMembership, CliError> {
         let client = authenticated_client(&ctx)?;
         let membership = client
             .update_group_membership(
@@ -595,7 +613,11 @@ impl GroupMembershipsRevokeCommand {
     /// # Errors
     ///
     /// Returns an error if the membership cannot be revoked.
-    pub async fn run(self, ctx: CliContext, output: OutputMode) -> std::result::Result<GroupMembership, CliError> {
+    pub async fn run(
+        self,
+        ctx: CliContext,
+        output: OutputMode,
+    ) -> std::result::Result<GroupMembership, CliError> {
         let client = authenticated_client(&ctx)?;
         let membership = client.revoke_group_membership(self.group_id, self.membership_id).await?;
         print_output(output, &membership, || {

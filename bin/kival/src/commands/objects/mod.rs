@@ -10,12 +10,12 @@ mod io;
 mod lifecycle;
 mod relations;
 
+use argx::{Args, Subcommand};
 pub use attachments::{
     ObjectAttachmentContentOutput, ObjectAttachmentsCommand, ObjectAttachmentsContentCommand,
     ObjectAttachmentsGetCommand, ObjectAttachmentsListCommand, ObjectAttachmentsReuseCommand,
     ObjectAttachmentsSubcommand, ObjectAttachmentsUploadCommand,
 };
-use argx::{Args, Subcommand};
 pub use events::ObjectEventsCommand;
 use eyre::Result;
 pub use grants::{
@@ -138,10 +138,8 @@ pub enum ObjectsSubcommand {
 #[derive(Debug, Copy, Clone, Args)]
 pub struct ObjectTargetArgs {
     /// Workspace ID.
-
     pub workspace_id: Uuid,
     /// Object ID.
-
     pub object_id: Uuid,
 }
 
@@ -215,6 +213,8 @@ impl ObjectsCommand {
 
 #[cfg(test)]
 mod tests {
+    use argx::Parser as _;
+
     use super::*;
 
     /// Verifies restore accepts negative relative selectors as option values.
@@ -223,7 +223,13 @@ mod tests {
         let workspace_id = Uuid::from_u128(1).to_string();
         let object_id = Uuid::from_u128(2).to_string();
 
-        let command = ObjectsCommand::try_parse_from([
+        #[derive(Debug, argx::Parser)]
+        struct Parser {
+            #[argx(subcommand)]
+            command: ObjectsSubcommand,
+        }
+
+        let command = Parser::try_parse_from([
             "objects",
             "restore",
             workspace_id.as_str(),

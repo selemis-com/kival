@@ -16,16 +16,14 @@ use kival_cli::{
 
 use crate::{
     commands::{admin::AdminCommand, serve::ServeCommand},
-    utils::{
-        banner::BANNER,
-        version::{LONG_VERSION, SHORT_VERSION},
-    },
+    utils::version::{LONG_VERSION, SHORT_VERSION},
 };
 
 pub mod commands;
 mod database;
 pub mod utils;
 
+/// Effective server configuration.
 #[derive(Debug, Clone, serde::Serialize, argx::Config)]
 pub struct ServerConfig {
     /// Address the HTTP server should bind to.
@@ -67,6 +65,10 @@ pub struct ServerConfig {
 
 impl ServerConfig {
     /// Loads effective server configuration from defaults, an optional TOML file, and environment.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error when a configured source cannot be loaded or resolved.
     pub fn load(path: &Path) -> eyre::Result<Self> {
         let loader = Self::loader().layer(Defaults);
         let loader = if path.exists() { loader.layer(Toml::new(path)) } else { loader };

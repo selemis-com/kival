@@ -129,7 +129,7 @@ impl ServeCommand {
                     config.graceful_shutdown_timeout_seconds = timeout;
                 }
                 config
-            },
+            }
             Err(err) => {
                 error!(target: "kival::cli", path = %config_path.display(), error = ?err, "Failed to load configuration file");
                 return Err(err);

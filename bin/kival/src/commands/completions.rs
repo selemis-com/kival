@@ -1,9 +1,11 @@
 //! Shell completion generation command.
 
-use argx::{argx, Args, Parser as _, completion::Shell};
+use argx::{Args, Parser as _, argx, completion::Shell};
 
-use crate::utils::error::CliError;
-use crate::{Cli, utils::output::OutputMode};
+use crate::{
+    Cli,
+    utils::{error::CliError, output::OutputMode},
+};
 
 /// Arguments for `kival completions`.
 #[derive(Debug, Clone, Copy, Args)]
@@ -20,8 +22,9 @@ impl CompletionsCommand {
     /// # Errors
     ///
     /// Returns an error if completion adapter generation fails.
-    pub fn run(self, _output: &OutputMode) -> std::result::Result<(), CliError> {
-        print!("{}", Cli::render_completion(self.shell)?);
+    pub fn run(self, _output: &OutputMode) -> Result<(), CliError> {
+        let script = Cli::render_completion(self.shell).map_err(|_| CliError::internal())?;
+        print!("{script}");
         Ok(())
     }
 }

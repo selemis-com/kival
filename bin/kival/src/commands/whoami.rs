@@ -1,13 +1,13 @@
 //! API-key identity commands.
 
-use argx::{argx, Args};
+use argx::{Args, argx};
 use kival_cli::runner::CliContext;
 use serde::Serialize;
 use uuid::Uuid;
 
-use crate::utils::error::CliError;
 use crate::utils::{
     credentials::authenticated_client,
+    error::CliError,
     output::{OutputMode, print_output, quote_human_string},
 };
 
@@ -42,7 +42,7 @@ impl WhoamiCommand {
     /// # Errors
     ///
     /// Returns an error when API-key resolution or the identity request fails.
-    pub async fn run(self, ctx: CliContext, output: OutputMode) -> std::result::Result<WhoamiOutput, CliError> {
+    pub async fn run(self, ctx: CliContext, output: OutputMode) -> Result<WhoamiOutput, CliError> {
         let client = authenticated_client(&ctx)?;
         let user = client.whoami().await?;
         let value = WhoamiOutput {

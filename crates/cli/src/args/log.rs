@@ -137,8 +137,6 @@ struct DefaultLogArgs {
     log_file_name: String,
     /// Default maximum file log size in megabytes.
     log_file_max_size: u64,
-    /// Whether journald logging is enabled by default.
-    journald: bool,
     /// Default journald filter directives.
     journald_filter: String,
     /// Default terminal color mode.
@@ -161,7 +159,6 @@ impl Default for DefaultLogArgs {
             log_file_filter: "debug".to_owned(),
             log_file_name: "kival.log".to_owned(),
             log_file_max_size: 200,
-            journald: false,
             journald_filter: "error".to_owned(),
             color: ColorMode::Always,
         }

@@ -2,7 +2,7 @@
 
 use std::collections::HashMap;
 
-use argx::{argx, Args, Subcommand, ValueEnum};
+use argx::{Args, Subcommand, ValueEnum, argx};
 use eyre::Result;
 use kival_cli::runner::CliContext;
 use kival_sdk::{
@@ -13,10 +13,10 @@ use kival_sdk::{
 use uuid::Uuid;
 
 use super::ObjectTargetArgs;
-use crate::utils::error::CliError;
 use crate::utils::{
     args::{DEFAULT_LIST_LIMIT, list_params},
     credentials::authenticated_client,
+    error::CliError,
     output::{
         OutputMode, TREE_BRANCH, TREE_LAST, print_empty_list, print_indented_tree_none,
         print_output, print_tree_none, quote_human_string, tree_connector,
@@ -137,7 +137,6 @@ pub struct ObjectEdgesListCommand {
 #[derive(Debug, Clone, Copy, Args)]
 pub struct ObjectEdgesCreateCommand {
     /// Workspace ID.
-
     pub workspace_id: Uuid,
     /// Source object ID.
     #[argx(long)]
@@ -151,10 +150,8 @@ pub struct ObjectEdgesCreateCommand {
 #[derive(Debug, Clone, Copy, Args)]
 pub struct ObjectEdgesGetCommand {
     /// Workspace ID.
-
     pub workspace_id: Uuid,
     /// Edge ID.
-
     pub edge_id: Uuid,
 }
 
@@ -162,10 +159,8 @@ pub struct ObjectEdgesGetCommand {
 #[derive(Debug, Clone, Copy, Args)]
 pub struct ObjectEdgesRevokeCommand {
     /// Workspace ID.
-
     pub workspace_id: Uuid,
     /// Edge ID.
-
     pub edge_id: Uuid,
 }
 
@@ -176,7 +171,11 @@ impl ObjectsGraphCommand {
     /// # Errors
     ///
     /// Returns an error if arguments, API-key resolution, or graph retrieval fail.
-    pub async fn run(self, ctx: CliContext, output: OutputMode) -> std::result::Result<ObjectGraphResponse, CliError> {
+    pub async fn run(
+        self,
+        ctx: CliContext,
+        output: OutputMode,
+    ) -> std::result::Result<ObjectGraphResponse, CliError> {
         let direction = ObjectGraphDirection::from(self.direction);
         let client = authenticated_client(&ctx)?;
         let graph = client
@@ -293,7 +292,11 @@ impl ObjectsBacklinksCommand {
     /// # Errors
     ///
     /// Returns an error if backlinks cannot be listed.
-    pub async fn run(self, ctx: CliContext, output: OutputMode) -> std::result::Result<ObjectBacklinksResponse, CliError> {
+    pub async fn run(
+        self,
+        ctx: CliContext,
+        output: OutputMode,
+    ) -> std::result::Result<ObjectBacklinksResponse, CliError> {
         let client = authenticated_client(&ctx)?;
         let response = client
             .get_object_backlinks(
@@ -379,7 +382,11 @@ impl ObjectEdgesCreateCommand {
     /// # Errors
     ///
     /// Returns an error if the edge cannot be created.
-    pub async fn run(self, ctx: CliContext, output: OutputMode) -> std::result::Result<ObjectEdge, CliError> {
+    pub async fn run(
+        self,
+        ctx: CliContext,
+        output: OutputMode,
+    ) -> std::result::Result<ObjectEdge, CliError> {
         let client = authenticated_client(&ctx)?;
         let edge = client
             .create_object_edge(
@@ -402,7 +409,11 @@ impl ObjectEdgesGetCommand {
     /// # Errors
     ///
     /// Returns an error if the edge cannot be fetched.
-    pub async fn run(self, ctx: CliContext, output: OutputMode) -> std::result::Result<ObjectEdge, CliError> {
+    pub async fn run(
+        self,
+        ctx: CliContext,
+        output: OutputMode,
+    ) -> std::result::Result<ObjectEdge, CliError> {
         let client = authenticated_client(&ctx)?;
         let edge = client.get_object_edge(self.workspace_id, self.edge_id).await?;
         print_output(output, &edge, || print_edge_line(&edge, None))?;
@@ -417,7 +428,11 @@ impl ObjectEdgesRevokeCommand {
     /// # Errors
     ///
     /// Returns an error if the edge cannot be revoked.
-    pub async fn run(self, ctx: CliContext, output: OutputMode) -> std::result::Result<ObjectEdge, CliError> {
+    pub async fn run(
+        self,
+        ctx: CliContext,
+        output: OutputMode,
+    ) -> std::result::Result<ObjectEdge, CliError> {
         let client = authenticated_client(&ctx)?;
         let edge = client.revoke_object_edge(self.workspace_id, self.edge_id).await?;
         print_output(output, &edge, || print_edge_line(&edge, Some("revoked")))?;

@@ -113,11 +113,7 @@ impl CliError {
     /// Builds an internal CLI error without exposing implementation details.
     #[must_use]
     pub fn internal() -> Self {
-        Self {
-            code: CliErrorCode::Internal,
-            message: "Internal error.".to_owned(),
-            details: None,
-        }
+        Self { code: CliErrorCode::Internal, message: "Internal error.".to_owned(), details: None }
     }
 }
 
@@ -392,5 +388,4 @@ mod tests {
         assert_eq!(body.code, CliErrorCode::InvalidArgument);
         assert_eq!(body.message, "description must not be empty");
     }
-
 }

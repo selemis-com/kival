@@ -1,6 +1,6 @@
 //! Direct object-grant commands.
 
-use argx::{argx, Args, Subcommand};
+use argx::{Args, Subcommand, argx};
 use eyre::Result;
 use kival_cli::runner::CliContext;
 use kival_sdk::{
@@ -9,10 +9,10 @@ use kival_sdk::{
 use uuid::Uuid;
 
 use super::ObjectTargetArgs;
-use crate::utils::error::CliError;
 use crate::utils::{
     args::{CliObjectRole, DEFAULT_LIST_LIMIT, grant_principal, list_params},
     credentials::authenticated_client,
+    error::CliError,
     output::{OutputMode, print_empty_list, print_output},
 };
 
@@ -85,7 +85,6 @@ pub struct ObjectGrantsUpdateCommand {
     #[argx(flatten)]
     pub target: ObjectTargetArgs,
     /// Grant ID.
-
     pub grant_id: Uuid,
     /// New object role: viewer, editor, or admin.
     #[argx(long, value_enum)]
@@ -99,7 +98,6 @@ pub struct ObjectGrantsRevokeCommand {
     #[argx(flatten)]
     pub target: ObjectTargetArgs,
     /// Grant ID.
-
     pub grant_id: Uuid,
 }
 
@@ -171,7 +169,11 @@ impl ObjectGrantsCreateCommand {
     /// # Errors
     ///
     /// Returns an error if the grant cannot be created.
-    pub async fn run(self, ctx: CliContext, output: OutputMode) -> std::result::Result<ObjectGrant, CliError> {
+    pub async fn run(
+        self,
+        ctx: CliContext,
+        output: OutputMode,
+    ) -> std::result::Result<ObjectGrant, CliError> {
         let principal = grant_principal(self.user_id, self.group_id)?;
         let role = ObjectRole::from(self.role);
         let client = authenticated_client(&ctx)?;
@@ -194,7 +196,11 @@ impl ObjectGrantsUpdateCommand {
     /// # Errors
     ///
     /// Returns an error if the active grant role cannot be updated.
-    pub async fn run(self, ctx: CliContext, output: OutputMode) -> std::result::Result<ObjectGrant, CliError> {
+    pub async fn run(
+        self,
+        ctx: CliContext,
+        output: OutputMode,
+    ) -> std::result::Result<ObjectGrant, CliError> {
         let client = authenticated_client(&ctx)?;
         let grant = client
             .update_object_grant(
@@ -216,7 +222,11 @@ impl ObjectGrantsRevokeCommand {
     /// # Errors
     ///
     /// Returns an error if the grant cannot be revoked.
-    pub async fn run(self, ctx: CliContext, output: OutputMode) -> std::result::Result<ObjectGrant, CliError> {
+    pub async fn run(
+        self,
+        ctx: CliContext,
+        output: OutputMode,
+    ) -> std::result::Result<ObjectGrant, CliError> {
         let client = authenticated_client(&ctx)?;
         let grant = client
             .revoke_object_grant(self.target.workspace_id, self.target.object_id, self.grant_id)

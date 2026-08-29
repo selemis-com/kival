@@ -1,6 +1,6 @@
 //! Object comment and discussion-thread commands.
 
-use argx::{argx, Args, Subcommand};
+use argx::{Args, Subcommand, argx};
 use eyre::Result;
 use kival_cli::runner::CliContext;
 use kival_sdk::{
@@ -10,7 +10,6 @@ use kival_sdk::{
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
-use crate::utils::error::CliError;
 use crate::utils::{
     args::{DEFAULT_LIST_LIMIT, list_params},
     credentials::authenticated_client,
@@ -68,10 +67,8 @@ pub enum CommentsSubcommand {
 #[derive(Debug, Clone, Copy, Args)]
 pub struct CommentObjectTargetArgs {
     /// Workspace ID.
-
     pub workspace_id: Uuid,
     /// Object ID.
-
     pub object_id: Uuid,
 }
 
@@ -166,7 +163,6 @@ pub struct CommentsReplyCommand {
     #[argx(flatten)]
     pub target: CommentObjectTargetArgs,
     /// Any comment in the thread to reply in.
-
     pub comment_id: Uuid,
     /// Structured input source.
     #[argx(flatten)]
@@ -186,7 +182,6 @@ pub struct CommentsUpdateCommand {
     #[argx(flatten)]
     pub target: CommentObjectTargetArgs,
     /// Comment ID.
-
     pub comment_id: Uuid,
     /// Structured input source.
     #[argx(flatten)]
@@ -206,7 +201,6 @@ pub struct CommentsDeleteCommand {
     #[argx(flatten)]
     pub target: CommentObjectTargetArgs,
     /// Comment ID.
-
     pub comment_id: Uuid,
 }
 
@@ -217,7 +211,6 @@ pub struct CommentsResolveCommand {
     #[argx(flatten)]
     pub target: CommentObjectTargetArgs,
     /// Thread ID.
-
     pub thread_id: Uuid,
 }
 
@@ -228,7 +221,6 @@ pub struct CommentsReopenCommand {
     #[argx(flatten)]
     pub target: CommentObjectTargetArgs,
     /// Thread ID.
-
     pub thread_id: Uuid,
 }
 
@@ -276,7 +268,11 @@ impl CommentsListCommand {
     /// # Errors
     ///
     /// Returns an error if commentary cannot be listed.
-    pub async fn run(self, ctx: CliContext, output: OutputMode) -> std::result::Result<CommentsListOutput, CliError> {
+    pub async fn run(
+        self,
+        ctx: CliContext,
+        output: OutputMode,
+    ) -> std::result::Result<CommentsListOutput, CliError> {
         let client = authenticated_client(&ctx)?;
         let params = list_params(self.limit, self.cursor);
         let result = if let Some(thread_id) = self.thread_id {
@@ -353,7 +349,11 @@ impl CommentsCreateCommand {
     /// # Errors
     ///
     /// Returns an error if the root comment cannot be created.
-    pub async fn run(self, ctx: CliContext, output: OutputMode) -> std::result::Result<CommentThread, CliError> {
+    pub async fn run(
+        self,
+        ctx: CliContext,
+        output: OutputMode,
+    ) -> std::result::Result<CommentThread, CliError> {
         let target = self.target;
         let input = self.into_input()?;
         let client = authenticated_client(&ctx)?;
@@ -377,7 +377,11 @@ impl CommentsReplyCommand {
     /// # Errors
     ///
     /// Returns an error if the target comment cannot be found or its thread cannot be replied to.
-    pub async fn run(self, ctx: CliContext, output: OutputMode) -> std::result::Result<Comment, CliError> {
+    pub async fn run(
+        self,
+        ctx: CliContext,
+        output: OutputMode,
+    ) -> std::result::Result<Comment, CliError> {
         let target = self.target;
         let comment_id = self.comment_id;
         let input = self.into_input()?;
@@ -408,7 +412,11 @@ impl CommentsUpdateCommand {
     /// # Errors
     ///
     /// Returns an error if the comment cannot be updated.
-    pub async fn run(self, ctx: CliContext, output: OutputMode) -> std::result::Result<Comment, CliError> {
+    pub async fn run(
+        self,
+        ctx: CliContext,
+        output: OutputMode,
+    ) -> std::result::Result<Comment, CliError> {
         let target = self.target;
         let comment_id = self.comment_id;
         let input = self.into_input()?;
@@ -441,7 +449,11 @@ impl CommentsDeleteCommand {
     /// # Errors
     ///
     /// Returns an error if the comment cannot be deleted.
-    pub async fn run(self, ctx: CliContext, output: OutputMode) -> std::result::Result<Comment, CliError> {
+    pub async fn run(
+        self,
+        ctx: CliContext,
+        output: OutputMode,
+    ) -> std::result::Result<Comment, CliError> {
         let client = authenticated_client(&ctx)?;
         let comment = client
             .delete_comment(self.target.workspace_id, self.target.object_id, self.comment_id)
@@ -458,7 +470,11 @@ impl CommentsResolveCommand {
     /// # Errors
     ///
     /// Returns an error if the thread cannot be resolved.
-    pub async fn run(self, ctx: CliContext, output: OutputMode) -> std::result::Result<CommentThread, CliError> {
+    pub async fn run(
+        self,
+        ctx: CliContext,
+        output: OutputMode,
+    ) -> std::result::Result<CommentThread, CliError> {
         let client = authenticated_client(&ctx)?;
         let thread = client
             .resolve_comment_thread(self.target.workspace_id, self.target.object_id, self.thread_id)
@@ -475,7 +491,11 @@ impl CommentsReopenCommand {
     /// # Errors
     ///
     /// Returns an error if the thread cannot be reopened.
-    pub async fn run(self, ctx: CliContext, output: OutputMode) -> std::result::Result<CommentThread, CliError> {
+    pub async fn run(
+        self,
+        ctx: CliContext,
+        output: OutputMode,
+    ) -> std::result::Result<CommentThread, CliError> {
         let client = authenticated_client(&ctx)?;
         let thread = client
             .reopen_comment_thread(self.target.workspace_id, self.target.object_id, self.thread_id)

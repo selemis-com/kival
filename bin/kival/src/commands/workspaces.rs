@@ -2,7 +2,7 @@
 
 use std::collections::{HashMap, HashSet};
 
-use argx::{argx, Args, Subcommand};
+use argx::{Args, Subcommand, argx};
 use eyre::Result;
 use kival_cli::runner::CliContext;
 use kival_sdk::{
@@ -15,13 +15,11 @@ use kival_sdk::{
 use serde::Deserialize;
 use uuid::Uuid;
 
-use crate::utils::error::CliError;
 use crate::{
     commands::events::print_event_line,
     utils::{
         args::{
-            CliArchiveListStatus, CliMembershipRole, DEFAULT_LIST_LIMIT,
-            event_params, list_params,
+            CliArchiveListStatus, CliMembershipRole, DEFAULT_LIST_LIMIT, event_params, list_params,
         },
         credentials::authenticated_client,
         error::CliError,
@@ -123,7 +121,6 @@ pub struct WorkspacesListCommand {
 #[derive(Debug, Clone, Copy, Args)]
 pub struct WorkspacesGetCommand {
     /// Workspace ID.
-
     pub workspace_id: Uuid,
 }
 
@@ -146,7 +143,6 @@ pub struct WorkspacesUpdateCommand {
     #[argx(flatten)]
     pub input_source: StructuredInputArgs,
     /// Workspace ID.
-
     pub workspace_id: Uuid,
 
     /// Set the workspace name.
@@ -166,7 +162,6 @@ pub struct WorkspacesUpdateCommand {
 #[derive(Debug, Clone, Copy, Args)]
 pub struct WorkspacesArchiveCommand {
     /// Workspace ID.
-
     pub workspace_id: Uuid,
 }
 
@@ -174,7 +169,6 @@ pub struct WorkspacesArchiveCommand {
 #[derive(Debug, Clone, Copy, Args)]
 pub struct WorkspacesUnarchiveCommand {
     /// Workspace ID.
-
     pub workspace_id: Uuid,
 }
 
@@ -182,7 +176,6 @@ pub struct WorkspacesUnarchiveCommand {
 #[derive(Debug, Args)]
 pub struct WorkspacesEventsCommand {
     /// Workspace ID.
-
     pub workspace_id: Uuid,
     /// Maximum number of events to return.
     #[argx(long, default = DEFAULT_LIST_LIMIT)]
@@ -211,7 +204,6 @@ pub struct WorkspacesEventsCommand {
 #[derive(Debug, Clone, Copy, Args)]
 pub struct WorkspacesGraphCommand {
     /// Workspace ID.
-
     pub workspace_id: Uuid,
     /// Maximum number of nodes to return.
     #[argx(long)]
@@ -261,7 +253,6 @@ pub enum WorkspaceMembershipsSubcommand {
 #[derive(Debug, Args)]
 pub struct WorkspaceMembershipsListCommand {
     /// Workspace ID.
-
     pub workspace_id: Uuid,
     /// Maximum number of memberships to return.
     #[argx(long, default = DEFAULT_LIST_LIMIT)]
@@ -275,7 +266,6 @@ pub struct WorkspaceMembershipsListCommand {
 #[derive(Debug, Clone, Copy, Args)]
 pub struct WorkspaceMembershipsCreateCommand {
     /// Workspace ID.
-
     pub workspace_id: Uuid,
     /// User ID.
     #[argx(long)]
@@ -289,10 +279,8 @@ pub struct WorkspaceMembershipsCreateCommand {
 #[derive(Debug, Clone, Copy, Args)]
 pub struct WorkspaceMembershipsUpdateCommand {
     /// Workspace ID.
-
     pub workspace_id: Uuid,
     /// Membership ID.
-
     pub membership_id: Uuid,
     /// New workspace role: member or admin.
     #[argx(long, value_enum)]
@@ -303,10 +291,8 @@ pub struct WorkspaceMembershipsUpdateCommand {
 #[derive(Debug, Clone, Copy, Args)]
 pub struct WorkspaceMembershipsRevokeCommand {
     /// Workspace ID.
-
     pub workspace_id: Uuid,
     /// Membership ID.
-
     pub membership_id: Uuid,
 }
 
@@ -354,7 +340,6 @@ pub enum WorkspaceGroupsSubcommand {
 #[derive(Debug, Args)]
 pub struct WorkspaceGroupsListCommand {
     /// Workspace ID.
-
     pub workspace_id: Uuid,
     /// Archive status filter: active, archived, or all.
     #[argx(long, value_enum, default = CliArchiveListStatus::Active)]
@@ -371,7 +356,6 @@ pub struct WorkspaceGroupsListCommand {
 #[derive(Debug, Clone, Copy, Args)]
 pub struct WorkspaceGroupsCreateCommand {
     /// Workspace ID.
-
     pub workspace_id: Uuid,
     /// Group ID.
     #[argx(long)]
@@ -382,10 +366,8 @@ pub struct WorkspaceGroupsCreateCommand {
 #[derive(Debug, Clone, Copy, Args)]
 pub struct WorkspaceGroupsArchiveCommand {
     /// Workspace ID.
-
     pub workspace_id: Uuid,
     /// Group ID.
-
     pub group_id: Uuid,
 }
 
@@ -393,10 +375,8 @@ pub struct WorkspaceGroupsArchiveCommand {
 #[derive(Debug, Clone, Copy, Args)]
 pub struct WorkspaceGroupsUnarchiveCommand {
     /// Workspace ID.
-
     pub workspace_id: Uuid,
     /// Group ID.
-
     pub group_id: Uuid,
 }
 
@@ -449,7 +429,11 @@ impl WorkspacesGraphCommand {
     /// # Errors
     ///
     /// Returns an error if the API key cannot be loaded or the graph cannot be fetched.
-    pub async fn run(self, ctx: CliContext, output: OutputMode) -> std::result::Result<WorkspaceGraphResponse, CliError> {
+    pub async fn run(
+        self,
+        ctx: CliContext,
+        output: OutputMode,
+    ) -> std::result::Result<WorkspaceGraphResponse, CliError> {
         let client = authenticated_client(&ctx)?;
         let response = client
             .get_workspace_graph(
@@ -558,7 +542,11 @@ impl WorkspacesListCommand {
     /// # Errors
     ///
     /// Returns an error if the API key cannot be loaded or workspaces cannot be listed.
-    pub async fn run(self, ctx: CliContext, output: OutputMode) -> std::result::Result<ListResponse<Workspace>, CliError> {
+    pub async fn run(
+        self,
+        ctx: CliContext,
+        output: OutputMode,
+    ) -> std::result::Result<ListResponse<Workspace>, CliError> {
         let client = authenticated_client(&ctx)?;
 
         let response = client
@@ -596,7 +584,11 @@ impl WorkspacesGetCommand {
     /// # Errors
     ///
     /// Returns an error if the API key cannot be loaded or the workspace cannot be fetched.
-    pub async fn run(self, ctx: CliContext, output: OutputMode) -> std::result::Result<Workspace, CliError> {
+    pub async fn run(
+        self,
+        ctx: CliContext,
+        output: OutputMode,
+    ) -> std::result::Result<Workspace, CliError> {
         let client = authenticated_client(&ctx)?;
         let workspace = client.get_workspace(self.workspace_id).await?;
 
@@ -614,22 +606,26 @@ impl WorkspacesUpdateCommand {
     /// # Errors
     ///
     /// Returns an error if the API key cannot be loaded or the workspace cannot be updated.
-    pub async fn run(self, ctx: CliContext, output: OutputMode) -> std::result::Result<Workspace, CliError> {
+    pub async fn run(
+        self,
+        ctx: CliContext,
+        output: OutputMode,
+    ) -> std::result::Result<Workspace, CliError> {
         let workspace_id = self.workspace_id;
         let input = self.into_input()?;
         let name = input.name.as_deref().map(str::trim);
         let description = input.description.as_ref().map(|value| value.as_deref().map(str::trim));
 
         if name.is_none() && input.description.is_none() {
-            return Err(CliError::invalid_argument("at least one field must be provided").into());
+            return Err(CliError::invalid_argument("at least one field must be provided"));
         }
 
         if matches!(name, Some("")) {
-            return Err(CliError::invalid_argument("name must not be empty").into());
+            return Err(CliError::invalid_argument("name must not be empty"));
         }
 
         if matches!(description, Some(Some(""))) {
-            return Err(CliError::invalid_argument("description must not be empty").into());
+            return Err(CliError::invalid_argument("description must not be empty"));
         }
 
         let client = authenticated_client(&ctx)?;
@@ -692,7 +688,11 @@ impl WorkspacesArchiveCommand {
     /// # Errors
     ///
     /// Returns an error if the API key cannot be loaded or the workspace cannot be archived.
-    pub async fn run(self, ctx: CliContext, output: OutputMode) -> std::result::Result<Workspace, CliError> {
+    pub async fn run(
+        self,
+        ctx: CliContext,
+        output: OutputMode,
+    ) -> std::result::Result<Workspace, CliError> {
         let client = authenticated_client(&ctx)?;
         let workspace = client.archive_workspace(self.workspace_id).await?;
 
@@ -710,7 +710,11 @@ impl WorkspacesUnarchiveCommand {
     /// # Errors
     ///
     /// Returns an error if the API key cannot be loaded or the workspace cannot be unarchived.
-    pub async fn run(self, ctx: CliContext, output: OutputMode) -> std::result::Result<Workspace, CliError> {
+    pub async fn run(
+        self,
+        ctx: CliContext,
+        output: OutputMode,
+    ) -> std::result::Result<Workspace, CliError> {
         let client = authenticated_client(&ctx)?;
         let workspace = client.unarchive_workspace(self.workspace_id).await?;
 
@@ -728,7 +732,11 @@ impl WorkspacesEventsCommand {
     /// # Errors
     ///
     /// Returns an error if events cannot be listed.
-    pub async fn run(self, ctx: CliContext, output: OutputMode) -> std::result::Result<ListResponse<Event>, CliError> {
+    pub async fn run(
+        self,
+        ctx: CliContext,
+        output: OutputMode,
+    ) -> std::result::Result<ListResponse<Event>, CliError> {
         let params = event_params(
             self.limit,
             self.after_sequence,
@@ -818,7 +826,11 @@ impl WorkspaceMembershipsCreateCommand {
     /// # Errors
     ///
     /// Returns an error if the membership cannot be created.
-    pub async fn run(self, ctx: CliContext, output: OutputMode) -> std::result::Result<WorkspaceMembership, CliError> {
+    pub async fn run(
+        self,
+        ctx: CliContext,
+        output: OutputMode,
+    ) -> std::result::Result<WorkspaceMembership, CliError> {
         let role = MembershipRole::from(self.role);
         let client = authenticated_client(&ctx)?;
         let membership = client
@@ -845,7 +857,11 @@ impl WorkspaceMembershipsUpdateCommand {
     /// # Errors
     ///
     /// Returns an error if the active membership role cannot be updated.
-    pub async fn run(self, ctx: CliContext, output: OutputMode) -> std::result::Result<WorkspaceMembership, CliError> {
+    pub async fn run(
+        self,
+        ctx: CliContext,
+        output: OutputMode,
+    ) -> std::result::Result<WorkspaceMembership, CliError> {
         let client = authenticated_client(&ctx)?;
         let membership = client
             .update_workspace_membership(
@@ -868,7 +884,11 @@ impl WorkspaceMembershipsRevokeCommand {
     /// # Errors
     ///
     /// Returns an error if the membership cannot be revoked.
-    pub async fn run(self, ctx: CliContext, output: OutputMode) -> std::result::Result<WorkspaceMembership, CliError> {
+    pub async fn run(
+        self,
+        ctx: CliContext,
+        output: OutputMode,
+    ) -> std::result::Result<WorkspaceMembership, CliError> {
         let client = authenticated_client(&ctx)?;
         let membership =
             client.revoke_workspace_membership(self.workspace_id, self.membership_id).await?;
@@ -950,7 +970,11 @@ impl WorkspaceGroupsCreateCommand {
     /// # Errors
     ///
     /// Returns an error if the group cannot be linked.
-    pub async fn run(self, ctx: CliContext, output: OutputMode) -> std::result::Result<WorkspaceGroup, CliError> {
+    pub async fn run(
+        self,
+        ctx: CliContext,
+        output: OutputMode,
+    ) -> std::result::Result<WorkspaceGroup, CliError> {
         let client = authenticated_client(&ctx)?;
         let workspace_group = client
             .create_workspace_group(
@@ -972,7 +996,11 @@ impl WorkspaceGroupsArchiveCommand {
     /// # Errors
     ///
     /// Returns an error if the group link cannot be archived.
-    pub async fn run(self, ctx: CliContext, output: OutputMode) -> std::result::Result<WorkspaceGroup, CliError> {
+    pub async fn run(
+        self,
+        ctx: CliContext,
+        output: OutputMode,
+    ) -> std::result::Result<WorkspaceGroup, CliError> {
         let client = authenticated_client(&ctx)?;
         let workspace_group =
             client.archive_workspace_group(self.workspace_id, self.group_id).await?;
@@ -990,7 +1018,11 @@ impl WorkspaceGroupsUnarchiveCommand {
     /// # Errors
     ///
     /// Returns an error if the group link cannot be unarchived.
-    pub async fn run(self, ctx: CliContext, output: OutputMode) -> std::result::Result<WorkspaceGroup, CliError> {
+    pub async fn run(
+        self,
+        ctx: CliContext,
+        output: OutputMode,
+    ) -> std::result::Result<WorkspaceGroup, CliError> {
         let client = authenticated_client(&ctx)?;
         let workspace_group =
             client.unarchive_workspace_group(self.workspace_id, self.group_id).await?;

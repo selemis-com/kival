@@ -1,11 +1,10 @@
 //! Search command.
 
-use argx::{argx, Args, ValueEnum};
+use argx::{Args, ValueEnum, argx};
 use kival_cli::runner::CliContext;
 use kival_sdk::{SearchHit, SearchMode, SearchParams, SearchResponse};
 use uuid::Uuid;
 
-use crate::utils::error::CliError;
 use crate::utils::{
     args::CliArchiveListStatus,
     credentials::authenticated_client,
@@ -18,11 +17,9 @@ use crate::utils::{
 
 pub struct SearchCommand {
     /// Workspace ID.
-
     pub workspace_id: Uuid,
 
     /// Search query. Leading and trailing whitespace is trimmed before matching.
-
     pub query: String,
 
     /// Restrict matching to comma-separated search categories.
@@ -118,13 +115,17 @@ impl SearchCommand {
     /// # Errors
     ///
     /// Returns an error if search fails.
-    pub async fn run(self, ctx: CliContext, output: OutputMode) -> std::result::Result<SearchResponse, CliError> {
+    pub async fn run(
+        self,
+        ctx: CliContext,
+        output: OutputMode,
+    ) -> Result<SearchResponse, CliError> {
         let query = self.query.trim();
         if query.is_empty() {
-            return Err(CliError::invalid_argument("search query must not be empty").into());
+            return Err(CliError::invalid_argument("search query must not be empty"));
         }
         if matches!(self.limit, Some(limit) if limit < 1) {
-            return Err(CliError::invalid_argument("limit must be at least 1").into());
+            return Err(CliError::invalid_argument("limit must be at least 1"));
         }
 
         let params = SearchParams {

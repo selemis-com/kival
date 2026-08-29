@@ -51,7 +51,6 @@ pub(crate) struct AdminUserCreateCommand {
 #[derive(Debug, Args, Serialize)]
 pub(crate) struct AdminUserLifecycleCommand {
     /// User ID or username whose lifecycle state should change.
-
     pub user: String,
 }
 

@@ -56,7 +56,6 @@ pub(crate) enum AdminSubcommand {
     Workspaces(AdminWorkspacesCommand),
 }
 
-
 impl AdminCommand {
     /// Run the `admin` command.
     ///

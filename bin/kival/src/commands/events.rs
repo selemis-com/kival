@@ -1,15 +1,15 @@
 //! Event commands.
 
-use argx::{argx, Args, Subcommand};
+use argx::{Args, Subcommand, argx};
 use eyre::Result;
 use kival_cli::runner::CliContext;
 use kival_sdk::{Event, ListResponse};
 use uuid::Uuid;
 
-use crate::utils::error::CliError;
 use crate::utils::{
     args::{DEFAULT_LIST_LIMIT, event_params},
     credentials::authenticated_client,
+    error::CliError,
     output::{
         OutputMode, format_human_timestamp, print_empty_list, print_output,
         push_optional_uuid_field, quote_human_string,
@@ -92,7 +92,11 @@ impl EventsListCommand {
     /// # Errors
     ///
     /// Returns an error if events cannot be listed.
-    pub async fn run(self, ctx: CliContext, output: OutputMode) -> std::result::Result<ListResponse<Event>, CliError> {
+    pub async fn run(
+        self,
+        ctx: CliContext,
+        output: OutputMode,
+    ) -> std::result::Result<ListResponse<Event>, CliError> {
         let after_sequence = Some(self.after_sequence.unwrap_or(0));
         let params = event_params(
             self.limit,

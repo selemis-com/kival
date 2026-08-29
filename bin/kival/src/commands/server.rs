@@ -1,15 +1,15 @@
 //! Public commands.
 
-use argx::{argx, Args, Subcommand};
+use argx::{Args, Subcommand, argx};
 use eyre::Result;
 use kival_cli::runner::CliContext;
 use kival_sdk::{KivalClient, StatusResponse};
 use serde::Serialize;
 use url::Url;
 
-use crate::utils::error::CliError;
 use crate::utils::{
     config,
+    error::CliError,
     output::{OutputMode, print_output},
 };
 
@@ -77,7 +77,11 @@ impl HealthCommand {
     /// # Errors
     ///
     /// Returns an error if the server cannot be reached or the health response cannot be decoded.
-    pub async fn run(self, ctx: CliContext, output: OutputMode) -> std::result::Result<StatusResponse, CliError> {
+    pub async fn run(
+        self,
+        ctx: CliContext,
+        output: OutputMode,
+    ) -> std::result::Result<StatusResponse, CliError> {
         let mut config = config::load_client_config(&ctx)?;
         if let Some(url) = self.url {
             config.url = url;
@@ -100,7 +104,11 @@ impl ReadyCommand {
     ///
     /// Returns an error if the server cannot be reached, is not ready, or the readiness response
     /// cannot be decoded.
-    pub async fn run(self, ctx: CliContext, output: OutputMode) -> std::result::Result<StatusResponse, CliError> {
+    pub async fn run(
+        self,
+        ctx: CliContext,
+        output: OutputMode,
+    ) -> std::result::Result<StatusResponse, CliError> {
         let mut config = config::load_client_config(&ctx)?;
         if let Some(url) = self.url {
             config.url = url;

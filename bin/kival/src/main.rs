@@ -25,6 +25,7 @@ use crate::{
 pub mod commands;
 pub mod utils;
 
+/// Configuration used by the Kival CLI client.
 #[derive(Debug, Clone, serde::Serialize, argx::Config)]
 #[argx(prefix = "KIVAL")]
 pub struct ClientConfig {
@@ -39,6 +40,10 @@ pub struct ClientConfig {
 
 impl ClientConfig {
     /// Loads effective client configuration from defaults, an optional TOML file, and environment.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error when a configured source cannot be read or resolved.
     pub fn load(path: &Path) -> Result<Self> {
         let loader = Self::loader().layer(Defaults);
         let loader = if path.exists() { loader.layer(Toml::new(path)) } else { loader };
@@ -187,9 +192,9 @@ impl Cli {
                     Commands::Workspaces(command) => {
                         Ok(runner.run_command_until_ctrl_c(|ctx| command.run(ctx, output))?)
                     }
-                    Commands::Completions(_) => unreachable!(
-                        "completions are handled before runtime initialization"
-                    ),
+                    Commands::Completions(_) => {
+                        unreachable!("completions are handled before runtime initialization")
+                    }
                 }
             }
         }
