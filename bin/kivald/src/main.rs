@@ -82,10 +82,10 @@ impl ServerConfig {
 /// The available CLI commands for the `kivald` CLI.
 #[derive(Debug, Subcommand)]
 pub enum Commands {
-    /// Manage the `kivald` as admin.
+    /// Manage Kival as an administrator.
     Admin(AdminCommand),
 
-    /// Start the `kivald`.
+    /// Start the Kival server.
     Serve(ServeCommand),
 }
 
@@ -103,11 +103,11 @@ pub struct Cli {
     #[argx(subcommand)]
     pub command: Commands,
 
-    /// The data directory to use.
+    /// Data directory
     #[argx(flatten)]
     pub datadir: DatadirArgs,
 
-    /// The logging configuration.
+    /// Logging
     #[argx(flatten)]
     pub logs: LogArgs,
 }

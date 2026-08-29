@@ -112,7 +112,7 @@ pub struct Cli {
     #[argx(subcommand)]
     pub command: Commands,
 
-    /// The data directory to use.
+    /// Data directory
     #[argx(flatten)]
     pub datadir: DatadirArgs,
 
