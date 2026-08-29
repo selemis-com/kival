@@ -3,6 +3,7 @@
 use std::path::Path;
 
 use eyre::Report;
+use kival_cli::commands::config::ConfigError;
 use kival_sdk::{ApiErrorKind, ClientError};
 use serde::Serialize;
 use serde_json::Value;
@@ -10,14 +11,14 @@ use serde_json::Value;
 use crate::utils::output::print_json;
 
 /// Top-level stable CLI error response.
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, schemars::JsonSchema)]
 pub struct CliErrorResponse {
     /// Error payload.
     pub error: CliErrorBody,
 }
 
 /// Stable CLI error payload.
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, schemars::JsonSchema)]
 pub struct CliErrorBody {
     /// Stable machine-readable error code.
     pub code: CliErrorCode,
@@ -29,7 +30,7 @@ pub struct CliErrorBody {
 }
 
 /// Typed CLI error before it is rendered for humans or JSON.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, schemars::JsonSchema)]
 pub struct CliError {
     /// Stable machine-readable error code.
     pub code: CliErrorCode,
@@ -38,6 +39,9 @@ pub struct CliError {
     /// Optional structured details.
     pub details: Option<Value>,
 }
+
+/// Result returned by machine-readable CLI handlers.
+pub type CliResult<T> = std::result::Result<T, CliError>;
 
 impl CliError {
     /// Builds an invalid argument error.
@@ -100,6 +104,23 @@ impl CliError {
             details,
         }
     }
+
+    /// Builds a stable CLI error from an SDK client error.
+    #[must_use]
+    pub fn from_client_error(error: &ClientError) -> Self {
+        let body = CliErrorBody::from_client_error(error);
+        Self { code: body.code, message: body.message, details: body.details }
+    }
+
+    /// Builds an internal CLI error without exposing implementation details.
+    #[must_use]
+    pub fn internal() -> Self {
+        Self {
+            code: CliErrorCode::Internal,
+            message: "Internal error.".to_owned(),
+            details: None,
+        }
+    }
 }
 
 impl std::fmt::Display for CliError {
@@ -110,54 +131,96 @@ impl std::fmt::Display for CliError {
 
 impl std::error::Error for CliError {}
 
-/// Stable machine-readable CLI error code.
-#[derive(Debug, Copy, Clone, PartialEq, Eq)]
-pub enum CliErrorCode {
-    /// Authentication is required.
-    AuthenticationRequired,
-    /// The caller lacks permission.
-    PermissionDenied,
-    /// A command argument is invalid.
-    InvalidArgument,
-    /// A resource was not found.
-    ResourceNotFound,
-    /// An object was not found.
-    ObjectNotFound,
-    /// An object is archived.
-    ObjectArchived,
-    /// Optimistic concurrency failed.
-    VersionConflict,
-    /// A relative object-version selector is outside the available history.
-    VersionSelectorOutOfRange,
-    /// A pagination cursor is invalid.
-    InvalidCursor,
-    /// The server is unavailable.
-    ServerUnavailable,
-    /// A request failed.
-    RequestFailed,
-    /// An internal failure occurred.
-    Internal,
-    /// A selected output field does not exist.
-    InvalidField,
-    /// A selected output projection cannot be applied.
-    InvalidProjection,
-    /// Input from a file or stdin could not be read.
-    InputReadFailed,
-    /// Structured input is not valid JSON.
-    InputInvalidJson,
-    /// Structured input does not match the command schema.
-    InputInvalidValue,
-    /// Structured input conflicts with CLI payload fields.
-    InputConflictingSources,
+impl From<ClientError> for CliError {
+    fn from(error: ClientError) -> Self {
+        Self::from_client_error(&error)
+    }
 }
 
-impl Serialize for CliErrorCode {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: serde::Serializer,
-    {
-        serializer.serialize_str(self.as_str())
+impl From<Report> for CliError {
+    fn from(error: Report) -> Self {
+        if let Some(error) = error.downcast_ref::<Self>() {
+            return error.clone();
+        }
+        if let Some(error) = error.downcast_ref::<ClientError>() {
+            return Self::from_client_error(error);
+        }
+        Self::internal()
     }
+}
+
+impl From<ConfigError> for CliError {
+    fn from(error: ConfigError) -> Self {
+        match error {
+            ConfigError::Argx(error) => Self::invalid_argument(error.to_string()),
+            ConfigError::TomlSer(_) => Self::internal(),
+        }
+    }
+}
+
+impl From<std::io::Error> for CliError {
+    fn from(_error: std::io::Error) -> Self {
+        Self::internal()
+    }
+}
+
+/// Stable machine-readable CLI error code.
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Serialize, schemars::JsonSchema)]
+pub enum CliErrorCode {
+    /// Authentication is required.
+    #[serde(rename = "authentication.required")]
+    AuthenticationRequired,
+    /// The caller lacks permission.
+    #[serde(rename = "permission.denied")]
+    PermissionDenied,
+    /// A command argument is invalid.
+    #[serde(rename = "invalid.argument")]
+    InvalidArgument,
+    /// A resource was not found.
+    #[serde(rename = "resource.not_found")]
+    ResourceNotFound,
+    /// An object was not found.
+    #[serde(rename = "object.not_found")]
+    ObjectNotFound,
+    /// An object is archived.
+    #[serde(rename = "object.archived")]
+    ObjectArchived,
+    /// Optimistic concurrency failed.
+    #[serde(rename = "version.conflict")]
+    VersionConflict,
+    /// A relative object-version selector is outside the available history.
+    #[serde(rename = "version.selector_out_of_range")]
+    VersionSelectorOutOfRange,
+    /// A pagination cursor is invalid.
+    #[serde(rename = "invalid.cursor")]
+    InvalidCursor,
+    /// The server is unavailable.
+    #[serde(rename = "server.unavailable")]
+    ServerUnavailable,
+    /// A request failed.
+    #[serde(rename = "request.failed")]
+    RequestFailed,
+    /// An internal failure occurred.
+    #[serde(rename = "internal")]
+    Internal,
+    /// A selected output field does not exist.
+    #[serde(rename = "output.invalid_field")]
+    InvalidField,
+    /// A selected output projection cannot be applied.
+    #[serde(rename = "output.invalid_projection")]
+    InvalidProjection,
+    /// Input from a file or stdin could not be read.
+    #[serde(rename = "input.read_failed")]
+    InputReadFailed,
+    /// Structured input is not valid JSON.
+    #[serde(rename = "input.invalid_json")]
+    InputInvalidJson,
+    /// Structured input does not match the command schema.
+    #[serde(rename = "input.invalid_value")]
+    InputInvalidValue,
+    /// Structured input conflicts with CLI payload fields.
+    #[serde(rename = "input.conflicting_sources")]
+    InputConflictingSources,
 }
 
 impl CliErrorCode {
@@ -338,6 +401,16 @@ mod tests {
 
         assert_eq!(body.code, CliErrorCode::InvalidArgument);
         assert_eq!(body.message, "description must not be empty");
+    }
+
+    #[test]
+    fn error_schema_uses_public_error_codes() {
+        let schema = serde_json::to_value(schemars::schema_for!(CliError)).unwrap();
+        let schema = schema.to_string();
+
+        assert!(schema.contains("object.not_found"));
+        assert!(schema.contains("version.conflict"));
+        assert!(!schema.contains("ObjectNotFound"));
     }
 
 }

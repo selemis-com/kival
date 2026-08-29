@@ -3,6 +3,7 @@
 use argx::{Args, Parser as _, completion::Shell};
 use eyre::Result;
 
+use crate::utils::error::CliResult;
 use crate::{Cli, utils::output::OutputMode};
 
 /// Arguments for `kival completions`.
@@ -13,13 +14,14 @@ pub struct CompletionsCommand {
     pub shell: Shell,
 }
 
+#[argx(handler = run)]
 impl CompletionsCommand {
     /// Run `kival completions`.
     ///
     /// # Errors
     ///
     /// Returns an error if completion adapter generation fails.
-    pub fn run(self, _output: &OutputMode) -> Result<()> {
+    pub fn run(self, _output: &OutputMode) -> CliResult<()> {
         print!("{}", Cli::render_completion(self.shell)?);
         Ok(())
     }

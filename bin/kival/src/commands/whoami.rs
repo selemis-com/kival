@@ -7,6 +7,7 @@ use schemars::JsonSchema;
 use serde::Serialize;
 use uuid::Uuid;
 
+use crate::utils::error::CliResult;
 use crate::utils::{
     credentials::authenticated_client,
     output::{OutputMode, print_output, quote_human_string},
@@ -34,13 +35,14 @@ struct WhoamiUserOutput {
     username: String,
 }
 
+#[argx(handler = run)]
 impl WhoamiCommand {
     /// Resolves the configured API key and fetches its user.
     ///
     /// # Errors
     ///
     /// Returns an error when API-key resolution or the identity request fails.
-    pub async fn run(self, ctx: CliContext, output: OutputMode) -> Result<WhoamiOutput> {
+    pub async fn run(self, ctx: CliContext, output: OutputMode) -> CliResult<WhoamiOutput> {
         let client = authenticated_client(&ctx)?;
         let user = client.whoami().await?;
         let value = WhoamiOutput {

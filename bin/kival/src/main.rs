@@ -7,6 +7,7 @@ use kival_cli::{
 };
 use url::Url;
 
+use crate::utils::error::CliResult;
 use crate::{
     commands::{
         admin::AdminCommand, comments::CommentsCommand, completions::CompletionsCommand,
@@ -45,14 +46,15 @@ pub struct ClientConfigCommand {
     command: ConfigCommand,
 }
 
+#[argx(handler = run)]
 impl ClientConfigCommand {
     /// Run `kival config`.
     ///
     /// # Errors
     ///
     /// Returns an error if the effective client configuration cannot be loaded or printed.
-    async fn run(self) -> kival_cli::commands::config::Result<()> {
-        self.command.run::<ClientConfig>().await
+    async fn run(self) -> CliResult<()> {
+        self.command.run::<ClientConfig>().await.map_err(CliError::from)
     }
 }
 

@@ -7,6 +7,7 @@ use kival_sdk::{ListResponse, UpdateUserRequest, User, UserListParams, UserListS
 use serde::Deserialize;
 use uuid::Uuid;
 
+use crate::utils::error::CliResult;
 use crate::utils::{
     args::DEFAULT_LIST_LIMIT,
     credentials::authenticated_client,
@@ -183,13 +184,14 @@ impl AdminUsersCommand {
     }
 }
 
+#[argx(handler = run)]
 impl AdminUsersListCommand {
     /// Run `kival admin users list`.
     ///
     /// # Errors
     ///
     /// Returns an error if the API key cannot be loaded or users cannot be listed.
-    pub async fn run(self, ctx: CliContext, output: OutputMode) -> Result<ListResponse<User>> {
+    pub async fn run(self, ctx: CliContext, output: OutputMode) -> CliResult<ListResponse<User>> {
         let client = authenticated_client(&ctx)?;
 
         let response = client
@@ -221,13 +223,14 @@ impl AdminUsersListCommand {
     }
 }
 
+#[argx(handler = run)]
 impl AdminUsersGetCommand {
     /// Run `kival admin users get`.
     ///
     /// # Errors
     ///
     /// Returns an error if the API key cannot be loaded or the user cannot be fetched.
-    pub async fn run(self, ctx: CliContext, output: OutputMode) -> Result<User> {
+    pub async fn run(self, ctx: CliContext, output: OutputMode) -> CliResult<User> {
         let client = authenticated_client(&ctx)?;
         let user = client.get_user(self.user_id).await?;
 
@@ -236,13 +239,14 @@ impl AdminUsersGetCommand {
     }
 }
 
+#[argx(handler = run)]
 impl AdminUsersUpdateCommand {
     /// Run `kival admin users update`.
     ///
     /// # Errors
     ///
     /// Returns an error if the API key cannot be loaded or the user cannot be updated.
-    pub async fn run(self, ctx: CliContext, output: OutputMode) -> Result<User> {
+    pub async fn run(self, ctx: CliContext, output: OutputMode) -> CliResult<User> {
         let user_id = self.user_id;
         let input = self.into_input()?;
         let display_name = input.display_name.as_deref().map(str::trim);
@@ -289,13 +293,14 @@ impl AdminUsersUpdateCommand {
     }
 }
 
+#[argx(handler = run)]
 impl AdminUsersDisableCommand {
     /// Run `kival admin users disable`.
     ///
     /// # Errors
     ///
     /// Returns an error if the API key cannot be loaded or the user cannot be disabled.
-    pub async fn run(self, ctx: CliContext, output: OutputMode) -> Result<User> {
+    pub async fn run(self, ctx: CliContext, output: OutputMode) -> CliResult<User> {
         let client = authenticated_client(&ctx)?;
         let user = client.disable_user(self.user_id).await?;
 
@@ -304,13 +309,14 @@ impl AdminUsersDisableCommand {
     }
 }
 
+#[argx(handler = run)]
 impl AdminUsersEnableCommand {
     /// Run `kival admin users enable`.
     ///
     /// # Errors
     ///
     /// Returns an error if the API key cannot be loaded or the user cannot be enabled.
-    pub async fn run(self, ctx: CliContext, output: OutputMode) -> Result<User> {
+    pub async fn run(self, ctx: CliContext, output: OutputMode) -> CliResult<User> {
         let client = authenticated_client(&ctx)?;
         let user = client.enable_user(self.user_id).await?;
 

@@ -6,6 +6,7 @@ use kival_cli::runner::CliContext;
 use kival_sdk::{Event, ListResponse};
 use uuid::Uuid;
 
+use crate::utils::error::CliResult;
 use crate::utils::{
     args::{DEFAULT_LIST_LIMIT, event_params},
     credentials::authenticated_client,
@@ -84,13 +85,14 @@ impl EventsCommand {
     }
 }
 
+#[argx(handler = run)]
 impl EventsListCommand {
     /// Run `kival events list`.
     ///
     /// # Errors
     ///
     /// Returns an error if events cannot be listed.
-    pub async fn run(self, ctx: CliContext, output: OutputMode) -> Result<ListResponse<Event>> {
+    pub async fn run(self, ctx: CliContext, output: OutputMode) -> CliResult<ListResponse<Event>> {
         let after_sequence = Some(self.after_sequence.unwrap_or(0));
         let params = event_params(
             self.limit,

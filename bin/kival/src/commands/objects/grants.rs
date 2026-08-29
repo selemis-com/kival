@@ -9,6 +9,7 @@ use kival_sdk::{
 use uuid::Uuid;
 
 use super::ObjectTargetArgs;
+use crate::utils::error::CliResult;
 use crate::utils::{
     args::{CliObjectRole, DEFAULT_LIST_LIMIT, grant_principal, list_params},
     credentials::authenticated_client,
@@ -127,6 +128,7 @@ impl ObjectGrantsCommand {
     }
 }
 
+#[argx(handler = run)]
 impl ObjectGrantsListCommand {
     /// Run `kival objects grants list`.
     ///
@@ -137,7 +139,7 @@ impl ObjectGrantsListCommand {
         self,
         ctx: CliContext,
         output: OutputMode,
-    ) -> Result<ListResponse<ObjectGrant>> {
+    ) -> CliResult<ListResponse<ObjectGrant>> {
         let client = authenticated_client(&ctx)?;
         let response = client
             .list_object_grants(
@@ -162,13 +164,14 @@ impl ObjectGrantsListCommand {
     }
 }
 
+#[argx(handler = run)]
 impl ObjectGrantsCreateCommand {
     /// Run `kival objects grants create`.
     ///
     /// # Errors
     ///
     /// Returns an error if the grant cannot be created.
-    pub async fn run(self, ctx: CliContext, output: OutputMode) -> Result<ObjectGrant> {
+    pub async fn run(self, ctx: CliContext, output: OutputMode) -> CliResult<ObjectGrant> {
         let principal = grant_principal(self.user_id, self.group_id)?;
         let role = ObjectRole::from(self.role);
         let client = authenticated_client(&ctx)?;
@@ -184,13 +187,14 @@ impl ObjectGrantsCreateCommand {
     }
 }
 
+#[argx(handler = run)]
 impl ObjectGrantsUpdateCommand {
     /// Run `kival objects grants update`.
     ///
     /// # Errors
     ///
     /// Returns an error if the active grant role cannot be updated.
-    pub async fn run(self, ctx: CliContext, output: OutputMode) -> Result<ObjectGrant> {
+    pub async fn run(self, ctx: CliContext, output: OutputMode) -> CliResult<ObjectGrant> {
         let client = authenticated_client(&ctx)?;
         let grant = client
             .update_object_grant(
@@ -205,13 +209,14 @@ impl ObjectGrantsUpdateCommand {
     }
 }
 
+#[argx(handler = run)]
 impl ObjectGrantsRevokeCommand {
     /// Run `kival objects grants revoke`.
     ///
     /// # Errors
     ///
     /// Returns an error if the grant cannot be revoked.
-    pub async fn run(self, ctx: CliContext, output: OutputMode) -> Result<ObjectGrant> {
+    pub async fn run(self, ctx: CliContext, output: OutputMode) -> CliResult<ObjectGrant> {
         let client = authenticated_client(&ctx)?;
         let grant = client
             .revoke_object_grant(self.target.workspace_id, self.target.object_id, self.grant_id)

@@ -7,6 +7,7 @@ use kival_sdk::{Event, ListResponse};
 use uuid::Uuid;
 
 use super::ObjectTargetArgs;
+use crate::utils::error::CliResult;
 use crate::{
     commands::events::print_event_line,
     utils::{
@@ -42,13 +43,14 @@ pub struct ObjectEventsCommand {
     pub group_id: Option<Uuid>,
 }
 
+#[argx(handler = run)]
 impl ObjectEventsCommand {
     /// Run `kival objects events`.
     ///
     /// # Errors
     ///
     /// Returns an error if events cannot be listed.
-    pub async fn run(self, ctx: CliContext, output: OutputMode) -> Result<ListResponse<Event>> {
+    pub async fn run(self, ctx: CliContext, output: OutputMode) -> CliResult<ListResponse<Event>> {
         let params = event_params(
             self.limit,
             self.after_sequence,

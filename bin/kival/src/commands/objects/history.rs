@@ -16,6 +16,7 @@ use super::{
     ObjectTargetArgs,
     display::{print_version_line, print_version_response},
 };
+use crate::utils::error::CliResult;
 use crate::utils::{
     args::{DEFAULT_LIST_LIMIT, list_params},
     credentials::authenticated_client,
@@ -153,6 +154,7 @@ pub struct ObjectVersionsWikilinksCommand {
     pub version_id: Uuid,
 }
 
+#[argx(handler = run)]
 impl ObjectsDiffCommand {
     /// Run `kival objects diff`.
     ///
@@ -160,7 +162,7 @@ impl ObjectsDiffCommand {
     ///
     /// Returns an error if a selector is invalid or out of range, or if the selected versions
     /// cannot be read.
-    pub async fn run(self, ctx: CliContext, output: OutputMode) -> Result<ObjectDiffOutput> {
+    pub async fn run(self, ctx: CliContext, output: OutputMode) -> CliResult<ObjectDiffOutput> {
         let from_raw = self.from.as_str();
         let to_raw = self.to.as_deref().unwrap_or("0");
         let from_selector = parse_version_selector(from_raw)?;
@@ -191,6 +193,7 @@ impl ObjectsDiffCommand {
     }
 }
 
+#[argx(handler = run)]
 impl ObjectsRestoreCommand {
     /// Run `kival objects restore`.
     ///
@@ -198,7 +201,7 @@ impl ObjectsRestoreCommand {
     ///
     /// Returns an error if the source selector is invalid, the object cannot be edited, the
     /// selected version cannot be read, or optimistic concurrency detects a newer current version.
-    pub async fn run(self, ctx: CliContext, output: OutputMode) -> Result<ObjectRestoreOutput> {
+    pub async fn run(self, ctx: CliContext, output: OutputMode) -> CliResult<ObjectRestoreOutput> {
         let selector = parse_version_selector(&self.from)?;
         let client = authenticated_client(&ctx)?;
         let current = client.get_object(self.target.workspace_id, self.target.object_id).await?;
@@ -481,6 +484,7 @@ impl ObjectVersionsCommand {
     }
 }
 
+#[argx(handler = run)]
 impl ObjectVersionsListCommand {
     /// Run `kival objects versions list`.
     ///
@@ -491,7 +495,7 @@ impl ObjectVersionsListCommand {
         self,
         ctx: CliContext,
         output: OutputMode,
-    ) -> Result<ListResponse<ObjectVersion>> {
+    ) -> CliResult<ListResponse<ObjectVersion>> {
         let client = authenticated_client(&ctx)?;
         let response = client
             .list_object_versions(
@@ -516,13 +520,14 @@ impl ObjectVersionsListCommand {
     }
 }
 
+#[argx(handler = run)]
 impl ObjectVersionsGetCommand {
     /// Run `kival objects versions get`.
     ///
     /// # Errors
     ///
     /// Returns an error if the version cannot be fetched.
-    pub async fn run(self, ctx: CliContext, output: OutputMode) -> Result<ObjectVersion> {
+    pub async fn run(self, ctx: CliContext, output: OutputMode) -> CliResult<ObjectVersion> {
         let client = authenticated_client(&ctx)?;
         let version = client
             .get_object_version(self.target.workspace_id, self.target.object_id, self.version_id)
@@ -532,6 +537,7 @@ impl ObjectVersionsGetCommand {
     }
 }
 
+#[argx(handler = run)]
 impl ObjectVersionsWikilinksCommand {
     /// Run `kival objects versions wikilinks`.
     ///
@@ -542,7 +548,7 @@ impl ObjectVersionsWikilinksCommand {
         self,
         ctx: CliContext,
         output: OutputMode,
-    ) -> Result<ObjectVersionWikilinksResponse> {
+    ) -> CliResult<ObjectVersionWikilinksResponse> {
         let client = authenticated_client(&ctx)?;
         let items = client
             .get_object_version_wikilinks(

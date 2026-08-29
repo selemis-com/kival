@@ -11,6 +11,7 @@ use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
+use crate::utils::error::CliResult;
 use crate::utils::{
     args::{DEFAULT_LIST_LIMIT, list_params},
     credentials::authenticated_client,
@@ -268,13 +269,14 @@ impl CommentsCommand {
     }
 }
 
+#[argx(handler = run)]
 impl CommentsListCommand {
     /// Run `kival comments list`.
     ///
     /// # Errors
     ///
     /// Returns an error if commentary cannot be listed.
-    pub async fn run(self, ctx: CliContext, output: OutputMode) -> Result<CommentsListOutput> {
+    pub async fn run(self, ctx: CliContext, output: OutputMode) -> CliResult<CommentsListOutput> {
         let client = authenticated_client(&ctx)?;
         let params = list_params(self.limit, self.cursor);
         let result = if let Some(thread_id) = self.thread_id {
@@ -303,6 +305,7 @@ impl CommentsListCommand {
     }
 }
 
+#[argx(handler = run)]
 impl CommentsMentionsCommand {
     /// Run `kival comments mentions`.
     ///
@@ -313,7 +316,7 @@ impl CommentsMentionsCommand {
         self,
         ctx: CliContext,
         output: OutputMode,
-    ) -> Result<ListResponse<CommentMentionCandidate>> {
+    ) -> CliResult<ListResponse<CommentMentionCandidate>> {
         let client = authenticated_client(&ctx)?;
         let response = client
             .list_comment_mention_candidates(
@@ -343,13 +346,14 @@ impl CommentsMentionsCommand {
     }
 }
 
+#[argx(handler = run)]
 impl CommentsCreateCommand {
     /// Run `kival comments create`.
     ///
     /// # Errors
     ///
     /// Returns an error if the root comment cannot be created.
-    pub async fn run(self, ctx: CliContext, output: OutputMode) -> Result<CommentThread> {
+    pub async fn run(self, ctx: CliContext, output: OutputMode) -> CliResult<CommentThread> {
         let target = self.target;
         let input = self.into_input()?;
         let client = authenticated_client(&ctx)?;
@@ -366,13 +370,14 @@ impl CommentsCreateCommand {
     }
 }
 
+#[argx(handler = run)]
 impl CommentsReplyCommand {
     /// Run `kival comments reply`.
     ///
     /// # Errors
     ///
     /// Returns an error if the target comment cannot be found or its thread cannot be replied to.
-    pub async fn run(self, ctx: CliContext, output: OutputMode) -> Result<Comment> {
+    pub async fn run(self, ctx: CliContext, output: OutputMode) -> CliResult<Comment> {
         let target = self.target;
         let comment_id = self.comment_id;
         let input = self.into_input()?;
@@ -396,13 +401,14 @@ impl CommentsReplyCommand {
     }
 }
 
+#[argx(handler = run)]
 impl CommentsUpdateCommand {
     /// Run `kival comments update`.
     ///
     /// # Errors
     ///
     /// Returns an error if the comment cannot be updated.
-    pub async fn run(self, ctx: CliContext, output: OutputMode) -> Result<Comment> {
+    pub async fn run(self, ctx: CliContext, output: OutputMode) -> CliResult<Comment> {
         let target = self.target;
         let comment_id = self.comment_id;
         let input = self.into_input()?;
@@ -428,13 +434,14 @@ impl CommentsUpdateCommand {
     }
 }
 
+#[argx(handler = run)]
 impl CommentsDeleteCommand {
     /// Run `kival comments delete`.
     ///
     /// # Errors
     ///
     /// Returns an error if the comment cannot be deleted.
-    pub async fn run(self, ctx: CliContext, output: OutputMode) -> Result<Comment> {
+    pub async fn run(self, ctx: CliContext, output: OutputMode) -> CliResult<Comment> {
         let client = authenticated_client(&ctx)?;
         let comment = client
             .delete_comment(self.target.workspace_id, self.target.object_id, self.comment_id)
@@ -444,13 +451,14 @@ impl CommentsDeleteCommand {
     }
 }
 
+#[argx(handler = run)]
 impl CommentsResolveCommand {
     /// Run `kival comments resolve`.
     ///
     /// # Errors
     ///
     /// Returns an error if the thread cannot be resolved.
-    pub async fn run(self, ctx: CliContext, output: OutputMode) -> Result<CommentThread> {
+    pub async fn run(self, ctx: CliContext, output: OutputMode) -> CliResult<CommentThread> {
         let client = authenticated_client(&ctx)?;
         let thread = client
             .resolve_comment_thread(self.target.workspace_id, self.target.object_id, self.thread_id)
@@ -460,13 +468,14 @@ impl CommentsResolveCommand {
     }
 }
 
+#[argx(handler = run)]
 impl CommentsReopenCommand {
     /// Run `kival comments reopen`.
     ///
     /// # Errors
     ///
     /// Returns an error if the thread cannot be reopened.
-    pub async fn run(self, ctx: CliContext, output: OutputMode) -> Result<CommentThread> {
+    pub async fn run(self, ctx: CliContext, output: OutputMode) -> CliResult<CommentThread> {
         let client = authenticated_client(&ctx)?;
         let thread = client
             .reopen_comment_thread(self.target.workspace_id, self.target.object_id, self.thread_id)

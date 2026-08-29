@@ -10,6 +10,7 @@ use kival_sdk::{
 use serde::Deserialize;
 use uuid::Uuid;
 
+use crate::utils::error::CliResult;
 use crate::utils::{
     args::{
         CliArchiveListStatus, CliMembershipRole, DEFAULT_LIST_LIMIT,
@@ -297,13 +298,14 @@ impl GroupsCommand {
     }
 }
 
+#[argx(handler = run)]
 impl GroupsListCommand {
     /// Run `kival groups list`.
     ///
     /// # Errors
     ///
     /// Returns an error if groups cannot be listed.
-    pub async fn run(self, ctx: CliContext, output: OutputMode) -> Result<ListResponse<Group>> {
+    pub async fn run(self, ctx: CliContext, output: OutputMode) -> CliResult<ListResponse<Group>> {
         let client = authenticated_client(&ctx)?;
         let response = client
             .list_groups(&GroupListParams {
@@ -320,13 +322,14 @@ impl GroupsListCommand {
     }
 }
 
+#[argx(handler = run)]
 impl GroupsGetCommand {
     /// Run `kival groups get`.
     ///
     /// # Errors
     ///
     /// Returns an error if the group cannot be fetched.
-    pub async fn run(self, ctx: CliContext, output: OutputMode) -> Result<Group> {
+    pub async fn run(self, ctx: CliContext, output: OutputMode) -> CliResult<Group> {
         let client = authenticated_client(&ctx)?;
         let group = client.get_group(self.group_id).await?;
         print_output(output, &group, || print_group_line(&group, None))?;
@@ -334,13 +337,14 @@ impl GroupsGetCommand {
     }
 }
 
+#[argx(handler = run)]
 impl GroupsCreateCommand {
     /// Run `kival groups create`.
     ///
     /// # Errors
     ///
     /// Returns an error if the group cannot be created.
-    pub async fn run(self, ctx: CliContext, output: OutputMode) -> Result<Group> {
+    pub async fn run(self, ctx: CliContext, output: OutputMode) -> CliResult<Group> {
         let input = self.into_input()?;
         let name = input.name.trim();
         if name.is_empty() {
@@ -377,13 +381,14 @@ impl GroupsCreateCommand {
     }
 }
 
+#[argx(handler = run)]
 impl GroupsUpdateCommand {
     /// Run `kival groups update`.
     ///
     /// # Errors
     ///
     /// Returns an error if the group cannot be updated.
-    pub async fn run(self, ctx: CliContext, output: OutputMode) -> Result<Group> {
+    pub async fn run(self, ctx: CliContext, output: OutputMode) -> CliResult<Group> {
         let group_id = self.group_id;
         let input = self.into_input()?;
         let name = input.name.as_deref().map(str::trim);
@@ -447,13 +452,14 @@ impl GroupsUpdateCommand {
     }
 }
 
+#[argx(handler = run)]
 impl GroupsArchiveCommand {
     /// Run `kival groups archive`.
     ///
     /// # Errors
     ///
     /// Returns an error if the group cannot be archived.
-    pub async fn run(self, ctx: CliContext, output: OutputMode) -> Result<Group> {
+    pub async fn run(self, ctx: CliContext, output: OutputMode) -> CliResult<Group> {
         let client = authenticated_client(&ctx)?;
         let group = client.archive_group(self.group_id).await?;
         print_output(output, &group, || print_group_line(&group, Some("archived")))?;
@@ -461,13 +467,14 @@ impl GroupsArchiveCommand {
     }
 }
 
+#[argx(handler = run)]
 impl GroupsUnarchiveCommand {
     /// Run `kival groups unarchive`.
     ///
     /// # Errors
     ///
     /// Returns an error if the group cannot be unarchived.
-    pub async fn run(self, ctx: CliContext, output: OutputMode) -> Result<Group> {
+    pub async fn run(self, ctx: CliContext, output: OutputMode) -> CliResult<Group> {
         let client = authenticated_client(&ctx)?;
         let group = client.unarchive_group(self.group_id).await?;
         print_output(output, &group, || print_group_line(&group, Some("unarchived")))?;
@@ -500,6 +507,7 @@ impl GroupMembershipsCommand {
     }
 }
 
+#[argx(handler = run)]
 impl GroupMembershipsListCommand {
     /// Run `kival groups memberships list`.
     ///
@@ -510,7 +518,7 @@ impl GroupMembershipsListCommand {
         self,
         ctx: CliContext,
         output: OutputMode,
-    ) -> Result<ListResponse<GroupMembership>> {
+    ) -> CliResult<ListResponse<GroupMembership>> {
         let client = authenticated_client(&ctx)?;
         let response = client
             .list_group_memberships(self.group_id, &list_params(self.limit, self.cursor))
@@ -531,13 +539,14 @@ impl GroupMembershipsListCommand {
     }
 }
 
+#[argx(handler = run)]
 impl GroupMembershipsCreateCommand {
     /// Run `kival groups memberships create`.
     ///
     /// # Errors
     ///
     /// Returns an error if the membership cannot be created.
-    pub async fn run(self, ctx: CliContext, output: OutputMode) -> Result<GroupMembership> {
+    pub async fn run(self, ctx: CliContext, output: OutputMode) -> CliResult<GroupMembership> {
         let role = MembershipRole::from(self.role);
         let client = authenticated_client(&ctx)?;
         let membership = client
@@ -557,13 +566,14 @@ impl GroupMembershipsCreateCommand {
     }
 }
 
+#[argx(handler = run)]
 impl GroupMembershipsUpdateCommand {
     /// Run `kival groups memberships update`.
     ///
     /// # Errors
     ///
     /// Returns an error if the active membership role cannot be updated.
-    pub async fn run(self, ctx: CliContext, output: OutputMode) -> Result<GroupMembership> {
+    pub async fn run(self, ctx: CliContext, output: OutputMode) -> CliResult<GroupMembership> {
         let client = authenticated_client(&ctx)?;
         let membership = client
             .update_group_membership(
@@ -579,13 +589,14 @@ impl GroupMembershipsUpdateCommand {
     }
 }
 
+#[argx(handler = run)]
 impl GroupMembershipsRevokeCommand {
     /// Run `kival groups memberships revoke`.
     ///
     /// # Errors
     ///
     /// Returns an error if the membership cannot be revoked.
-    pub async fn run(self, ctx: CliContext, output: OutputMode) -> Result<GroupMembership> {
+    pub async fn run(self, ctx: CliContext, output: OutputMode) -> CliResult<GroupMembership> {
         let client = authenticated_client(&ctx)?;
         let membership = client.revoke_group_membership(self.group_id, self.membership_id).await?;
         print_output(output, &membership, || {

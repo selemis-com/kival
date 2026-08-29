@@ -16,6 +16,7 @@ use super::{
     ObjectTargetArgs,
     io::{ensure_output_available, write_output_file},
 };
+use crate::utils::error::CliResult;
 use crate::utils::{
     args::{DEFAULT_LIST_LIMIT, list_params, metadata_value},
     credentials::authenticated_client,
@@ -183,6 +184,7 @@ impl ObjectAttachmentsCommand {
     }
 }
 
+#[argx(handler = run)]
 impl ObjectAttachmentsListCommand {
     /// Run `kival objects attachments list`.
     ///
@@ -193,7 +195,7 @@ impl ObjectAttachmentsListCommand {
         self,
         ctx: CliContext,
         output: OutputMode,
-    ) -> Result<ListResponse<ObjectAttachment>> {
+    ) -> CliResult<ListResponse<ObjectAttachment>> {
         let client = authenticated_client(&ctx)?;
         let response = client
             .list_object_attachments(
@@ -218,13 +220,14 @@ impl ObjectAttachmentsListCommand {
     }
 }
 
+#[argx(handler = run)]
 impl ObjectAttachmentsUploadCommand {
     /// Run `kival objects attachments upload`.
     ///
     /// # Errors
     ///
     /// Returns an error if the file cannot be uploaded.
-    pub async fn run(self, ctx: CliContext, output: OutputMode) -> Result<ObjectAttachment> {
+    pub async fn run(self, ctx: CliContext, output: OutputMode) -> CliResult<ObjectAttachment> {
         let name = match self.name.as_deref().map(str::trim) {
             Some("") => return Err(CliError::invalid_argument("name must not be empty").into()),
             Some(name) => Some(name.to_owned()),
@@ -286,13 +289,14 @@ fn infer_media_type_from_path(path: &Path) -> Option<&'static str> {
     }
 }
 
+#[argx(handler = run)]
 impl ObjectAttachmentsReuseCommand {
     /// Runs attachment reuse.
     ///
     /// # Errors
     ///
     /// Returns an error if the source attachment cannot be authorized or reused.
-    pub async fn run(self, ctx: CliContext, output: OutputMode) -> Result<ObjectAttachment> {
+    pub async fn run(self, ctx: CliContext, output: OutputMode) -> CliResult<ObjectAttachment> {
         let client = authenticated_client(&ctx)?;
         let attachment = client
             .reuse_object_attachment(
@@ -311,6 +315,7 @@ impl ObjectAttachmentsReuseCommand {
     }
 }
 
+#[argx(handler = run)]
 impl ObjectAttachmentsContentCommand {
     /// Run `kival objects attachments content`.
     ///
@@ -321,7 +326,7 @@ impl ObjectAttachmentsContentCommand {
         self,
         ctx: CliContext,
         output: OutputMode,
-    ) -> Result<ObjectAttachmentContentOutput> {
+    ) -> CliResult<ObjectAttachmentContentOutput> {
         ensure_output_available(&self.output, self.force)?;
 
         let client = authenticated_client(&ctx)?;
@@ -352,13 +357,14 @@ impl ObjectAttachmentsContentCommand {
     }
 }
 
+#[argx(handler = run)]
 impl ObjectAttachmentsGetCommand {
     /// Run `kival objects attachments get`.
     ///
     /// # Errors
     ///
     /// Returns an error if the attachment cannot be fetched.
-    pub async fn run(self, ctx: CliContext, output: OutputMode) -> Result<ObjectAttachment> {
+    pub async fn run(self, ctx: CliContext, output: OutputMode) -> CliResult<ObjectAttachment> {
         let client = authenticated_client(&ctx)?;
         let attachment = client
             .get_object_attachment(

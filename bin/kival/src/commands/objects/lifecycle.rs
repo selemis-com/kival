@@ -20,6 +20,7 @@ use super::{
     document::{ObjectDocument, parse_object_document, render_object_document},
     io::{ensure_output_available, parse_body_file_path, resolve_body, write_output_file},
 };
+use crate::utils::error::CliResult;
 use crate::utils::{
     args::{
         CliArchiveListStatus, DEFAULT_LIST_LIMIT, metadata_value,
@@ -244,6 +245,7 @@ pub struct ObjectsUnarchiveCommand {
     pub target: ObjectTargetArgs,
 }
 
+#[argx(handler = run)]
 impl ObjectsListCommand {
     /// Run `kival objects list`.
     ///
@@ -254,7 +256,7 @@ impl ObjectsListCommand {
         self,
         ctx: CliContext,
         output: OutputMode,
-    ) -> Result<ListResponse<ObjectListItem>> {
+    ) -> CliResult<ListResponse<ObjectListItem>> {
         let client = authenticated_client(&ctx)?;
         let response = client
             .list_objects(
@@ -285,13 +287,14 @@ impl ObjectsListCommand {
     }
 }
 
+#[argx(handler = run)]
 impl ObjectsGetCommand {
     /// Run `kival objects get`.
     ///
     /// # Errors
     ///
     /// Returns an error if the object cannot be fetched.
-    pub async fn run(self, ctx: CliContext, output: OutputMode) -> Result<ObjectResponse> {
+    pub async fn run(self, ctx: CliContext, output: OutputMode) -> CliResult<ObjectResponse> {
         let client = authenticated_client(&ctx)?;
         let response = client.get_object(self.target.workspace_id, self.target.object_id).await?;
         print_output(output, &response, || print_object_response(&response, None))?;
@@ -299,13 +302,14 @@ impl ObjectsGetCommand {
     }
 }
 
+#[argx(handler = run)]
 impl ObjectsBodyCommand {
     /// Run `kival objects body`.
     ///
     /// # Errors
     ///
     /// Returns an error if the object cannot be fetched or the output file cannot be written.
-    pub async fn run(self, ctx: CliContext, output: OutputMode) -> Result<ObjectBodyOutput> {
+    pub async fn run(self, ctx: CliContext, output: OutputMode) -> CliResult<ObjectBodyOutput> {
         if let Some(path) = self.output.as_deref() {
             ensure_output_available(path, self.force)?;
         }
@@ -354,6 +358,7 @@ impl ObjectsBodyCommand {
     }
 }
 
+#[argx(handler = run)]
 impl ObjectsEditCommand {
     /// Run `kival objects edit`.
     ///
@@ -361,7 +366,7 @@ impl ObjectsEditCommand {
     ///
     /// Returns an error when the object cannot be read or edited, the external editor fails, or
     /// the object changes before the edited state can be stored.
-    pub async fn run(self, ctx: CliContext, output: OutputMode) -> Result<ObjectEditOutput> {
+    pub async fn run(self, ctx: CliContext, output: OutputMode) -> CliResult<ObjectEditOutput> {
         let client = authenticated_client(&ctx)?;
         let current = client.get_object(self.target.workspace_id, self.target.object_id).await?;
         let version = editable_version(&current)?;
@@ -519,13 +524,14 @@ fn print_edit_result(
     Ok(result)
 }
 
+#[argx(handler = run)]
 impl ObjectsCreateCommand {
     /// Run `kival objects create`.
     ///
     /// # Errors
     ///
     /// Returns an error if the object cannot be created.
-    pub async fn run(self, ctx: CliContext, output: OutputMode) -> Result<ObjectResponse> {
+    pub async fn run(self, ctx: CliContext, output: OutputMode) -> CliResult<ObjectResponse> {
         let input = self.into_input()?;
         let title = input.title.trim();
         if title.is_empty() {
@@ -580,13 +586,14 @@ impl ObjectsCreateCommand {
     }
 }
 
+#[argx(handler = run)]
 impl ObjectsUpdateCommand {
     /// Run `kival objects update`.
     ///
     /// # Errors
     ///
     /// Returns an error if the object cannot be updated.
-    pub async fn run(self, ctx: CliContext, output: OutputMode) -> Result<ObjectResponse> {
+    pub async fn run(self, ctx: CliContext, output: OutputMode) -> CliResult<ObjectResponse> {
         let target = self.target;
         let metadata_sets = parse_metadata_sets(&self.metadata_set)?;
         let metadata_remove = self.metadata_remove.clone();
@@ -739,13 +746,14 @@ fn apply_metadata_mutations(
     Ok(())
 }
 
+#[argx(handler = run)]
 impl ObjectsArchiveCommand {
     /// Run `kival objects archive`.
     ///
     /// # Errors
     ///
     /// Returns an error if the object cannot be archived.
-    pub async fn run(self, ctx: CliContext, output: OutputMode) -> Result<ObjectResponse> {
+    pub async fn run(self, ctx: CliContext, output: OutputMode) -> CliResult<ObjectResponse> {
         let client = authenticated_client(&ctx)?;
         let response =
             client.archive_object(self.target.workspace_id, self.target.object_id).await?;
@@ -756,13 +764,14 @@ impl ObjectsArchiveCommand {
     }
 }
 
+#[argx(handler = run)]
 impl ObjectsUnarchiveCommand {
     /// Run `kival objects unarchive`.
     ///
     /// # Errors
     ///
     /// Returns an error if the object cannot be unarchived.
-    pub async fn run(self, ctx: CliContext, output: OutputMode) -> Result<ObjectResponse> {
+    pub async fn run(self, ctx: CliContext, output: OutputMode) -> CliResult<ObjectResponse> {
         let client = authenticated_client(&ctx)?;
         let response =
             client.unarchive_object(self.target.workspace_id, self.target.object_id).await?;

@@ -7,6 +7,7 @@ use kival_sdk::{KivalClient, StatusResponse};
 use serde::Serialize;
 use url::Url;
 
+use crate::utils::error::CliResult;
 use crate::utils::{
     config,
     output::{OutputMode, print_output},
@@ -69,13 +70,14 @@ pub struct ReadyCommand {
     pub url: Option<Url>,
 }
 
+#[argx(handler = run)]
 impl HealthCommand {
     /// Run `kival health`.
     ///
     /// # Errors
     ///
     /// Returns an error if the server cannot be reached or the health response cannot be decoded.
-    pub async fn run(self, ctx: CliContext, output: OutputMode) -> Result<StatusResponse> {
+    pub async fn run(self, ctx: CliContext, output: OutputMode) -> CliResult<StatusResponse> {
         let mut config = config::load_client_config(&ctx)?;
         if let Some(url) = self.url {
             config.url = url;
@@ -90,6 +92,7 @@ impl HealthCommand {
     }
 }
 
+#[argx(handler = run)]
 impl ReadyCommand {
     /// Run `kival ready`.
     ///
@@ -97,7 +100,7 @@ impl ReadyCommand {
     ///
     /// Returns an error if the server cannot be reached, is not ready, or the readiness response
     /// cannot be decoded.
-    pub async fn run(self, ctx: CliContext, output: OutputMode) -> Result<StatusResponse> {
+    pub async fn run(self, ctx: CliContext, output: OutputMode) -> CliResult<StatusResponse> {
         let mut config = config::load_client_config(&ctx)?;
         if let Some(url) = self.url {
             config.url = url;

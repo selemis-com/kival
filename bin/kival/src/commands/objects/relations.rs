@@ -13,6 +13,7 @@ use kival_sdk::{
 use uuid::Uuid;
 
 use super::ObjectTargetArgs;
+use crate::utils::error::CliResult;
 use crate::utils::{
     args::{DEFAULT_LIST_LIMIT, list_params},
     credentials::authenticated_client,
@@ -168,13 +169,14 @@ pub struct ObjectEdgesRevokeCommand {
     pub edge_id: Uuid,
 }
 
+#[argx(handler = run)]
 impl ObjectsGraphCommand {
     /// Run `kival objects graph`.
     ///
     /// # Errors
     ///
     /// Returns an error if arguments, API-key resolution, or graph retrieval fail.
-    pub async fn run(self, ctx: CliContext, output: OutputMode) -> Result<ObjectGraphResponse> {
+    pub async fn run(self, ctx: CliContext, output: OutputMode) -> CliResult<ObjectGraphResponse> {
         let direction = ObjectGraphDirection::from(self.direction);
         let client = authenticated_client(&ctx)?;
         let graph = client
@@ -284,13 +286,14 @@ const fn pluralized<'a>(count: usize, singular: &'a str, plural: &'a str) -> &'a
     if count == 1 { singular } else { plural }
 }
 
+#[argx(handler = run)]
 impl ObjectsBacklinksCommand {
     /// Runs the object backlinks command.
     ///
     /// # Errors
     ///
     /// Returns an error if backlinks cannot be listed.
-    pub async fn run(self, ctx: CliContext, output: OutputMode) -> Result<ObjectBacklinksResponse> {
+    pub async fn run(self, ctx: CliContext, output: OutputMode) -> CliResult<ObjectBacklinksResponse> {
         let client = authenticated_client(&ctx)?;
         let response = client
             .get_object_backlinks(
@@ -335,6 +338,7 @@ impl ObjectEdgesCommand {
     }
 }
 
+#[argx(handler = run)]
 impl ObjectEdgesListCommand {
     /// Run `kival objects edges list`.
     ///
@@ -345,7 +349,7 @@ impl ObjectEdgesListCommand {
         self,
         ctx: CliContext,
         output: OutputMode,
-    ) -> Result<ListResponse<ObjectEdge>> {
+    ) -> CliResult<ListResponse<ObjectEdge>> {
         let client = authenticated_client(&ctx)?;
         let response = client
             .list_object_edges(
@@ -368,13 +372,14 @@ impl ObjectEdgesListCommand {
     }
 }
 
+#[argx(handler = run)]
 impl ObjectEdgesCreateCommand {
     /// Run `kival objects edges create`.
     ///
     /// # Errors
     ///
     /// Returns an error if the edge cannot be created.
-    pub async fn run(self, ctx: CliContext, output: OutputMode) -> Result<ObjectEdge> {
+    pub async fn run(self, ctx: CliContext, output: OutputMode) -> CliResult<ObjectEdge> {
         let client = authenticated_client(&ctx)?;
         let edge = client
             .create_object_edge(
@@ -390,13 +395,14 @@ impl ObjectEdgesCreateCommand {
     }
 }
 
+#[argx(handler = run)]
 impl ObjectEdgesGetCommand {
     /// Run `kival objects edges get`.
     ///
     /// # Errors
     ///
     /// Returns an error if the edge cannot be fetched.
-    pub async fn run(self, ctx: CliContext, output: OutputMode) -> Result<ObjectEdge> {
+    pub async fn run(self, ctx: CliContext, output: OutputMode) -> CliResult<ObjectEdge> {
         let client = authenticated_client(&ctx)?;
         let edge = client.get_object_edge(self.workspace_id, self.edge_id).await?;
         print_output(output, &edge, || print_edge_line(&edge, None))?;
@@ -404,13 +410,14 @@ impl ObjectEdgesGetCommand {
     }
 }
 
+#[argx(handler = run)]
 impl ObjectEdgesRevokeCommand {
     /// Run `kival objects edges revoke`.
     ///
     /// # Errors
     ///
     /// Returns an error if the edge cannot be revoked.
-    pub async fn run(self, ctx: CliContext, output: OutputMode) -> Result<ObjectEdge> {
+    pub async fn run(self, ctx: CliContext, output: OutputMode) -> CliResult<ObjectEdge> {
         let client = authenticated_client(&ctx)?;
         let edge = client.revoke_object_edge(self.workspace_id, self.edge_id).await?;
         print_output(output, &edge, || print_edge_line(&edge, Some("revoked")))?;

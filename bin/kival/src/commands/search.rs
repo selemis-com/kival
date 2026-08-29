@@ -6,6 +6,7 @@ use kival_cli::runner::CliContext;
 use kival_sdk::{SearchHit, SearchMode, SearchParams, SearchResponse};
 use uuid::Uuid;
 
+use crate::utils::error::CliResult;
 use crate::utils::{
     args::CliArchiveListStatus,
     credentials::authenticated_client,
@@ -111,13 +112,14 @@ impl From<CliSearchMode> for SearchMode {
     }
 }
 
+#[argx(handler = run)]
 impl SearchCommand {
     /// Run `kival search`.
     ///
     /// # Errors
     ///
     /// Returns an error if search fails.
-    pub async fn run(self, ctx: CliContext, output: OutputMode) -> Result<SearchResponse> {
+    pub async fn run(self, ctx: CliContext, output: OutputMode) -> CliResult<SearchResponse> {
         let query = self.query.trim();
         if query.is_empty() {
             return Err(CliError::invalid_argument("search query must not be empty").into());

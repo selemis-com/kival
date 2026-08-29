@@ -15,6 +15,7 @@ use kival_sdk::{
 use serde::Deserialize;
 use uuid::Uuid;
 
+use crate::utils::error::CliResult;
 use crate::{
     commands::events::print_event_line,
     utils::{
@@ -441,13 +442,14 @@ impl WorkspacesCommand {
     }
 }
 
+#[argx(handler = run)]
 impl WorkspacesGraphCommand {
     /// Run `kival workspaces graph`.
     ///
     /// # Errors
     ///
     /// Returns an error if the API key cannot be loaded or the graph cannot be fetched.
-    pub async fn run(self, ctx: CliContext, output: OutputMode) -> Result<WorkspaceGraphResponse> {
+    pub async fn run(self, ctx: CliContext, output: OutputMode) -> CliResult<WorkspaceGraphResponse> {
         let client = authenticated_client(&ctx)?;
         let response = client
             .get_workspace_graph(
@@ -549,13 +551,14 @@ const fn pluralized<'a>(count: usize, singular: &'a str, plural: &'a str) -> &'a
     if count == 1 { singular } else { plural }
 }
 
+#[argx(handler = run)]
 impl WorkspacesListCommand {
     /// Run `kival workspaces list`.
     ///
     /// # Errors
     ///
     /// Returns an error if the API key cannot be loaded or workspaces cannot be listed.
-    pub async fn run(self, ctx: CliContext, output: OutputMode) -> Result<ListResponse<Workspace>> {
+    pub async fn run(self, ctx: CliContext, output: OutputMode) -> CliResult<ListResponse<Workspace>> {
         let client = authenticated_client(&ctx)?;
 
         let response = client
@@ -586,13 +589,14 @@ impl WorkspacesListCommand {
     }
 }
 
+#[argx(handler = run)]
 impl WorkspacesGetCommand {
     /// Run `kival workspaces get`.
     ///
     /// # Errors
     ///
     /// Returns an error if the API key cannot be loaded or the workspace cannot be fetched.
-    pub async fn run(self, ctx: CliContext, output: OutputMode) -> Result<Workspace> {
+    pub async fn run(self, ctx: CliContext, output: OutputMode) -> CliResult<Workspace> {
         let client = authenticated_client(&ctx)?;
         let workspace = client.get_workspace(self.workspace_id).await?;
 
@@ -603,13 +607,14 @@ impl WorkspacesGetCommand {
     }
 }
 
+#[argx(handler = run)]
 impl WorkspacesUpdateCommand {
     /// Run `kival workspaces update`.
     ///
     /// # Errors
     ///
     /// Returns an error if the API key cannot be loaded or the workspace cannot be updated.
-    pub async fn run(self, ctx: CliContext, output: OutputMode) -> Result<Workspace> {
+    pub async fn run(self, ctx: CliContext, output: OutputMode) -> CliResult<Workspace> {
         let workspace_id = self.workspace_id;
         let input = self.into_input()?;
         let name = input.name.as_deref().map(str::trim);
@@ -680,13 +685,14 @@ impl WorkspacesUpdateCommand {
     }
 }
 
+#[argx(handler = run)]
 impl WorkspacesArchiveCommand {
     /// Run `kival workspaces archive`.
     ///
     /// # Errors
     ///
     /// Returns an error if the API key cannot be loaded or the workspace cannot be archived.
-    pub async fn run(self, ctx: CliContext, output: OutputMode) -> Result<Workspace> {
+    pub async fn run(self, ctx: CliContext, output: OutputMode) -> CliResult<Workspace> {
         let client = authenticated_client(&ctx)?;
         let workspace = client.archive_workspace(self.workspace_id).await?;
 
@@ -697,13 +703,14 @@ impl WorkspacesArchiveCommand {
     }
 }
 
+#[argx(handler = run)]
 impl WorkspacesUnarchiveCommand {
     /// Run `kival workspaces unarchive`.
     ///
     /// # Errors
     ///
     /// Returns an error if the API key cannot be loaded or the workspace cannot be unarchived.
-    pub async fn run(self, ctx: CliContext, output: OutputMode) -> Result<Workspace> {
+    pub async fn run(self, ctx: CliContext, output: OutputMode) -> CliResult<Workspace> {
         let client = authenticated_client(&ctx)?;
         let workspace = client.unarchive_workspace(self.workspace_id).await?;
 
@@ -714,13 +721,14 @@ impl WorkspacesUnarchiveCommand {
     }
 }
 
+#[argx(handler = run)]
 impl WorkspacesEventsCommand {
     /// Run `kival workspaces events`.
     ///
     /// # Errors
     ///
     /// Returns an error if events cannot be listed.
-    pub async fn run(self, ctx: CliContext, output: OutputMode) -> Result<ListResponse<Event>> {
+    pub async fn run(self, ctx: CliContext, output: OutputMode) -> CliResult<ListResponse<Event>> {
         let params = event_params(
             self.limit,
             self.after_sequence,
@@ -771,6 +779,7 @@ impl WorkspaceMembershipsCommand {
     }
 }
 
+#[argx(handler = run)]
 impl WorkspaceMembershipsListCommand {
     /// Run `kival workspaces memberships list`.
     ///
@@ -781,7 +790,7 @@ impl WorkspaceMembershipsListCommand {
         self,
         ctx: CliContext,
         output: OutputMode,
-    ) -> Result<ListResponse<WorkspaceMembership>> {
+    ) -> CliResult<ListResponse<WorkspaceMembership>> {
         let client = authenticated_client(&ctx)?;
         let response = client
             .list_workspace_memberships(self.workspace_id, &list_params(self.limit, self.cursor))
@@ -802,13 +811,14 @@ impl WorkspaceMembershipsListCommand {
     }
 }
 
+#[argx(handler = run)]
 impl WorkspaceMembershipsCreateCommand {
     /// Run `kival workspaces memberships create`.
     ///
     /// # Errors
     ///
     /// Returns an error if the membership cannot be created.
-    pub async fn run(self, ctx: CliContext, output: OutputMode) -> Result<WorkspaceMembership> {
+    pub async fn run(self, ctx: CliContext, output: OutputMode) -> CliResult<WorkspaceMembership> {
         let role = MembershipRole::from(self.role);
         let client = authenticated_client(&ctx)?;
         let membership = client
@@ -828,13 +838,14 @@ impl WorkspaceMembershipsCreateCommand {
     }
 }
 
+#[argx(handler = run)]
 impl WorkspaceMembershipsUpdateCommand {
     /// Run `kival workspaces memberships update`.
     ///
     /// # Errors
     ///
     /// Returns an error if the active membership role cannot be updated.
-    pub async fn run(self, ctx: CliContext, output: OutputMode) -> Result<WorkspaceMembership> {
+    pub async fn run(self, ctx: CliContext, output: OutputMode) -> CliResult<WorkspaceMembership> {
         let client = authenticated_client(&ctx)?;
         let membership = client
             .update_workspace_membership(
@@ -850,13 +861,14 @@ impl WorkspaceMembershipsUpdateCommand {
     }
 }
 
+#[argx(handler = run)]
 impl WorkspaceMembershipsRevokeCommand {
     /// Run `kival workspaces memberships revoke`.
     ///
     /// # Errors
     ///
     /// Returns an error if the membership cannot be revoked.
-    pub async fn run(self, ctx: CliContext, output: OutputMode) -> Result<WorkspaceMembership> {
+    pub async fn run(self, ctx: CliContext, output: OutputMode) -> CliResult<WorkspaceMembership> {
         let client = authenticated_client(&ctx)?;
         let membership =
             client.revoke_workspace_membership(self.workspace_id, self.membership_id).await?;
@@ -892,6 +904,7 @@ impl WorkspaceGroupsCommand {
     }
 }
 
+#[argx(handler = run)]
 impl WorkspaceGroupsListCommand {
     /// Run `kival workspaces groups list`.
     ///
@@ -902,7 +915,7 @@ impl WorkspaceGroupsListCommand {
         self,
         ctx: CliContext,
         output: OutputMode,
-    ) -> Result<ListResponse<WorkspaceGroup>> {
+    ) -> CliResult<ListResponse<WorkspaceGroup>> {
         let client = authenticated_client(&ctx)?;
         let response = client
             .list_workspace_groups(
@@ -930,13 +943,14 @@ impl WorkspaceGroupsListCommand {
     }
 }
 
+#[argx(handler = run)]
 impl WorkspaceGroupsCreateCommand {
     /// Run `kival workspaces groups create`.
     ///
     /// # Errors
     ///
     /// Returns an error if the group cannot be linked.
-    pub async fn run(self, ctx: CliContext, output: OutputMode) -> Result<WorkspaceGroup> {
+    pub async fn run(self, ctx: CliContext, output: OutputMode) -> CliResult<WorkspaceGroup> {
         let client = authenticated_client(&ctx)?;
         let workspace_group = client
             .create_workspace_group(
@@ -951,13 +965,14 @@ impl WorkspaceGroupsCreateCommand {
     }
 }
 
+#[argx(handler = run)]
 impl WorkspaceGroupsArchiveCommand {
     /// Run `kival workspaces groups archive`.
     ///
     /// # Errors
     ///
     /// Returns an error if the group link cannot be archived.
-    pub async fn run(self, ctx: CliContext, output: OutputMode) -> Result<WorkspaceGroup> {
+    pub async fn run(self, ctx: CliContext, output: OutputMode) -> CliResult<WorkspaceGroup> {
         let client = authenticated_client(&ctx)?;
         let workspace_group =
             client.archive_workspace_group(self.workspace_id, self.group_id).await?;
@@ -968,13 +983,14 @@ impl WorkspaceGroupsArchiveCommand {
     }
 }
 
+#[argx(handler = run)]
 impl WorkspaceGroupsUnarchiveCommand {
     /// Run `kival workspaces groups unarchive`.
     ///
     /// # Errors
     ///
     /// Returns an error if the group link cannot be unarchived.
-    pub async fn run(self, ctx: CliContext, output: OutputMode) -> Result<WorkspaceGroup> {
+    pub async fn run(self, ctx: CliContext, output: OutputMode) -> CliResult<WorkspaceGroup> {
         let client = authenticated_client(&ctx)?;
         let workspace_group =
             client.unarchive_workspace_group(self.workspace_id, self.group_id).await?;
