@@ -12,6 +12,7 @@ workspace = true
 
 [dependencies]
 # Vendor
+argx.workspace = true
 clap = { workspace = true, features = ["derive"] }
 eyre.workspace = true
 serde = { workspace = true, features = ["derive"] }

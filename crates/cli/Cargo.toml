@@ -11,6 +11,7 @@ workspace = true
 
 [dependencies]
 # Vendor
+argx.workspace = true
 clap.workspace = true
 eyre.workspace = true
 libc.workspace = true

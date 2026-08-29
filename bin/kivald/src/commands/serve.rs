@@ -8,7 +8,7 @@ use std::{
     time::Duration,
 };
 
-use clap::Parser;
+use argx::Args;
 use eyre::Result;
 use kival_cli::{commands::config::load_config_for_command, runner::CliContext};
 use kival_config::DEFAULT_CONFIG_FILENAME;
@@ -36,61 +36,39 @@ use crate::{
 };
 
 /// The `serve` command arguments.
-#[derive(Debug, Parser, Serialize)]
+#[derive(Debug, Args, Serialize)]
 pub struct ServeCommand {
     /// The path to the configuration file to use.
-    #[arg(long, value_name = "FILE")]
+    #[argx(long)]
     #[serde(skip)]
     pub config: Option<PathBuf>,
 
-    /// Enable Prometheus metrics on the optionally specified address.
-    #[arg(
-        long,
-        value_name = "ADDRESS",
-        num_args = 0..=1,
-        default_missing_value = "127.0.0.1:9001"
-    )]
+    /// Enable Prometheus metrics on this address.
+    #[argx(long)]
     pub metrics: Option<SocketAddr>,
 
     /// Address the HTTP server should bind to.
-    #[arg(long, env = "KIVAL_SERVER_LISTEN", value_name = "ADDRESS")]
+    #[argx(long)]
     pub listen: Option<SocketAddr>,
 
     /// Canonical URL of this Kival deployment.
-    #[arg(long, env = "KIVAL_CANONICAL_URL", value_name = "URL")]
+    #[argx(long)]
     pub canonical_url: Option<String>,
 
     /// Additional exact browser origins allowed to perform passkey ceremonies.
-    #[arg(
-        long = "allowed-origin",
-        env = "KIVAL_ALLOWED_ORIGINS",
-        value_name = "URL",
-        value_delimiter = ','
-    )]
+    #[argx(long = "allowed-origin")]
     pub allowed_origins: Option<Vec<String>>,
 
     /// Maximum PostgreSQL connections owned by this Kival process.
-    #[arg(
-        long = "database-max-connections",
-        env = "KIVAL_DATABASE_MAX_CONNECTIONS",
-        value_name = "COUNT"
-    )]
+    #[argx(long = "database-max-connections")]
     pub database_max_connections: Option<NonZeroU32>,
 
     /// Maximum seconds a request waits for an available PostgreSQL connection.
-    #[arg(
-        long = "database-acquire-timeout-seconds",
-        env = "KIVAL_DATABASE_ACQUIRE_TIMEOUT_SECONDS",
-        value_name = "SECONDS"
-    )]
+    #[argx(long = "database-acquire-timeout-seconds")]
     pub database_acquire_timeout_seconds: Option<NonZeroU64>,
 
     /// Maximum seconds to wait for graceful shutdown.
-    #[arg(
-        long = "graceful-shutdown-timeout-seconds",
-        env = "KIVAL_GRACEFUL_SHUTDOWN_TIMEOUT_SECONDS",
-        value_name = "SECONDS"
-    )]
+    #[argx(long = "graceful-shutdown-timeout-seconds")]
     pub graceful_shutdown_timeout_seconds: Option<NonZeroU64>,
 }
 

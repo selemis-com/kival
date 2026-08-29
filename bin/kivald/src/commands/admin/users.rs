@@ -1,6 +1,6 @@
 //! Deployment-operator user provisioning.
 
-use clap::{Parser, Subcommand};
+use argx::{Args, Parser, Subcommand};
 use eyre::{Context, Result, bail};
 use kival_kernel::{
     EventKind, PasskeyEnrollmentPurpose, create_user, is_bootstrapped, lock_admin_provisioning,
@@ -15,10 +15,10 @@ use uuid::Uuid;
 use super::recovery::{issue_operator_enrollment_code, print_enrollment_link};
 
 /// Arguments for `kivald admin users`.
-#[derive(Debug, Parser, Serialize)]
+#[derive(Debug, Args, Serialize)]
 pub(crate) struct AdminUsersCommand {
     /// User-administration operation to run.
-    #[command(subcommand)]
+    #[argx(subcommand)]
     pub command: AdminUsersSubcommand,
 }
 
@@ -26,35 +26,32 @@ pub(crate) struct AdminUsersCommand {
 #[derive(Debug, Subcommand, Serialize)]
 pub(crate) enum AdminUsersSubcommand {
     /// Create a user and issue their first passkey enrollment link.
-    #[command(name = "create")]
     Create(AdminUserCreateCommand),
 
     /// Disable a user while preserving their credentials and access assignments.
-    #[command(name = "disable")]
     Disable(AdminUserLifecycleCommand),
 
     /// Enable a disabled user without changing their credentials or access assignments.
-    #[command(name = "enable")]
     Enable(AdminUserLifecycleCommand),
 }
 
 /// Arguments for `kivald admin users create`.
-#[derive(Debug, Parser, Serialize)]
+#[derive(Debug, Args, Serialize)]
 pub(crate) struct AdminUserCreateCommand {
     /// Username for the new user.
-    #[arg(long, value_name = "USERNAME")]
+    #[argx(long)]
     pub username: String,
 
     /// Display name for the new user.
-    #[arg(long, value_name = "NAME")]
+    #[argx(long)]
     pub display_name: String,
 }
 
 /// Arguments for deployment-operator user lifecycle changes.
-#[derive(Debug, Parser, Serialize)]
+#[derive(Debug, Args, Serialize)]
 pub(crate) struct AdminUserLifecycleCommand {
     /// User ID or username whose lifecycle state should change.
-    #[arg(value_name = "USER")]
+
     pub user: String,
 }
 
@@ -214,7 +211,7 @@ async fn lock_user(tx: &mut Transaction<'_, Postgres>, user: &str) -> Result<(Uu
 
 #[cfg(test)]
 mod tests {
-    use clap::Parser;
+    use argx::Parser;
     use eyre::Result;
     use kival_tests::{TestFixtureExt, TestKival};
 
@@ -222,10 +219,17 @@ mod tests {
         AdminUserLifecycleCommand, AdminUsersCommand, AdminUsersSubcommand, UserLifecycleAction,
     };
 
+    #[derive(Parser)]
+    struct TestCli {
+        #[argx(flatten)]
+        command: AdminUsersCommand,
+    }
+
     #[test]
     fn lifecycle_commands_accept_username_or_user_id() {
-        let disable = AdminUsersCommand::try_parse_from(["users", "disable", "alice"])
-            .expect("disable command should parse");
+        let disable = TestCli::try_parse_from(["users", "disable", "alice"])
+            .expect("disable command should parse")
+            .command;
         let AdminUsersSubcommand::Disable(disable) = disable.command else {
             panic!("disable subcommand should parse");
         };
@@ -233,8 +237,9 @@ mod tests {
 
         let user_id = uuid::Uuid::now_v7();
         let user_id_text = user_id.to_string();
-        let enable = AdminUsersCommand::try_parse_from(["users", "enable", &user_id_text])
-            .expect("enable command should parse");
+        let enable = TestCli::try_parse_from(["users", "enable", &user_id_text])
+            .expect("enable command should parse")
+            .command;
         let AdminUsersSubcommand::Enable(enable) = enable.command else {
             panic!("enable subcommand should parse");
         };

@@ -1,6 +1,6 @@
 //! Deployment-operator passkey recovery.
 
-use clap::Parser;
+use argx::Args;
 use eyre::{Context, Result, bail};
 use kival_common::security;
 use kival_kernel::{
@@ -17,14 +17,14 @@ use uuid::Uuid;
 const ENROLLMENT_CODE_PREFIX: &str = "kvl_enroll_";
 
 /// Arguments for the kivald admin recover command.
-#[derive(Debug, Parser, Serialize)]
+#[derive(Debug, Args, Serialize)]
 pub(crate) struct AdminRecoverCommand {
     /// User ID or username whose passkeys should be reset.
-    #[arg(value_name = "USER")]
+
     pub user: String,
 
     /// Also revoke every active API key owned by the user.
-    #[arg(long)]
+    #[argx(long)]
     pub revoke_api_keys: bool,
 }
 

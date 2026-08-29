@@ -1,14 +1,13 @@
-//! Clap [`Args`] for the data directory configuration.
+//! [`argx::Args`] for the data directory configuration.
 
 use std::path::PathBuf;
 
-use clap::Args;
+use argx::Args;
 
 use crate::dirs::{DataDirPath, MaybePlatformPath, PlatformPath};
 
 /// Parameters for the data directory configuration.
 #[derive(Debug, Args, PartialEq, Eq, Default, Clone)]
-#[command(next_help_heading = "Datadir")]
 pub struct DatadirArgs {
     /// The path to the data dir for all Kival files and subdirectories.
     ///
@@ -17,7 +16,7 @@ pub struct DatadirArgs {
     ///
     /// - Linux: `$XDG_DATA_HOME/kival/` or `$HOME/.local/share/kival/`
     /// - macOS: `$HOME/.local/share/kival/`
-    #[arg(short, long, value_name = "DATA_DIR", verbatim_doc_comment, default_value_t)]
+    #[argx(short, long, default)]
     pub datadir: MaybePlatformPath<DataDirPath>,
 }
 
@@ -35,14 +34,14 @@ impl DatadirArgs {
 
 #[cfg(test)]
 mod tests {
-    use clap::Parser;
+    use argx::Parser;
 
     use super::*;
 
     /// A helper type to parse [`Args`] more easily.
     #[derive(Parser)]
     struct CommandParser<T: Args> {
-        #[command(flatten)]
+        #[argx(flatten)]
         args: T,
     }
 

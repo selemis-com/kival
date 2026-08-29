@@ -2,7 +2,7 @@
 
 mod initialization;
 
-use clap::{Parser, Subcommand};
+use argx::{Args, Parser, Subcommand};
 use eyre::{Context, Result, bail};
 use kival_tracing::info;
 use serde::Serialize;
@@ -13,10 +13,10 @@ use self::initialization::{
 };
 
 /// Arguments for `kivald admin workspaces`.
-#[derive(Debug, Parser, Serialize)]
+#[derive(Debug, Args, Serialize)]
 pub(crate) struct AdminWorkspacesCommand {
     /// Workspace-administration operation to run.
-    #[command(subcommand)]
+    #[argx(subcommand)]
     pub command: AdminWorkspacesSubcommand,
 }
 
@@ -24,31 +24,29 @@ pub(crate) struct AdminWorkspacesCommand {
 #[derive(Debug, Subcommand, Serialize)]
 pub(crate) enum AdminWorkspacesSubcommand {
     /// List bundled reusable templates and demo scenarios.
-    #[command(name = "initializers")]
     Initializers,
 
     /// Create a workspace, optionally initialized once from a bundled recipe.
-    #[command(name = "create")]
     Create(AdminWorkspaceCreateCommand),
 }
 
 /// Arguments for `kivald admin workspaces create`.
-#[derive(Debug, Parser, Serialize)]
+#[derive(Debug, Args, Serialize)]
 pub(crate) struct AdminWorkspaceCreateCommand {
     /// Name for the new workspace.
-    #[arg(long, value_name = "NAME")]
+    #[argx(long)]
     pub name: String,
 
     /// Optional workspace description.
-    #[arg(long, value_name = "TEXT")]
+    #[argx(long)]
     pub description: Option<String>,
 
     /// Initialize the new workspace from a reusable template ID.
-    #[arg(long, value_name = "ID", conflicts_with = "demo")]
+    #[argx(long, conflicts = "demo")]
     pub template: Option<String>,
 
     /// Initialize the new workspace from a disposable demo-scenario ID.
-    #[arg(long, value_name = "ID", conflicts_with = "template")]
+    #[argx(long, conflicts = "template")]
     pub demo: Option<String>,
 }
 

@@ -5,7 +5,7 @@ use std::{
     num::{NonZeroU32, NonZeroU64},
 };
 
-use clap::{Parser, Subcommand};
+use argx::{Parser, Subcommand};
 use kival_cli::{
     args::{datadir::DatadirArgs, log::LogArgs},
     commands::config::ConfigCommand,
@@ -56,15 +56,12 @@ config! {
 #[derive(Debug, Subcommand)]
 pub enum Commands {
     /// Manage the `kivald` configuration.
-    #[command(name = "config")]
     Config(ConfigCommand),
 
     /// Manage the `kivald` as admin.
-    #[command(name = "admin")]
     Admin(AdminCommand),
 
     /// Start the `kivald`.
-    #[command(name = "serve")]
     Serve(ServeCommand),
 }
 
@@ -72,24 +69,18 @@ pub enum Commands {
 ///
 /// This is the entrypoint to the executable.
 #[derive(Debug, Parser)]
-#[command(
-    author,
-    version = SHORT_VERSION,
-    long_version = LONG_VERSION,
-    long_about = None,
-    before_help = BANNER,
-)]
+#[argx(name = "kivald", version = SHORT_VERSION, long_version = LONG_VERSION)]
 pub struct Cli {
     /// The command to run.
-    #[command(subcommand)]
+    #[argx(subcommand)]
     pub command: Commands,
 
     /// The data directory to use.
-    #[command(flatten)]
+    #[argx(flatten)]
     pub datadir: DatadirArgs,
 
     /// The logging configuration.
-    #[command(flatten)]
+    #[argx(flatten)]
     pub logs: LogArgs,
 }
 
@@ -234,22 +225,16 @@ mod tests {
     }
 
     #[test]
-    fn serve_metrics_listener_is_optional_and_defaults_to_loopback() {
+    fn serve_metrics_listener_requires_an_explicit_address() {
         let cli = Cli::try_parse_from(["kivald", "serve"]).expect("serve should parse");
         let Commands::Serve(serve) = cli.command else {
             panic!("serve command should parse");
         };
         assert!(serve.metrics.is_none());
 
-        let cli =
+        assert!(
             Cli::try_parse_from(["kivald", "serve", "--metrics", "--listen", "127.0.0.1:3000"])
-                .expect("metrics without an explicit address should parse before another option");
-        let Commands::Serve(serve) = cli.command else {
-            panic!("serve command should parse");
-        };
-        assert_eq!(
-            serve.metrics,
-            Some("127.0.0.1:9001".parse().expect("default metrics address should parse"))
+                .is_err()
         );
     }
 

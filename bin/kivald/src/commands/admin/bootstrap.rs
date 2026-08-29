@@ -1,6 +1,6 @@
 //! The `admin bootstrap` command for the `kivald` CLI.
 
-use clap::Parser;
+use argx::Args;
 use eyre::{Context, Result, bail};
 use kival_kernel::{
     PasskeyEnrollmentPurpose, create_user, enabled_global_admin_count,
@@ -14,14 +14,14 @@ use sqlx::PgPool;
 use super::recovery::{issue_operator_enrollment_code, print_enrollment_link};
 
 /// Arguments for `kivald admin bootstrap`.
-#[derive(Debug, Parser, Serialize)]
+#[derive(Debug, Args, Serialize)]
 pub(crate) struct AdminBootstrapCommand {
     /// The username for the initial global admin.
-    #[arg(long, value_name = "USERNAME")]
+    #[argx(long)]
     pub username: String,
 
     /// The display name for the initial global admin.
-    #[arg(long, value_name = "NAME")]
+    #[argx(long)]
     pub display_name: String,
 }
 

@@ -2,7 +2,7 @@
 
 use std::path::PathBuf;
 
-use clap::{Parser, Subcommand};
+use argx::{Args, Parser, Subcommand};
 use eyre::{Context, Result};
 use kival_cli::{commands::config::load_config_for_command, runner::CliContext};
 use kival_config::DEFAULT_CONFIG_FILENAME;
@@ -27,19 +27,19 @@ mod users;
 mod workspaces;
 
 /// The `admin` command arguments.
-#[derive(Debug, Parser, Serialize)]
+#[derive(Debug, Args, Serialize)]
 pub struct AdminCommand {
     /// The path to the configuration file to use.
-    #[arg(long, value_name = "FILE", global = true)]
+    #[argx(long, global)]
     #[serde(skip)]
     pub config: Option<PathBuf>,
 
     /// Canonical URL used to generate passkey enrollment links.
-    #[arg(long, env = "KIVAL_CANONICAL_URL", value_name = "URL", global = true)]
+    #[argx(long, global)]
     pub canonical_url: Option<String>,
 
     /// The admin subcommand to run.
-    #[command(subcommand)]
+    #[argx(subcommand)]
     pub(crate) command: AdminSubcommand,
 }
 
@@ -47,19 +47,15 @@ pub struct AdminCommand {
 #[derive(Debug, Subcommand, Serialize)]
 pub(crate) enum AdminSubcommand {
     /// Bootstrap the first global admin user.
-    #[command(name = "bootstrap")]
     Bootstrap(AdminBootstrapCommand),
 
     /// Reset a user's interactive credentials and issue a one-time passkey enrollment link.
-    #[command(name = "recover")]
     Recover(AdminRecoverCommand),
 
     /// Provision, disable, and enable users.
-    #[command(name = "users")]
     Users(AdminUsersCommand),
 
     /// Create workspaces with optional one-shot administrative initialization.
-    #[command(name = "workspaces")]
     Workspaces(AdminWorkspacesCommand),
 }
 

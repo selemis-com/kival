@@ -2,7 +2,7 @@
 
 use std::path::PathBuf;
 
-use clap::Parser;
+use argx::Args;
 use kival_config::{ConfigDefaults, ConfigLayer, DEFAULT_CONFIG_FILENAME, load_config};
 use kival_tracing::trace;
 use serde::{Serialize, de::DeserializeOwned};
@@ -56,18 +56,18 @@ pub enum ConfigError {
 }
 
 /// The command arguments for the `config` command.
-#[derive(Parser, Debug)]
+#[derive(Args, Debug)]
 pub struct ConfigCommand {
     /// The path to the configuration file to use.
-    #[arg(long, value_name = "FILE", verbatim_doc_comment)]
+    #[argx(long)]
     pub config: Option<PathBuf>,
 
     /// Show the default config
-    #[arg(long, verbatim_doc_comment, conflicts_with = "config")]
+    #[argx(long, conflicts = "config")]
     default: bool,
 
     /// The data directory to use.
-    #[command(flatten)]
+    #[argx(flatten)]
     pub(crate) datadir: DatadirArgs,
 }
 
