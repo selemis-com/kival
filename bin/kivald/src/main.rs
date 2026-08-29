@@ -38,7 +38,7 @@ pub struct ServerConfig {
     pub canonical_url: String,
 
     /// Additional exact browser origins allowed to perform passkey ceremonies.
-    #[argx(default)]
+    #[argx(default, env = "KIVAL_ALLOWED_ORIGINS", delimited)]
     pub allowed_origins: Vec<String>,
 
     /// Maximum PostgreSQL connections owned by this Kival server process.
@@ -71,8 +71,11 @@ impl ServerConfig {
     /// Returns an error when a configured source cannot be loaded or resolved.
     pub fn load(path: &Path) -> eyre::Result<Self> {
         let loader = Self::loader().layer(Defaults);
-        let loader = if path.exists() { loader.layer(Toml::new(path)) } else { loader };
-        Ok(loader.layer(Environment).resolve()?)
+        if path.exists() {
+            Ok(loader.layer(Environment).layer(Toml::new(path)).layer(Environment).resolve()?)
+        } else {
+            Ok(loader.layer(Environment).resolve()?)
+        }
     }
 }
 

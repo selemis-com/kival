@@ -4,8 +4,8 @@ This page lists the licenses of the projects used in Kival.
 
 ## Overview of licenses
 
-- [Apache License 2.0](#Apache-2.0) (289)
-- [MIT License](#MIT) (55)
+- [Apache License 2.0](#Apache-2.0) (272)
+- [MIT License](#MIT) (54)
 - [Unicode License v3](#Unicode-3.0) (19)
 - [ISC License](#ISC) (5)
 - [BSD 3-Clause "New" or "Revised" License](#BSD-3-Clause) (3)
@@ -2586,27 +2586,12 @@ Apache License 2.0
 Apache License 2.0
 
 #### Used by
-- [anstream]( https://github.com/rust-cli/anstyle.git ) 1.0.0
-- [anstyle-parse]( https://github.com/rust-cli/anstyle.git ) 1.0.0
-- [anstyle-query]( https://github.com/rust-cli/anstyle.git ) 1.1.5
-- [anstyle-wincon]( https://github.com/rust-cli/anstyle.git ) 3.0.11
-- [anstyle]( https://github.com/rust-cli/anstyle.git ) 1.0.14
-- [clap]( https://github.com/clap-rs/clap ) 4.6.6
-- [clap_builder]( https://github.com/clap-rs/clap ) 4.6.6
-- [clap_complete]( https://github.com/clap-rs/clap ) 4.6.9
-- [clap_complete_nushell]( https://github.com/clap-rs/clap ) 4.6.2
-- [clap_derive]( https://github.com/clap-rs/clap ) 4.6.4
-- [clap_lex]( https://github.com/clap-rs/clap ) 1.1.0
-- [colorchoice]( https://github.com/rust-cli/anstyle.git ) 1.0.5
 - [hex]( https://github.com/KokaKiwi/rust-hex ) 0.4.3
 - [humantime]( https://github.com/chronotope/humantime ) 2.4.0
-- [is_terminal_polyfill]( https://github.com/polyfill-rs/is_terminal_polyfill ) 1.70.2
 - [jni-sys]( https://github.com/jni-rs/jni-sys ) 0.4.1
-- [once_cell_polyfill]( https://github.com/polyfill-rs/once_cell_polyfill ) 1.70.2
 - [quick-error]( http://github.com/tailhook/quick-error ) 1.2.3
 - [serde_spanned]( https://github.com/toml-rs/toml ) 1.1.1
 - [stringprep]( https://github.com/sfackler/rust-stringprep ) 0.1.5
-- [toml]( https://github.com/toml-rs/toml ) 1.1.4+spec-1.1.0
 - [toml_datetime]( https://github.com/toml-rs/toml ) 1.1.1+spec-1.1.0
 - [toml_edit]( https://github.com/toml-rs/toml ) 0.25.13+spec-1.1.0
 - [toml_parser]( https://github.com/toml-rs/toml ) 1.1.3+spec-1.1.0
@@ -7790,11 +7775,12 @@ limitations under the License.
 Apache License 2.0
 
 #### Used by
+- [argx]( https://github.com/selemis-com/argx ) 0.1.0
+- [argx-derive]( https://github.com/selemis-com/argx ) 0.1.0
 - [kival]( https://crates.io/crates/kival ) 0.1.0
 - [kivald]( https://crates.io/crates/kivald ) 0.1.0
 - [kival-cli]( https://crates.io/crates/kival-cli ) 0.1.0
 - [kival-common]( https://crates.io/crates/kival-common ) 0.1.0
-- [kival-config]( https://crates.io/crates/kival-config ) 0.1.0
 - [kival-kernel]( https://crates.io/crates/kival-kernel ) 0.1.0
 - [kival-metrics]( https://crates.io/crates/kival-metrics ) 0.1.0
 - [kival-server]( https://crates.io/crates/kival-server ) 0.1.0
@@ -7807,8 +7793,6 @@ Apache License 2.0
 - [android_system_properties]( https://github.com/nical/android_system_properties ) 0.1.5
 - [async-trait]( https://github.com/dtolnay/async-trait ) 0.1.89
 - [aws-lc-sys]( https://github.com/aws/aws-lc-rs ) 0.41.0
-- [clap_schema]( https://github.com/selemis-com/clap_schema ) 0.2.0
-- [clap_schema_derive]( https://github.com/selemis-com/clap_schema ) 0.2.0
 - [document-features]( https://github.com/slint-ui/document-features ) 0.2.12
 - [dunce]( https://gitlab.com/kornelski/dunce ) 1.0.5
 - [dyn-clone]( https://github.com/dtolnay/dyn-clone ) 1.0.20
@@ -7859,7 +7843,6 @@ Apache License 2.0
 - [time-macros]( https://github.com/time-rs/time ) 0.2.32
 - [time]( https://github.com/time-rs/time ) 0.3.55
 - [unicode-ident]( https://github.com/dtolnay/unicode-ident ) 1.0.24
-- [utf8parse]( https://github.com/alacritty/vte ) 0.2.2
 - [wasm-streams]( https://github.com/MattiasBuelens/wasm-streams/ ) 0.5.0
 - [whoami]( https://github.com/ardaku/whoami ) 2.1.2
 
@@ -9444,39 +9427,6 @@ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
-
-```
-### MIT
-MIT License
-
-#### Used by
-- [strsim]( https://github.com/rapidfuzz/strsim-rs ) 0.11.1
-
-#### License
-```
-The MIT License (MIT)
-
-Copyright (c) 2015 Danny Guo
-Copyright (c) 2016 Titus Wormer <tituswormer@gmail.com>
-Copyright (c) 2018 Akash Kurdekar
-
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
-
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-SOFTWARE.
 
 ```
 ### MIT

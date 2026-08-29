@@ -15,7 +15,7 @@ use crate::{
         workspaces::WorkspacesCommand,
     },
     utils::{
-        error::CliError,
+        error::{CliError, CliErrorBody, print_json_error},
         output::OutputMode,
         version::{LONG_VERSION, SHORT_VERSION},
     },
@@ -45,8 +45,11 @@ impl ClientConfig {
     /// Returns an error when a configured source cannot be read or resolved.
     pub fn load(path: &Path) -> Result<Self> {
         let loader = Self::loader().layer(Defaults);
-        let loader = if path.exists() { loader.layer(Toml::new(path)) } else { loader };
-        Ok(loader.layer(Environment).resolve()?)
+        if path.exists() {
+            Ok(loader.layer(Environment).layer(Toml::new(path)).layer(Environment).resolve()?)
+        } else {
+            Ok(loader.layer(Environment).resolve()?)
+        }
     }
 }
 
@@ -204,8 +207,14 @@ fn main() {
     // Parse command-line arguments together with Argx's built-in output options.
     let invocation = Cli::try_parse_invocation().unwrap_or_else(|error| error.exit());
     let (cli, output) = invocation.into_parts();
-    if let Err(err) = cli.run(output) {
-        eprintln!("Error: {err}");
+    let json_errors = output.format() == OutputFormat::Json;
+    if let Err(error) = cli.run(output) {
+        let error = CliError::from(error);
+        if json_errors {
+            print_json_error(&CliErrorBody::from_cli_error(&error));
+        } else {
+            eprintln!("Error: {error}");
+        }
         std::process::exit(1);
     }
 }
