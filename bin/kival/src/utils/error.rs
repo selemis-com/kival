@@ -3,7 +3,6 @@
 use std::path::Path;
 
 use eyre::Report;
-use kival_cli::commands::config::ConfigError;
 use kival_sdk::{ApiErrorKind, ClientError};
 use serde::Serialize;
 use serde_json::Value;
@@ -39,9 +38,6 @@ pub struct CliError {
     /// Optional structured details.
     pub details: Option<Value>,
 }
-
-/// Result returned by machine-readable CLI handlers.
-pub type CliResult<T> = std::result::Result<T, CliError>;
 
 impl CliError {
     /// Builds an invalid argument error.
@@ -146,15 +142,6 @@ impl From<Report> for CliError {
             return Self::from_client_error(error);
         }
         Self::internal()
-    }
-}
-
-impl From<ConfigError> for CliError {
-    fn from(error: ConfigError) -> Self {
-        match error {
-            ConfigError::Argx(error) => Self::invalid_argument(error.to_string()),
-            ConfigError::TomlSer(_) => Self::internal(),
-        }
     }
 }
 

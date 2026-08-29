@@ -2,7 +2,7 @@
 
 use std::path::{Path, PathBuf};
 
-use argx::{Args, Subcommand};
+use argx::{argx, Args, Subcommand};
 use eyre::Result;
 use kival_cli::runner::CliContext;
 use kival_sdk::{
@@ -16,7 +16,7 @@ use super::{
     ObjectTargetArgs,
     io::{ensure_output_available, write_output_file},
 };
-use crate::utils::error::CliResult;
+use crate::utils::error::CliError;
 use crate::utils::{
     args::{DEFAULT_LIST_LIMIT, list_params, metadata_value},
     credentials::authenticated_client,
@@ -195,7 +195,7 @@ impl ObjectAttachmentsListCommand {
         self,
         ctx: CliContext,
         output: OutputMode,
-    ) -> CliResult<ListResponse<ObjectAttachment>> {
+    ) -> std::result::Result<ListResponse<ObjectAttachment>, CliError> {
         let client = authenticated_client(&ctx)?;
         let response = client
             .list_object_attachments(
@@ -227,7 +227,7 @@ impl ObjectAttachmentsUploadCommand {
     /// # Errors
     ///
     /// Returns an error if the file cannot be uploaded.
-    pub async fn run(self, ctx: CliContext, output: OutputMode) -> CliResult<ObjectAttachment> {
+    pub async fn run(self, ctx: CliContext, output: OutputMode) -> std::result::Result<ObjectAttachment, CliError> {
         let name = match self.name.as_deref().map(str::trim) {
             Some("") => return Err(CliError::invalid_argument("name must not be empty").into()),
             Some(name) => Some(name.to_owned()),
@@ -296,7 +296,7 @@ impl ObjectAttachmentsReuseCommand {
     /// # Errors
     ///
     /// Returns an error if the source attachment cannot be authorized or reused.
-    pub async fn run(self, ctx: CliContext, output: OutputMode) -> CliResult<ObjectAttachment> {
+    pub async fn run(self, ctx: CliContext, output: OutputMode) -> std::result::Result<ObjectAttachment, CliError> {
         let client = authenticated_client(&ctx)?;
         let attachment = client
             .reuse_object_attachment(
@@ -326,7 +326,7 @@ impl ObjectAttachmentsContentCommand {
         self,
         ctx: CliContext,
         output: OutputMode,
-    ) -> CliResult<ObjectAttachmentContentOutput> {
+    ) -> std::result::Result<ObjectAttachmentContentOutput, CliError> {
         ensure_output_available(&self.output, self.force)?;
 
         let client = authenticated_client(&ctx)?;
@@ -364,7 +364,7 @@ impl ObjectAttachmentsGetCommand {
     /// # Errors
     ///
     /// Returns an error if the attachment cannot be fetched.
-    pub async fn run(self, ctx: CliContext, output: OutputMode) -> CliResult<ObjectAttachment> {
+    pub async fn run(self, ctx: CliContext, output: OutputMode) -> std::result::Result<ObjectAttachment, CliError> {
         let client = authenticated_client(&ctx)?;
         let attachment = client
             .get_object_attachment(

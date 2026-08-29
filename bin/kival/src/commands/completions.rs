@@ -1,9 +1,8 @@
 //! Shell completion generation command.
 
-use argx::{Args, Parser as _, completion::Shell};
-use eyre::Result;
+use argx::{argx, Args, Parser as _, completion::Shell};
 
-use crate::utils::error::CliResult;
+use crate::utils::error::CliError;
 use crate::{Cli, utils::output::OutputMode};
 
 /// Arguments for `kival completions`.
@@ -21,7 +20,7 @@ impl CompletionsCommand {
     /// # Errors
     ///
     /// Returns an error if completion adapter generation fails.
-    pub fn run(self, _output: &OutputMode) -> CliResult<()> {
+    pub fn run(self, _output: &OutputMode) -> std::result::Result<(), CliError> {
         print!("{}", Cli::render_completion(self.shell)?);
         Ok(())
     }

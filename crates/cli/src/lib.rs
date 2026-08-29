@@ -4,8 +4,10 @@
 #![cfg_attr(docsrs, feature(doc_cfg))]
 
 pub mod args;
-pub mod commands;
 pub mod dirs;
 pub mod dotenv;
 pub mod runner;
 pub mod sigsegv;
+
+/// The default filename for Kival configuration files.
+pub const DEFAULT_CONFIG_FILENAME: &str = "kival.toml";

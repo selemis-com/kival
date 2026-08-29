@@ -12,20 +12,6 @@ use crate::utils::{
     input::{InputPath, read_text_input},
 };
 
-/// Parses a body-file path while reserving `-` for `--body -` standard input.
-///
-/// # Errors
-///
-/// Returns a parser error when `value` is `-`.
-pub(super) fn parse_body_file_path(value: &str) -> std::result::Result<PathBuf, String> {
-    if value == "-" {
-        Err("`--body-file -` is not supported; use `--body -` to read from standard input"
-            .to_owned())
-    } else {
-        Ok(PathBuf::from(value))
-    }
-}
-
 /// Resolves an inline body, standard input, or body file into Markdown text.
 ///
 /// # Errors
@@ -39,6 +25,10 @@ pub(super) fn resolve_body(
     match (body, body_file) {
         (Some(body), None) if body == "-" => read_text_input(InputPath::Stdin).map(Some),
         (Some(body), None) => Ok(Some(body)),
+        (None, Some(path)) if path == Path::new("-") => Err(CliError::invalid_argument(
+            "`--body-file -` is not supported; use `--body -` to read from standard input",
+        )
+        .into()),
         (None, Some(path)) => read_text_input(InputPath::File(path)).map(Some),
         (None, None) => Ok(None),
         (Some(_), Some(_)) => {

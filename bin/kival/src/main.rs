@@ -1,13 +1,12 @@
 //! Entrypoint for `kival`.
 
-use argx::{Args, Parser, Subcommand};
+use std::path::Path;
+
+use argx::{Defaults, Environment, Parser, Subcommand, Toml};
 use eyre::Result;
-use kival_cli::{
-    args::datadir::DatadirArgs, commands::config::ConfigCommand, runner::CliRunner, sigsegv,
-};
+use kival_cli::{args::datadir::DatadirArgs, runner::CliRunner, sigsegv};
 use url::Url;
 
-use crate::utils::error::CliResult;
 use crate::{
     commands::{
         admin::AdminCommand, comments::CommentsCommand, completions::CompletionsCommand,
@@ -38,23 +37,12 @@ pub struct ClientConfig {
     pub api_key: Option<String>,
 }
 
-/// Kival client configuration command payload.
-#[derive(Debug, Args)]
-pub struct ClientConfigCommand {
-    /// Shared configuration command arguments.
-    #[argx(flatten)]
-    command: ConfigCommand,
-}
-
-#[argx(handler = run)]
-impl ClientConfigCommand {
-    /// Run `kival config`.
-    ///
-    /// # Errors
-    ///
-    /// Returns an error if the effective client configuration cannot be loaded or printed.
-    async fn run(self) -> CliResult<()> {
-        self.command.run::<ClientConfig>().await.map_err(CliError::from)
+impl ClientConfig {
+    /// Loads effective client configuration from defaults, an optional TOML file, and environment.
+    pub fn load(path: &Path) -> Result<Self> {
+        let loader = Self::loader().layer(Defaults);
+        let loader = if path.exists() { loader.layer(Toml::new(path)) } else { loader };
+        Ok(loader.layer(Environment).resolve()?)
     }
 }
 
@@ -93,10 +81,6 @@ pub enum Commands {
     /// Check server health and readiness.
     #[argx(name = "server")]
     Server(ServerCommand),
-
-    /// Print the effective Kival client configuration as TOML.
-    #[argx(name = "config")]
-    Config(ClientConfigCommand),
 
     /// Generate shell completion script text.
     #[argx(name = "completions")]
@@ -152,12 +136,6 @@ impl Cli {
         utils::credentials::set_command_overrides(api_key, url)?;
 
         match &command {
-            Commands::Config(_) if json => {
-                return Err(CliError::invalid_argument(
-                    "config output is TOML text and does not support --json",
-                )
-                .into());
-            }
             Commands::Completions(_) if json => {
                 return Err(CliError::invalid_argument(
                     "completions output is shell script text and does not support --json",
@@ -171,12 +149,11 @@ impl Cli {
         let output = OutputMode::from_options(json, projection);
 
         match command {
-            Commands::Completions(command) => command.run(&output),
+            Commands::Completions(command) => Ok(command.run(&output)?),
             command => {
                 let runner = create_runner(&datadir)?;
 
                 match command {
-                    Commands::Config(command) => Ok(runner.run_until_ctrl_c(command.run())?),
                     Commands::Whoami(command) => {
                         Ok(runner.run_command_until_ctrl_c(async move |ctx| {
                             command.run(ctx, output).await?;

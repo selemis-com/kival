@@ -1,13 +1,12 @@
 //! Object event-listing command.
 
-use argx::Args;
-use eyre::Result;
+use argx::{argx, Args};
 use kival_cli::runner::CliContext;
 use kival_sdk::{Event, ListResponse};
 use uuid::Uuid;
 
 use super::ObjectTargetArgs;
-use crate::utils::error::CliResult;
+use crate::utils::error::CliError;
 use crate::{
     commands::events::print_event_line,
     utils::{
@@ -50,7 +49,7 @@ impl ObjectEventsCommand {
     /// # Errors
     ///
     /// Returns an error if events cannot be listed.
-    pub async fn run(self, ctx: CliContext, output: OutputMode) -> CliResult<ListResponse<Event>> {
+    pub async fn run(self, ctx: CliContext, output: OutputMode) -> std::result::Result<ListResponse<Event>, CliError> {
         let params = event_params(
             self.limit,
             self.after_sequence,

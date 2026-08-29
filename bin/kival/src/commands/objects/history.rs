@@ -1,6 +1,6 @@
 //! Object version history, diff, and restore commands.
 
-use argx::{Args, Subcommand};
+use argx::{argx, Args, Subcommand};
 use eyre::Result;
 use kival_cli::runner::CliContext;
 use kival_sdk::{
@@ -16,7 +16,7 @@ use super::{
     ObjectTargetArgs,
     display::{print_version_line, print_version_response},
 };
-use crate::utils::error::CliResult;
+use crate::utils::error::CliError;
 use crate::utils::{
     args::{DEFAULT_LIST_LIMIT, list_params},
     credentials::authenticated_client,
@@ -162,7 +162,7 @@ impl ObjectsDiffCommand {
     ///
     /// Returns an error if a selector is invalid or out of range, or if the selected versions
     /// cannot be read.
-    pub async fn run(self, ctx: CliContext, output: OutputMode) -> CliResult<ObjectDiffOutput> {
+    pub async fn run(self, ctx: CliContext, output: OutputMode) -> std::result::Result<ObjectDiffOutput, CliError> {
         let from_raw = self.from.as_str();
         let to_raw = self.to.as_deref().unwrap_or("0");
         let from_selector = parse_version_selector(from_raw)?;
@@ -201,7 +201,7 @@ impl ObjectsRestoreCommand {
     ///
     /// Returns an error if the source selector is invalid, the object cannot be edited, the
     /// selected version cannot be read, or optimistic concurrency detects a newer current version.
-    pub async fn run(self, ctx: CliContext, output: OutputMode) -> CliResult<ObjectRestoreOutput> {
+    pub async fn run(self, ctx: CliContext, output: OutputMode) -> std::result::Result<ObjectRestoreOutput, CliError> {
         let selector = parse_version_selector(&self.from)?;
         let client = authenticated_client(&ctx)?;
         let current = client.get_object(self.target.workspace_id, self.target.object_id).await?;
@@ -213,13 +213,13 @@ impl ObjectsRestoreCommand {
             let refreshed =
                 client.get_object(self.target.workspace_id, self.target.object_id).await?;
             let unchanged = validate_restore_noop(current_version.id, &refreshed)?;
-            return print_restore_result(
+            return Ok(print_restore_result(
                 output,
                 self.target.object_id,
                 source.id,
                 unchanged,
                 false,
-            );
+            )?);
         }
 
         let response = client
@@ -233,7 +233,7 @@ impl ObjectsRestoreCommand {
             CliError::invalid_argument("object has no current version after restore")
         })?;
 
-        print_restore_result(output, self.target.object_id, source.id, restored, true)
+        Ok(print_restore_result(output, self.target.object_id, source.id, restored, true)?)
     }
 }
 
@@ -495,7 +495,7 @@ impl ObjectVersionsListCommand {
         self,
         ctx: CliContext,
         output: OutputMode,
-    ) -> CliResult<ListResponse<ObjectVersion>> {
+    ) -> std::result::Result<ListResponse<ObjectVersion>, CliError> {
         let client = authenticated_client(&ctx)?;
         let response = client
             .list_object_versions(
@@ -527,7 +527,7 @@ impl ObjectVersionsGetCommand {
     /// # Errors
     ///
     /// Returns an error if the version cannot be fetched.
-    pub async fn run(self, ctx: CliContext, output: OutputMode) -> CliResult<ObjectVersion> {
+    pub async fn run(self, ctx: CliContext, output: OutputMode) -> std::result::Result<ObjectVersion, CliError> {
         let client = authenticated_client(&ctx)?;
         let version = client
             .get_object_version(self.target.workspace_id, self.target.object_id, self.version_id)
@@ -548,7 +548,7 @@ impl ObjectVersionsWikilinksCommand {
         self,
         ctx: CliContext,
         output: OutputMode,
-    ) -> CliResult<ObjectVersionWikilinksResponse> {
+    ) -> std::result::Result<ObjectVersionWikilinksResponse, CliError> {
         let client = authenticated_client(&ctx)?;
         let items = client
             .get_object_version_wikilinks(

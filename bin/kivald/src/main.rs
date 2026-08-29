@@ -3,12 +3,12 @@
 use std::{
     net::SocketAddr,
     num::{NonZeroU32, NonZeroU64},
+    path::Path,
 };
 
-use argx::{Parser, Subcommand};
+use argx::{Defaults, Environment, Parser, Subcommand, Toml};
 use kival_cli::{
     args::{datadir::DatadirArgs, log::LogArgs},
-    commands::config::ConfigCommand,
     dotenv,
     runner::CliRunner,
     sigsegv,
@@ -65,12 +65,18 @@ pub struct ServerConfig {
     pub graceful_shutdown_timeout_seconds: NonZeroU64,
 }
 
+impl ServerConfig {
+    /// Loads effective server configuration from defaults, an optional TOML file, and environment.
+    pub fn load(path: &Path) -> eyre::Result<Self> {
+        let loader = Self::loader().layer(Defaults);
+        let loader = if path.exists() { loader.layer(Toml::new(path)) } else { loader };
+        Ok(loader.layer(Environment).resolve()?)
+    }
+}
+
 /// The available CLI commands for the `kivald` CLI.
 #[derive(Debug, Subcommand)]
 pub enum Commands {
-    /// Manage the `kivald` configuration.
-    Config(ConfigCommand),
-
     /// Manage the `kivald` as admin.
     Admin(AdminCommand),
 
@@ -111,9 +117,6 @@ impl Cli {
         let runner = CliRunner::try_default_runtime(datadir_path.into())?;
 
         match self.command {
-            Commands::Config(command) => {
-                Ok(runner.run_until_ctrl_c(command.run::<ServerConfig>())?)
-            }
             Commands::Admin(command) => runner.run_command_until_ctrl_c(|ctx| command.run(ctx)),
             Commands::Serve(command) => {
                 runner.run_command_until_exit(|ctx| command.run(ctx, quiet))

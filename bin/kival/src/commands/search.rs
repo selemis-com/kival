@@ -1,12 +1,11 @@
 //! Search command.
 
-use argx::{Args, ValueEnum};
-use eyre::Result;
+use argx::{argx, Args, ValueEnum};
 use kival_cli::runner::CliContext;
 use kival_sdk::{SearchHit, SearchMode, SearchParams, SearchResponse};
 use uuid::Uuid;
 
-use crate::utils::error::CliResult;
+use crate::utils::error::CliError;
 use crate::utils::{
     args::CliArchiveListStatus,
     credentials::authenticated_client,
@@ -119,7 +118,7 @@ impl SearchCommand {
     /// # Errors
     ///
     /// Returns an error if search fails.
-    pub async fn run(self, ctx: CliContext, output: OutputMode) -> CliResult<SearchResponse> {
+    pub async fn run(self, ctx: CliContext, output: OutputMode) -> std::result::Result<SearchResponse, CliError> {
         let query = self.query.trim();
         if query.is_empty() {
             return Err(CliError::invalid_argument("search query must not be empty").into());

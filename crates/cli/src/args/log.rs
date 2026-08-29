@@ -36,7 +36,7 @@ pub struct LogArgs {
     pub log_file_filter: String,
 
     /// The path to put log files in.
-    #[argx(long = "log.file.directory", global, default)]
+    #[argx(long = "log.file.directory", global, default = PlatformPath::<LogsDir>::default())]
     pub log_file_directory: PlatformPath<LogsDir>,
 
     /// The prefix name of the log files.

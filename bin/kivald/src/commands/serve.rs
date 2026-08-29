@@ -10,10 +10,7 @@ use std::{
 
 use argx::Args;
 use eyre::Result;
-use kival_cli::{
-    commands::config::{DEFAULT_CONFIG_FILENAME, load_config},
-    runner::CliContext,
-};
+use kival_cli::{DEFAULT_CONFIG_FILENAME, runner::CliContext};
 use kival_kernel::{DatabasePoolSettings, open_pool_with_settings};
 use kival_metrics::{
     Hooks, VersionInfo, counter, describe_counter, describe_gauge, gauge, start_metrics_server,
@@ -111,7 +108,7 @@ impl ServeCommand {
 
         let config_path =
             config.clone().unwrap_or_else(|| ctx.datadir.join(DEFAULT_CONFIG_FILENAME));
-        let config = match load_config::<ServerConfig>(&config_path) {
+        let config = match ServerConfig::load(&config_path) {
             Ok(mut config) => {
                 if let Some(listen) = self.listen {
                     config.listen = listen;
@@ -305,7 +302,7 @@ impl ServeCommand {
             durable_tasks,
             webauthn,
         )));
-        let server_address = config.listen();
+        let server_address = config.listen;
 
         ctx.task_executor.spawn_critical_with_graceful_shutdown_signal(
             "http-server",

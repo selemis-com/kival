@@ -16,7 +16,7 @@ pub struct DatadirArgs {
     ///
     /// - Linux: `$XDG_DATA_HOME/kival/` or `$HOME/.local/share/kival/`
     /// - macOS: `$HOME/.local/share/kival/`
-    #[argx(short, long, default)]
+    #[argx(short, long, default = MaybePlatformPath::default())]
     pub datadir: MaybePlatformPath<DataDirPath>,
 }
 
@@ -38,17 +38,16 @@ mod tests {
 
     use super::*;
 
-    /// A helper type to parse [`Args`] more easily.
     #[derive(Parser)]
-    struct CommandParser<T: Args> {
+    struct CommandParser {
         #[argx(flatten)]
-        args: T,
+        args: DatadirArgs,
     }
 
     #[test]
     fn parse_datadir_args() {
         let default_args = DatadirArgs::default();
-        let args = CommandParser::<DatadirArgs>::parse_from(["kival"]).args;
+        let args = CommandParser::parse_from(["kival"]).args;
         assert_eq!(args, default_args);
     }
 }

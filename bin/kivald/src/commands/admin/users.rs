@@ -215,32 +215,30 @@ mod tests {
     use eyre::Result;
     use kival_tests::{TestFixtureExt, TestKival};
 
-    use super::{
-        AdminUserLifecycleCommand, AdminUsersCommand, AdminUsersSubcommand, UserLifecycleAction,
-    };
+    use super::{AdminUserLifecycleCommand, AdminUsersSubcommand, UserLifecycleAction};
 
     #[derive(Parser)]
     struct TestCli {
-        #[argx(flatten)]
-        command: AdminUsersCommand,
+        #[argx(subcommand)]
+        command: AdminUsersSubcommand,
     }
 
     #[test]
     fn lifecycle_commands_accept_username_or_user_id() {
-        let disable = TestCli::try_parse_from(["users", "disable", "alice"])
+        let disable = TestCli::try_parse_from(["disable", "alice"])
             .expect("disable command should parse")
             .command;
-        let AdminUsersSubcommand::Disable(disable) = disable.command else {
+        let AdminUsersSubcommand::Disable(disable) = disable else {
             panic!("disable subcommand should parse");
         };
         assert_eq!(disable.user, "alice");
 
         let user_id = uuid::Uuid::now_v7();
         let user_id_text = user_id.to_string();
-        let enable = TestCli::try_parse_from(["users", "enable", &user_id_text])
+        let enable = TestCli::try_parse_from(["enable", &user_id_text])
             .expect("enable command should parse")
             .command;
-        let AdminUsersSubcommand::Enable(enable) = enable.command else {
+        let AdminUsersSubcommand::Enable(enable) = enable else {
             panic!("enable subcommand should parse");
         };
         assert_eq!(enable.user, user_id.to_string());

@@ -2,7 +2,7 @@
 
 use std::path::{Path, PathBuf};
 
-use argx::{Args, ValueEnum};
+use argx::{argx, Args, ValueEnum};
 use eyre::{Result, WrapErr};
 use kival_cli::runner::CliContext;
 use kival_sdk::{
@@ -18,9 +18,9 @@ use super::{
     ObjectTargetArgs,
     display::{print_object_line, print_object_response},
     document::{ObjectDocument, parse_object_document, render_object_document},
-    io::{ensure_output_available, parse_body_file_path, resolve_body, write_output_file},
+    io::{ensure_output_available, resolve_body, write_output_file},
 };
-use crate::utils::error::CliResult;
+use crate::utils::error::CliError;
 use crate::utils::{
     args::{
         CliArchiveListStatus, DEFAULT_LIST_LIMIT, metadata_value,
@@ -187,7 +187,7 @@ pub struct ObjectsCreateCommand {
     #[argx(long, conflicts = "body_file")]
     pub body: Option<String>,
     /// Read the initial Markdown body from PATH.
-    #[argx(long, value_parser = parse_body_file_path, conflicts = ["body", "input"])]
+    #[argx(long, conflicts = ["body", "input"])]
     pub body_file: Option<PathBuf>,
     /// Initial object metadata as a flat JSON object with scalar or scalar-list values.
     #[argx(long)]
@@ -213,7 +213,7 @@ pub struct ObjectsUpdateCommand {
     #[argx(long, conflicts = "body_file")]
     pub body: Option<String>,
     /// Read the new Markdown body from PATH.
-    #[argx(long, value_parser = parse_body_file_path, conflicts = ["body", "input"])]
+    #[argx(long, conflicts = ["body", "input"])]
     pub body_file: Option<PathBuf>,
     /// New object metadata as a flat JSON object with scalar or scalar-list values.
     #[argx(long)]
@@ -256,7 +256,7 @@ impl ObjectsListCommand {
         self,
         ctx: CliContext,
         output: OutputMode,
-    ) -> CliResult<ListResponse<ObjectListItem>> {
+    ) -> std::result::Result<ListResponse<ObjectListItem>, CliError> {
         let client = authenticated_client(&ctx)?;
         let response = client
             .list_objects(
@@ -294,7 +294,7 @@ impl ObjectsGetCommand {
     /// # Errors
     ///
     /// Returns an error if the object cannot be fetched.
-    pub async fn run(self, ctx: CliContext, output: OutputMode) -> CliResult<ObjectResponse> {
+    pub async fn run(self, ctx: CliContext, output: OutputMode) -> std::result::Result<ObjectResponse, CliError> {
         let client = authenticated_client(&ctx)?;
         let response = client.get_object(self.target.workspace_id, self.target.object_id).await?;
         print_output(output, &response, || print_object_response(&response, None))?;
@@ -309,7 +309,7 @@ impl ObjectsBodyCommand {
     /// # Errors
     ///
     /// Returns an error if the object cannot be fetched or the output file cannot be written.
-    pub async fn run(self, ctx: CliContext, output: OutputMode) -> CliResult<ObjectBodyOutput> {
+    pub async fn run(self, ctx: CliContext, output: OutputMode) -> std::result::Result<ObjectBodyOutput, CliError> {
         if let Some(path) = self.output.as_deref() {
             ensure_output_available(path, self.force)?;
         }
@@ -366,7 +366,7 @@ impl ObjectsEditCommand {
     ///
     /// Returns an error when the object cannot be read or edited, the external editor fails, or
     /// the object changes before the edited state can be stored.
-    pub async fn run(self, ctx: CliContext, output: OutputMode) -> CliResult<ObjectEditOutput> {
+    pub async fn run(self, ctx: CliContext, output: OutputMode) -> std::result::Result<ObjectEditOutput, CliError> {
         let client = authenticated_client(&ctx)?;
         let current = client.get_object(self.target.workspace_id, self.target.object_id).await?;
         let version = editable_version(&current)?;
@@ -383,7 +383,7 @@ impl ObjectsEditCommand {
             Ok(Some(request)) => request,
             Ok(None) => {
                 edited.discard()?;
-                return print_edit_result(output, &current, false);
+                return Ok(print_edit_result(output, &current, false)?);
             }
             Err(error) => {
                 return Err(local_edit_error(&error.to_string(), edited.path()).into());
@@ -403,7 +403,7 @@ impl ObjectsEditCommand {
         edited.discard().wrap_err(
             "object was updated, but the temporary object document could not be removed",
         )?;
-        print_edit_result(output, &response, true)
+        Ok(print_edit_result(output, &response, true)?)
     }
 }
 
@@ -531,7 +531,7 @@ impl ObjectsCreateCommand {
     /// # Errors
     ///
     /// Returns an error if the object cannot be created.
-    pub async fn run(self, ctx: CliContext, output: OutputMode) -> CliResult<ObjectResponse> {
+    pub async fn run(self, ctx: CliContext, output: OutputMode) -> std::result::Result<ObjectResponse, CliError> {
         let input = self.into_input()?;
         let title = input.title.trim();
         if title.is_empty() {
@@ -593,7 +593,7 @@ impl ObjectsUpdateCommand {
     /// # Errors
     ///
     /// Returns an error if the object cannot be updated.
-    pub async fn run(self, ctx: CliContext, output: OutputMode) -> CliResult<ObjectResponse> {
+    pub async fn run(self, ctx: CliContext, output: OutputMode) -> std::result::Result<ObjectResponse, CliError> {
         let target = self.target;
         let metadata_sets = parse_metadata_sets(&self.metadata_set)?;
         let metadata_remove = self.metadata_remove.clone();
@@ -628,7 +628,7 @@ impl ObjectsUpdateCommand {
                 .into());
             }
             let Value::Object(mut metadata) = version.metadata else {
-                return Err(eyre::eyre!("current object metadata is not a JSON object"));
+                return Err(eyre::eyre!("current object metadata is not a JSON object").into());
             };
             apply_metadata_mutations(&mut metadata, &metadata_sets, &metadata_remove)?;
             validate_flat_metadata(&metadata)?;
@@ -753,7 +753,7 @@ impl ObjectsArchiveCommand {
     /// # Errors
     ///
     /// Returns an error if the object cannot be archived.
-    pub async fn run(self, ctx: CliContext, output: OutputMode) -> CliResult<ObjectResponse> {
+    pub async fn run(self, ctx: CliContext, output: OutputMode) -> std::result::Result<ObjectResponse, CliError> {
         let client = authenticated_client(&ctx)?;
         let response =
             client.archive_object(self.target.workspace_id, self.target.object_id).await?;
@@ -771,7 +771,7 @@ impl ObjectsUnarchiveCommand {
     /// # Errors
     ///
     /// Returns an error if the object cannot be unarchived.
-    pub async fn run(self, ctx: CliContext, output: OutputMode) -> CliResult<ObjectResponse> {
+    pub async fn run(self, ctx: CliContext, output: OutputMode) -> std::result::Result<ObjectResponse, CliError> {
         let client = authenticated_client(&ctx)?;
         let response =
             client.unarchive_object(self.target.workspace_id, self.target.object_id).await?;

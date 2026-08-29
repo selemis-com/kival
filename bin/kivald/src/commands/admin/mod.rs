@@ -4,10 +4,7 @@ use std::path::PathBuf;
 
 use argx::{Args, Subcommand};
 use eyre::{Context, Result};
-use kival_cli::{
-    commands::config::{DEFAULT_CONFIG_FILENAME, load_config},
-    runner::CliContext,
-};
+use kival_cli::{DEFAULT_CONFIG_FILENAME, runner::CliContext};
 use kival_kernel::open_pool_with_options;
 use kival_server::WebAuthnConfig;
 use kival_tracing::trace;
@@ -72,7 +69,7 @@ impl AdminCommand {
 
         let config_path =
             config.clone().unwrap_or_else(|| ctx.datadir.join(DEFAULT_CONFIG_FILENAME));
-        let mut config = load_config::<ServerConfig>(&config_path)?;
+        let mut config = ServerConfig::load(&config_path)?;
         if let Some(canonical_url) = canonical_url {
             config.canonical_url.clone_from(canonical_url);
         }
