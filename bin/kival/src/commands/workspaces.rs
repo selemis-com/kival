@@ -51,45 +51,36 @@ pub enum WorkspacesSubcommand {
     ///
     /// Active workspaces are returned by default. Use `--status` to select archived workspaces or
     /// both lifecycle states.
-    #[argx(name = "list")]
     List(WorkspacesListCommand),
 
     /// Get a workspace by ID.
-    #[argx(name = "get")]
     Get(WorkspacesGetCommand),
 
     /// Update a workspace.
-    #[argx(name = "update")]
     Update(WorkspacesUpdateCommand),
 
     /// Archive a workspace while retaining its stored resources and history.
-    #[argx(name = "archive")]
     Archive(WorkspacesArchiveCommand),
 
     /// Restore an archived workspace to active status.
-    #[argx(name = "unarchive")]
     Unarchive(WorkspacesUnarchiveCommand),
 
     /// List workspace events in ascending global sequence order.
     ///
     /// `--after-sequence` is exclusive. When multiple filters are supplied, every filter must
     /// match.
-    #[argx(name = "events")]
     Events(WorkspacesEventsCommand),
 
     /// Get a bounded projection of visible active objects and active edges in a workspace.
     ///
     /// `--exclude-isolated` removes nodes with no relation. Returned
     /// limits report whether additional matching nodes or edges were omitted.
-    #[argx(name = "graph")]
     Graph(WorkspacesGraphCommand),
 
     /// Manage workspace memberships.
-    #[argx(name = "memberships")]
     Memberships(WorkspaceMembershipsCommand),
 
     /// Manage workspace group links.
-    #[argx(name = "groups")]
     Groups(WorkspaceGroupsCommand),
 }
 
@@ -230,22 +221,18 @@ pub struct WorkspaceMembershipsCommand {
 #[argx(schema)]
 pub enum WorkspaceMembershipsSubcommand {
     /// List active direct workspace memberships, newest first.
-    #[argx(name = "list")]
     List(WorkspaceMembershipsListCommand),
     /// Add a user as a direct member or administrator of a workspace.
     ///
     /// This creates direct workspace membership and is distinct from access inherited through a
     /// group.
-    #[argx(name = "create")]
     Create(WorkspaceMembershipsCreateCommand),
     /// Change an active direct workspace membership's role.
-    #[argx(name = "update")]
     Update(WorkspaceMembershipsUpdateCommand),
     /// Revoke a direct workspace membership without deleting its historical record.
     ///
     /// This revokes only the selected direct membership; other access paths may still authorize the
     /// user.
-    #[argx(name = "revoke")]
     Revoke(WorkspaceMembershipsRevokeCommand),
 }
 
@@ -314,25 +301,21 @@ pub enum WorkspaceGroupsSubcommand {
     /// Active links are returned by default. Use `--status` to select archived links or both
     /// lifecycle states. A workspace-group link makes the group eligible for group-based object
     /// access in that workspace; it does not create or modify the group itself.
-    #[argx(name = "list")]
     List(WorkspaceGroupsListCommand),
     /// Link an existing group to a workspace.
     ///
     /// The link makes the group eligible for group-based object access in this workspace. It does
     /// not change the group's own membership.
-    #[argx(name = "create")]
     Create(WorkspaceGroupsCreateCommand),
     /// Disable a group's link to this workspace without archiving the group itself.
     ///
     /// Group memberships are unchanged. Group-based object grants in this workspace stop
     /// authorizing through the archived link until it is restored.
-    #[argx(name = "archive")]
     Archive(WorkspaceGroupsArchiveCommand),
     /// Restore an archived link between an active group and this workspace.
     ///
     /// Restoring the link can make existing group-based object grants effective again for active
     /// group members.
-    #[argx(name = "unarchive")]
     Unarchive(WorkspaceGroupsUnarchiveCommand),
 }
 

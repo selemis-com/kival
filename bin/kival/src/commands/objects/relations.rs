@@ -103,19 +103,15 @@ pub enum ObjectEdgesSubcommand {
     ///
     /// An edge is returned when the selected object is either its source or target. Both endpoint
     /// objects must be active and visible to the current user.
-    #[argx(name = "list")]
     List(ObjectEdgesListCommand),
     /// Create a directed edge from a source object to a target object.
     ///
     /// `--source-object-id` is the origin of the relationship and `--target-object-id` is its
     /// destination.
-    #[argx(name = "create")]
     Create(ObjectEdgesCreateCommand),
     /// Get an object edge.
-    #[argx(name = "get")]
     Get(ObjectEdgesGetCommand),
     /// Revoke an active object edge without deleting its historical record.
-    #[argx(name = "revoke")]
     Revoke(ObjectEdgesRevokeCommand),
 }
 

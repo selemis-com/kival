@@ -61,66 +61,50 @@ pub enum ObjectsSubcommand {
     /// Objects are ordered by creation time by default. Use `--order updated` to order by last
     /// update time instead. Active objects are returned by default; use `--status` to select
     /// archived objects or both lifecycle states.
-    #[argx(name = "list")]
     List(ObjectsListCommand),
     /// Get an object by ID within a workspace.
-    #[argx(name = "get")]
     Get(ObjectsGetCommand),
     /// Read the current Markdown body of an object.
-    #[argx(name = "body")]
     Body(ObjectsBodyCommand),
     /// Compare Markdown bodies between immutable object versions.
-    #[argx(name = "diff")]
     Diff(ObjectsDiffCommand),
     /// Restore an immutable version as a new current version of the same object.
-    #[argx(name = "restore")]
     Restore(ObjectsRestoreCommand),
     /// Edit the current object through Markdown and front matter in an external text editor.
-    #[argx(name = "edit")]
     Edit(ObjectsEditCommand),
     /// Create an object in a workspace.
     ///
     /// With `--input`, `workspace_id` and `title` may be supplied by the JSON
     /// document instead of command-line arguments. Inspect the complete input contract with
     /// `kival schema objects create`.
-    #[argx(name = "create")]
     Create(ObjectsCreateCommand),
     /// Update an object, recording changed state as a new version.
     ///
     /// Omitted title, body, and metadata fields are inherited from the current version.
-    #[argx(name = "update")]
     Update(ObjectsUpdateCommand),
     /// Archive an object while retaining its stored history.
     ///
     /// Archiving changes the object's lifecycle state; it does not delete its versions.
-    #[argx(name = "archive")]
     Archive(ObjectsArchiveCommand),
     /// Restore an archived object to active status.
-    #[argx(name = "unarchive")]
     Unarchive(ObjectsUnarchiveCommand),
     /// Inspect object version history.
-    #[argx(name = "versions")]
     Versions(ObjectVersionsCommand),
     /// Manage object edges.
-    #[argx(name = "edges")]
     Edges(ObjectEdgesCommand),
     /// List visible incoming relationships and textual references to an object.
     ///
     /// Explicit backlinks are active edges whose target is this object. Textual backlinks are
     /// resolved references from current object versions.
-    #[argx(name = "backlinks")]
     Backlinks(ObjectsBacklinksCommand),
     /// Manage object attachments.
-    #[argx(name = "attachments")]
     Attachments(ObjectAttachmentsCommand),
     /// Manage object grants.
-    #[argx(name = "grants")]
     Grants(ObjectGrantsCommand),
     /// List events for an object in ascending global sequence order.
     ///
     /// `--after-sequence` is exclusive. When multiple filters are supplied, every filter must
     /// match.
-    #[argx(name = "events")]
     Events(ObjectEventsCommand),
     /// Get a bounded graph neighborhood around an active object.
     ///
@@ -130,7 +114,6 @@ pub enum ObjectsSubcommand {
     /// `--no-root` removes the root from the returned node set.
     ///
     /// In human-readable output, each returned edge is printed once and grouped by source.
-    #[argx(name = "graph")]
     Graph(ObjectsGraphCommand),
 }
 

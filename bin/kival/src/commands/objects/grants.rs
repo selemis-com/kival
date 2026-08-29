@@ -30,19 +30,15 @@ pub struct ObjectGrantsCommand {
 #[argx(schema)]
 pub enum ObjectGrantsSubcommand {
     /// List active direct object grants, newest first.
-    #[argx(name = "list")]
     List(ObjectGrantsListCommand),
     /// Grant a user or linked group a role on an object.
     ///
     /// A grant is direct object access and is distinct from workspace or group membership. Exactly
     /// one principal must be supplied with `--user-id` or `--group-id`.
-    #[argx(name = "create")]
     Create(ObjectGrantsCreateCommand),
     /// Change an active direct object grant's role.
-    #[argx(name = "update")]
     Update(ObjectGrantsUpdateCommand),
     /// Revoke a direct object grant without deleting its historical record.
-    #[argx(name = "revoke")]
     Revoke(ObjectGrantsRevokeCommand),
 }
 

@@ -56,43 +56,33 @@ impl ClientConfig {
 #[argx(schema)]
 pub enum Commands {
     /// Manage workspaces, memberships, linked groups, events, and workspace graphs.
-    #[argx(name = "workspaces")]
     Workspaces(WorkspacesCommand),
 
     /// Manage workspace objects, versions, relationships, attachments, and access.
-    #[argx(name = "objects")]
     Objects(ObjectsCommand),
 
     /// Participate in object comments and discussion threads.
-    #[argx(name = "comments")]
     Comments(CommentsCommand),
 
     /// Manage reusable access groups and their memberships.
-    #[argx(name = "groups")]
     Groups(GroupsCommand),
 
     /// Inspect activity visible to the current user.
-    #[argx(name = "events")]
     Events(EventsCommand),
 
     /// Search indexed visible workspace content using auto, text, literal, or exact matching.
-    #[argx(name = "search")]
     Search(SearchCommand),
 
     /// Show the identity associated with the resolved API key.
-    #[argx(name = "whoami")]
     Whoami(WhoamiCommand),
 
     /// Check server health and readiness.
-    #[argx(name = "server")]
     Server(ServerCommand),
 
     /// Generate shell completion script text.
-    #[argx(name = "completions")]
     Completions(CompletionsCommand),
 
     /// Manage Kival as admin.
-    #[argx(name = "admin")]
     Admin(AdminCommand),
 }
 

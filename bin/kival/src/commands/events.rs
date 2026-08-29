@@ -33,7 +33,6 @@ pub enum EventsSubcommand {
     ///
     /// Events are returned in ascending global sequence order. `--after-sequence` is exclusive.
     /// When multiple filters are supplied, every filter must match.
-    #[argx(name = "list")]
     List(EventsListCommand),
 }
 

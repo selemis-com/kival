@@ -27,11 +27,9 @@ pub struct ServerCommand {
 #[argx(schema)]
 pub enum ServerSubcommand {
     /// Check Kival server health.
-    #[argx(name = "health")]
     Health(HealthCommand),
 
     /// Check Kival server readiness.
-    #[argx(name = "ready")]
     Ready(ReadyCommand),
 }
 

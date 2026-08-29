@@ -34,32 +34,24 @@ pub struct CommentsCommand {
 #[argx(schema)]
 pub enum CommentsSubcommand {
     /// List discussion threads, or list one thread's comments with `--thread-id`.
-    #[argx(name = "list")]
     List(CommentsListCommand),
     /// List users who can currently view the object and may be mentioned in comments.
-    #[argx(name = "mentions")]
     Mentions(CommentsMentionsCommand),
     /// Create a new root comment and discussion thread.
-    #[argx(name = "create")]
     Create(CommentsCreateCommand),
     /// Reply in the discussion thread containing a comment.
     ///
     /// Kival commentary is thread-rooted rather than arbitrarily nested. The supplied comment may
     /// be any comment in the thread; the server retains its canonical root comment as the reply's
     /// parent.
-    #[argx(name = "reply")]
     Reply(CommentsReplyCommand),
     /// Update a comment authored by the current user.
-    #[argx(name = "update")]
     Update(CommentsUpdateCommand),
     /// Delete a comment authored by the current user, or moderate it as an object admin.
-    #[argx(name = "delete")]
     Delete(CommentsDeleteCommand),
     /// Resolve a discussion thread.
-    #[argx(name = "resolve")]
     Resolve(CommentsResolveCommand),
     /// Reopen a resolved discussion thread.
-    #[argx(name = "reopen")]
     Reopen(CommentsReopenCommand),
 }
 

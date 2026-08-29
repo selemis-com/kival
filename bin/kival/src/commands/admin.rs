@@ -32,7 +32,6 @@ pub struct AdminCommand {
 #[argx(schema)]
 pub enum AdminSubcommand {
     /// Manage users.
-    #[argx(name = "users")]
     Users(AdminUsersCommand),
 }
 
@@ -50,23 +49,18 @@ pub struct AdminUsersCommand {
 #[argx(schema)]
 pub enum AdminUsersSubcommand {
     /// List users.
-    #[argx(name = "list")]
     List(AdminUsersListCommand),
 
     /// Get a user by ID.
-    #[argx(name = "get")]
     Get(AdminUsersGetCommand),
 
     /// Update a user.
-    #[argx(name = "update")]
     Update(AdminUsersUpdateCommand),
 
     /// Disable a user.
-    #[argx(name = "disable")]
     Disable(AdminUsersDisableCommand),
 
     /// Enable a disabled user.
-    #[argx(name = "enable")]
     Enable(AdminUsersEnableCommand),
 }
 

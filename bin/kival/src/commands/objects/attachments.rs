@@ -39,28 +39,23 @@ pub struct ObjectAttachmentsCommand {
 #[argx(schema)]
 pub enum ObjectAttachmentsSubcommand {
     /// List object attachments, newest first.
-    #[argx(name = "list")]
     List(ObjectAttachmentsListCommand),
     /// Upload a file and create an attachment record on an object.
     ///
     /// `--version-id` associates the attachment with a specific version of the target object; omit
     /// it for an object-level attachment.
-    #[argx(name = "upload")]
     Upload(ObjectAttachmentsUploadCommand),
     /// Reuse accessible attachment content on another object without re-uploading it.
     ///
     /// The source attachment must be inspectable by the current user, and the target object must be
     /// editable. Reuse creates a new attachment record on the target that references the existing
     /// stored content and records the source attachment as provenance.
-    #[argx(name = "reuse")]
     Reuse(ObjectAttachmentsReuseCommand),
     /// Get object attachment metadata.
     ///
     /// This command returns the attachment record only; it does not download the attachment bytes.
-    #[argx(name = "get")]
     Get(ObjectAttachmentsGetCommand),
     /// Get object attachment content and write it to a file.
-    #[argx(name = "content")]
     Content(ObjectAttachmentsContentCommand),
 }
 

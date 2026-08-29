@@ -40,27 +40,20 @@ pub enum GroupsSubcommand {
     ///
     /// Active groups are returned by default. Use `--status` to select archived groups or both
     /// lifecycle states.
-    #[argx(name = "list")]
     List(GroupsListCommand),
     /// Get a group by ID.
-    #[argx(name = "get")]
     Get(GroupsGetCommand),
     /// Create a group.
-    #[argx(name = "create")]
     Create(GroupsCreateCommand),
     /// Update a group.
-    #[argx(name = "update")]
     Update(GroupsUpdateCommand),
     /// Archive a group while retaining its memberships and historical record.
     ///
     /// Archived groups no longer participate in group-based object access.
-    #[argx(name = "archive")]
     Archive(GroupsArchiveCommand),
     /// Restore an archived group to active status.
-    #[argx(name = "unarchive")]
     Unarchive(GroupsUnarchiveCommand),
     /// Manage group memberships.
-    #[argx(name = "memberships")]
     Memberships(GroupMembershipsCommand),
 }
 
@@ -172,25 +165,21 @@ pub struct GroupMembershipsCommand {
 #[argx(schema)]
 pub enum GroupMembershipsSubcommand {
     /// List active group memberships, newest first.
-    #[argx(name = "list")]
     List(GroupMembershipsListCommand),
 
     /// Add a user as a member or administrator of a group.
     ///
     /// Group membership can contribute to object access only where the group is actively linked to
     /// the workspace and has an active object grant.
-    #[argx(name = "create")]
     Create(GroupMembershipsCreateCommand),
 
     /// Change an active group membership's role.
-    #[argx(name = "update")]
     Update(GroupMembershipsUpdateCommand),
 
     /// Revoke a group membership without deleting its historical record.
     ///
     /// Revocation removes access derived through this membership but does not revoke the user's
     /// independent direct access.
-    #[argx(name = "revoke")]
     Revoke(GroupMembershipsRevokeCommand),
 }
 

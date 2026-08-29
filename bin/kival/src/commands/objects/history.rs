@@ -108,13 +108,10 @@ pub struct ObjectVersionsCommand {
 #[argx(schema)]
 pub enum ObjectVersionsSubcommand {
     /// List object versions from newest to oldest.
-    #[argx(name = "list")]
     List(ObjectVersionsListCommand),
     /// Get an object version.
-    #[argx(name = "get")]
     Get(ObjectVersionsGetCommand),
     /// List server-resolved wikilinks authored in an immutable object version.
-    #[argx(name = "wikilinks")]
     Wikilinks(ObjectVersionsWikilinksCommand),
 }
 
