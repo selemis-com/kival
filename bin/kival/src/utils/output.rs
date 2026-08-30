@@ -1,22 +1,48 @@
 //! Output helpers for the `kival` CLI.
 
+use argx::Schema;
 use chrono::{DateTime, Utc};
 use eyre::Result;
 use serde::Serialize;
 use uuid::Uuid;
+
+use crate::utils::fields::{Projection, project_value, validate_projection};
 
 /// Connector for a non-final item in a tree branch.
 pub(crate) const TREE_BRANCH: &str = "├─";
 /// Connector for the final item in a tree branch.
 pub(crate) const TREE_LAST: &str = "└─";
 
-/// Output format for command results.
+/// Output format selected by the command line.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, argx::ValueEnum)]
-pub enum OutputMode {
+pub enum OutputFormat {
     /// Human-readable text.
     Text,
     /// JSON.
     Json,
+}
+
+/// Output mode for command results.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum OutputMode {
+    /// Human-readable text.
+    Text,
+    /// JSON with an optional field projection.
+    Json {
+        /// Optional successful-output field projection.
+        projection: Option<Projection>,
+    },
+}
+
+impl OutputMode {
+    /// Builds the runtime output mode from parsed CLI options.
+    #[must_use]
+    pub fn from_options(format: OutputFormat, projection: Option<Projection>) -> Self {
+        match format {
+            OutputFormat::Text => Self::Text,
+            OutputFormat::Json => Self::Json { projection },
+        }
+    }
 }
 
 /// Prints a serializable value as JSON.
@@ -41,7 +67,7 @@ where
 /// Returns an error if the value cannot be serialized as JSON.
 pub fn print_output<T, F>(mode: &OutputMode, value: &T, text: F) -> Result<()>
 where
-    T: Serialize,
+    T: Schema + Serialize,
     F: FnOnce(),
 {
     match mode {
@@ -49,7 +75,14 @@ where
             text();
             Ok(())
         }
-        OutputMode::Json => print_json(value),
+        OutputMode::Json { projection: None } => print_json(value),
+        OutputMode::Json { projection: Some(projection) } => {
+            let schema = T::schema();
+            validate_projection(&schema, projection)?;
+            let value = serde_json::to_value(value)?;
+            let value = project_value(&value, projection)?;
+            print_json(&value)
+        }
     }
 }
 

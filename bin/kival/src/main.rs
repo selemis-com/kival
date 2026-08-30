@@ -16,7 +16,8 @@ use crate::{
     },
     utils::{
         error::{CliError, CliErrorBody, print_json_error},
-        output::OutputMode,
+        fields::parse_projection,
+        output::{OutputFormat, OutputMode},
         version::{LONG_VERSION, SHORT_VERSION},
     },
 };
@@ -116,8 +117,14 @@ pub struct Cli {
     pub url: Option<Url>,
 
     /// Output format.
-    #[argx(short = 'O', long, value_enum, global, default = OutputMode::Text)]
-    pub output: OutputMode,
+    #[argx(short = 'O', long, value_enum, global, default = OutputFormat::Text)]
+    pub output: OutputFormat,
+
+    /// Select comma-separated fields from JSON output.
+    ///
+    /// Nested fields use dot-separated paths.
+    #[argx(short = 'F', long, global, delimited)]
+    pub fields: Vec<String>,
 }
 
 impl Cli {
@@ -127,7 +134,13 @@ impl Cli {
     ///
     /// Returns an error if runtime creation or command execution fails.
     pub fn run(self) -> Result<()> {
-        let Self { command, datadir, api_key, url, output } = self;
+        let Self { command, datadir, api_key, url, output, fields } = self;
+
+        let projection = parse_projection(&fields)?;
+        if projection.is_some() && output != OutputFormat::Json {
+            return Err(CliError::invalid_argument("--fields requires --output json").into());
+        }
+        let output = OutputMode::from_options(output, projection);
 
         utils::credentials::set_command_overrides(api_key, url)?;
 
@@ -207,7 +220,7 @@ fn main() {
     }
 
     let cli = Cli::parse();
-    let json_errors = cli.output == OutputMode::Json;
+    let json_errors = cli.output == OutputFormat::Json;
     if let Err(error) = cli.run() {
         let error = CliError::from(error);
         if json_errors {
