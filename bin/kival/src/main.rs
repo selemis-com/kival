@@ -1,6 +1,6 @@
 //! Entrypoint for `kival`.
 
-use std::path::Path;
+use std::{ffi::OsString, path::Path};
 
 use argx::{Defaults, Environment, Parser, Subcommand, Toml};
 use eyre::Result;
@@ -205,6 +205,43 @@ fn create_runner(datadir: &DatadirArgs) -> Result<CliRunner> {
     Ok(CliRunner::try_default_runtime(datadir_path.into())?)
 }
 
+/// Returns whether raw CLI arguments request JSON output before parsing succeeds.
+fn json_output_requested(args: impl IntoIterator<Item = OsString>) -> bool {
+    let mut args = args.into_iter();
+
+    while let Some(arg) = args.next() {
+        if arg == "--" {
+            break;
+        }
+
+        let Some(arg) = arg.to_str() else {
+            continue;
+        };
+
+        if let Some(value) = arg.strip_prefix("--output=") {
+            if value == "json" {
+                return true;
+            }
+            continue;
+        }
+
+        if arg == "--output" || arg == "-O" {
+            if args.next().is_some_and(|value| value == "json") {
+                return true;
+            }
+            continue;
+        }
+
+        if let Some(value) = arg.strip_prefix("-O")
+            && value.strip_prefix('=').unwrap_or(value) == "json"
+        {
+            return true;
+        }
+    }
+
+    false
+}
+
 fn main() {
     // Install the SIGSEGV handler to print a backtrace on segmentation faults.
     sigsegv::install();
@@ -219,7 +256,19 @@ fn main() {
         }
     }
 
-    let cli = Cli::parse();
+    let json_requested = json_output_requested(std::env::args_os().skip(1));
+    let cli = match Cli::try_parse() {
+        Ok(cli) => cli,
+        Err(error) if error.exit_code() == 0 => error.exit(),
+        Err(error) => {
+            if json_requested {
+                let error_body = CliError::invalid_argument(error.to_string());
+                print_json_error(&CliErrorBody::from_cli_error(&error_body));
+                std::process::exit(error.exit_code());
+            }
+            error.exit();
+        }
+    };
     let json_errors = cli.output == OutputFormat::Json;
     if let Err(error) = cli.run() {
         let error = CliError::from(error);
@@ -234,9 +283,25 @@ fn main() {
 
 #[cfg(test)]
 mod tests {
-    use argx::Parser as _;
+    use super::*;
 
-    use super::{Cli, Commands};
+    #[test]
+    fn raw_output_scan_detects_json_forms() {
+        for args in [
+            vec!["--output", "json"],
+            vec!["--output=json"],
+            vec!["-O", "json"],
+            vec!["-Ojson"],
+            vec!["-O=json"],
+        ] {
+            assert!(json_output_requested(args.into_iter().map(OsString::from)));
+        }
+    }
+
+    #[test]
+    fn raw_output_scan_stops_at_double_dash() {
+        assert!(!json_output_requested(["--", "--output=json"].into_iter().map(OsString::from),));
+    }
 
     #[test]
     fn admin_is_a_normal_command() {
