@@ -1,7 +1,7 @@
 //! Personal workspace and object favorite state bindings.
 
+use chrono::{DateTime, Utc};
 use sqlx::PgPool;
-use time::OffsetDateTime;
 use uuid::Uuid;
 
 use crate::Result;
@@ -15,8 +15,8 @@ pub async fn pin_workspace(
     pool: &PgPool,
     user_id: Uuid,
     workspace_id: Uuid,
-) -> Result<OffsetDateTime> {
-    Ok(sqlx::query_scalar::<_, OffsetDateTime>(
+) -> Result<DateTime<Utc>> {
+    Ok(sqlx::query_scalar::<_, DateTime<Utc>>(
         r#"
         INSERT INTO kival.workspace_pins (user_id, workspace_id)
         VALUES ($1, $2)
@@ -61,8 +61,8 @@ pub async fn pin_object(
     user_id: Uuid,
     workspace_id: Uuid,
     object_id: Uuid,
-) -> Result<OffsetDateTime> {
-    Ok(sqlx::query_scalar::<_, OffsetDateTime>(
+) -> Result<DateTime<Utc>> {
+    Ok(sqlx::query_scalar::<_, DateTime<Utc>>(
         r#"
         INSERT INTO kival.object_pins (user_id, workspace_id, object_id)
         VALUES ($1, $2, $3)

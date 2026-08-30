@@ -1,14 +1,12 @@
 //! Object version history, diff, and restore commands.
 
-use clap::{Parser, Subcommand};
-use clap_schema::{CommandSchema, schema_handler};
+use argx::{Args, Subcommand, argx};
 use eyre::Result;
 use kival_cli::runner::CliContext;
 use kival_sdk::{
     ArchiveStatus, KivalClient, ListResponse, ObjectResponse, ObjectRole, ObjectVersion,
     ObjectVersionWikilinksResponse, UpdateObjectRequest,
 };
-use schemars::JsonSchema;
 use serde::Serialize;
 use serde_json::json;
 use uuid::Uuid;
@@ -18,7 +16,7 @@ use super::{
     display::{print_version_line, print_version_response},
 };
 use crate::utils::{
-    args::{DEFAULT_LIST_LIMIT_HELP, list_params},
+    args::{DEFAULT_LIST_LIMIT, list_params},
     credentials::authenticated_client,
     diff::unified_diff,
     error::{CliError, CliErrorCode},
@@ -29,16 +27,16 @@ use crate::utils::{
 const DIFF_CONTEXT_LINES: usize = 3;
 
 /// Arguments for `kival objects diff`.
-#[derive(Debug, Clone, Parser)]
+#[derive(Debug, Clone, Args)]
 pub struct ObjectsDiffCommand {
     /// Object target.
-    #[command(flatten)]
+    #[argx(flatten)]
     pub target: ObjectTargetArgs,
     /// Source version selector: UUID, `g`, `0`, or a negative offset such as `-5`.
-    #[arg(long, value_name = "VERSION", allow_hyphen_values = true)]
+    #[argx(long, allow_hyphen_values)]
     pub from: String,
     /// Destination version selector; defaults to current.
-    #[arg(long, value_name = "VERSION", allow_hyphen_values = true)]
+    #[argx(long, allow_hyphen_values)]
     pub to: Option<String>,
 }
 
@@ -54,7 +52,8 @@ enum VersionSelector {
 }
 
 /// Structured result of comparing two immutable object-version bodies.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, JsonSchema)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[argx(schema)]
 pub struct ObjectDiffOutput {
     /// Object whose versions were compared.
     pub object_id: Uuid,
@@ -69,18 +68,19 @@ pub struct ObjectDiffOutput {
 }
 
 /// Arguments for `kival objects restore`.
-#[derive(Debug, Clone, Parser)]
+#[derive(Debug, Clone, Args)]
 pub struct ObjectsRestoreCommand {
     /// Object target.
-    #[command(flatten)]
+    #[argx(flatten)]
     pub target: ObjectTargetArgs,
     /// Source version selector: UUID, `g`, `0`, or a negative offset such as `-5`.
-    #[arg(long, value_name = "VERSION", allow_hyphen_values = true)]
+    #[argx(long, allow_hyphen_values)]
     pub from: String,
 }
 
 /// Structured result of restoring an immutable object-version state.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, JsonSchema)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[argx(schema)]
 pub struct ObjectRestoreOutput {
     /// Object whose current state was restored.
     pub object_id: Uuid,
@@ -95,64 +95,61 @@ pub struct ObjectRestoreOutput {
 }
 
 /// Arguments for `kival objects versions`.
-#[derive(Debug, Parser, CommandSchema)]
+#[derive(Debug, Args)]
+#[argx(schema)]
 pub struct ObjectVersionsCommand {
     /// The version command to run.
-    #[command(subcommand)]
+    #[argx(subcommand)]
     pub command: ObjectVersionsSubcommand,
 }
 
 /// The available `kival objects versions` commands.
-#[derive(Debug, Subcommand, CommandSchema)]
+#[derive(Debug, Subcommand)]
+#[argx(schema)]
 pub enum ObjectVersionsSubcommand {
     /// List object versions from newest to oldest.
-    #[command(name = "list")]
     List(ObjectVersionsListCommand),
     /// Get an object version.
-    #[command(name = "get")]
     Get(ObjectVersionsGetCommand),
     /// List server-resolved wikilinks authored in an immutable object version.
-    #[command(name = "wikilinks")]
     Wikilinks(ObjectVersionsWikilinksCommand),
 }
 
 /// Arguments for `kival objects versions list`.
-#[derive(Debug, Parser)]
+#[derive(Debug, Args)]
 pub struct ObjectVersionsListCommand {
     /// Object target.
-    #[command(flatten)]
+    #[argx(flatten)]
     pub target: ObjectTargetArgs,
     /// Maximum number of versions to return.
-    #[arg(long, value_name = "N", default_value = DEFAULT_LIST_LIMIT_HELP)]
+    #[argx(long, default = DEFAULT_LIST_LIMIT)]
     pub limit: Option<i64>,
     /// Opaque `response.next_cursor` from the previous page; reuse it with the same filters.
-    #[arg(long, value_name = "CURSOR")]
+    #[argx(long)]
     pub cursor: Option<String>,
 }
 
 /// Arguments for `kival objects versions get`.
-#[derive(Debug, Clone, Copy, Parser)]
+#[derive(Debug, Clone, Copy, Args)]
 pub struct ObjectVersionsGetCommand {
     /// Object target.
-    #[command(flatten)]
+    #[argx(flatten)]
     pub target: ObjectTargetArgs,
     /// Version ID.
-    #[arg(value_name = "VERSION_ID")]
     pub version_id: Uuid,
 }
 
 /// Arguments for `kival objects versions wikilinks`.
-#[derive(Debug, Clone, Copy, Parser)]
+#[derive(Debug, Clone, Copy, Args)]
 pub struct ObjectVersionsWikilinksCommand {
     /// Object target.
-    #[command(flatten)]
+    #[argx(flatten)]
     pub target: ObjectTargetArgs,
     /// Version ID.
-    #[arg(value_name = "VERSION_ID")]
     pub version_id: Uuid,
 }
 
-#[schema_handler(run)]
+#[argx(handler = run)]
 impl ObjectsDiffCommand {
     /// Run `kival objects diff`.
     ///
@@ -160,7 +157,11 @@ impl ObjectsDiffCommand {
     ///
     /// Returns an error if a selector is invalid or out of range, or if the selected versions
     /// cannot be read.
-    pub async fn run(self, ctx: CliContext, output: OutputMode) -> Result<ObjectDiffOutput> {
+    pub async fn run(
+        self,
+        ctx: CliContext,
+        output: OutputMode,
+    ) -> std::result::Result<ObjectDiffOutput, CliError> {
         let from_raw = self.from.as_str();
         let to_raw = self.to.as_deref().unwrap_or("0");
         let from_selector = parse_version_selector(from_raw)?;
@@ -184,14 +185,14 @@ impl ObjectsDiffCommand {
                 .await?;
 
         let result = object_diff_output(self.target.object_id, &from_version, &to_version);
-        print_output(output, &result, || {
+        print_output(&output, &result, || {
             print!("{}", result.diff);
         })?;
         Ok(result)
     }
 }
 
-#[schema_handler(run)]
+#[argx(handler = run)]
 impl ObjectsRestoreCommand {
     /// Run `kival objects restore`.
     ///
@@ -199,7 +200,11 @@ impl ObjectsRestoreCommand {
     ///
     /// Returns an error if the source selector is invalid, the object cannot be edited, the
     /// selected version cannot be read, or optimistic concurrency detects a newer current version.
-    pub async fn run(self, ctx: CliContext, output: OutputMode) -> Result<ObjectRestoreOutput> {
+    pub async fn run(
+        self,
+        ctx: CliContext,
+        output: OutputMode,
+    ) -> std::result::Result<ObjectRestoreOutput, CliError> {
         let selector = parse_version_selector(&self.from)?;
         let client = authenticated_client(&ctx)?;
         let current = client.get_object(self.target.workspace_id, self.target.object_id).await?;
@@ -211,13 +216,13 @@ impl ObjectsRestoreCommand {
             let refreshed =
                 client.get_object(self.target.workspace_id, self.target.object_id).await?;
             let unchanged = validate_restore_noop(current_version.id, &refreshed)?;
-            return print_restore_result(
-                output,
+            return Ok(print_restore_result(
+                &output,
                 self.target.object_id,
                 source.id,
                 unchanged,
                 false,
-            );
+            )?);
         }
 
         let response = client
@@ -231,7 +236,7 @@ impl ObjectsRestoreCommand {
             CliError::invalid_argument("object has no current version after restore")
         })?;
 
-        print_restore_result(output, self.target.object_id, source.id, restored, true)
+        Ok(print_restore_result(&output, self.target.object_id, source.id, restored, true)?)
     }
 }
 
@@ -312,7 +317,7 @@ fn restore_update_request(current_version_id: Uuid, source: &ObjectVersion) -> U
 ///
 /// Returns an error when structured output serialization fails.
 fn print_restore_result(
-    output: OutputMode,
+    output: &OutputMode,
     object_id: Uuid,
     source_version_id: Uuid,
     current_version: &ObjectVersion,
@@ -482,7 +487,7 @@ impl ObjectVersionsCommand {
     }
 }
 
-#[schema_handler(run)]
+#[argx(handler = run)]
 impl ObjectVersionsListCommand {
     /// Run `kival objects versions list`.
     ///
@@ -493,7 +498,7 @@ impl ObjectVersionsListCommand {
         self,
         ctx: CliContext,
         output: OutputMode,
-    ) -> Result<ListResponse<ObjectVersion>> {
+    ) -> std::result::Result<ListResponse<ObjectVersion>, CliError> {
         let client = authenticated_client(&ctx)?;
         let response = client
             .list_object_versions(
@@ -502,7 +507,7 @@ impl ObjectVersionsListCommand {
                 &list_params(self.limit, self.cursor),
             )
             .await?;
-        print_output(output, &response, || {
+        print_output(&output, &response, || {
             if response.items.is_empty() {
                 print_empty_list("versions");
             } else {
@@ -518,24 +523,28 @@ impl ObjectVersionsListCommand {
     }
 }
 
-#[schema_handler(run)]
+#[argx(handler = run)]
 impl ObjectVersionsGetCommand {
     /// Run `kival objects versions get`.
     ///
     /// # Errors
     ///
     /// Returns an error if the version cannot be fetched.
-    pub async fn run(self, ctx: CliContext, output: OutputMode) -> Result<ObjectVersion> {
+    pub async fn run(
+        self,
+        ctx: CliContext,
+        output: OutputMode,
+    ) -> std::result::Result<ObjectVersion, CliError> {
         let client = authenticated_client(&ctx)?;
         let version = client
             .get_object_version(self.target.workspace_id, self.target.object_id, self.version_id)
             .await?;
-        print_output(output, &version, || print_version_response(&version))?;
+        print_output(&output, &version, || print_version_response(&version))?;
         Ok(version)
     }
 }
 
-#[schema_handler(run)]
+#[argx(handler = run)]
 impl ObjectVersionsWikilinksCommand {
     /// Run `kival objects versions wikilinks`.
     ///
@@ -546,7 +555,7 @@ impl ObjectVersionsWikilinksCommand {
         self,
         ctx: CliContext,
         output: OutputMode,
-    ) -> Result<ObjectVersionWikilinksResponse> {
+    ) -> std::result::Result<ObjectVersionWikilinksResponse, CliError> {
         let client = authenticated_client(&ctx)?;
         let items = client
             .get_object_version_wikilinks(
@@ -556,7 +565,7 @@ impl ObjectVersionsWikilinksCommand {
             )
             .await?;
         let response = ObjectVersionWikilinksResponse { items };
-        print_output(output, &response, || {
+        print_output(&output, &response, || {
             if response.items.is_empty() {
                 print_empty_list("wikilinks");
             } else {
@@ -585,8 +594,8 @@ impl ObjectVersionsWikilinksCommand {
 
 #[cfg(test)]
 mod tests {
+    use chrono::{DateTime, Utc};
     use kival_sdk::ObjectResource;
-    use time::OffsetDateTime;
 
     use super::*;
 
@@ -766,7 +775,7 @@ mod tests {
             created_by_display_name: None,
             created_by_workspace_role: None,
             created_by_object_role: None,
-            created_at: OffsetDateTime::UNIX_EPOCH,
+            created_at: DateTime::<Utc>::UNIX_EPOCH,
         }
     }
 
@@ -779,7 +788,7 @@ mod tests {
         let workspace_id = Uuid::now_v7();
         let object_id = Uuid::now_v7();
         let version_id = Uuid::now_v7();
-        let now = OffsetDateTime::UNIX_EPOCH;
+        let now = DateTime::<Utc>::UNIX_EPOCH;
 
         ObjectResponse {
             object: ObjectResource {

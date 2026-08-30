@@ -386,14 +386,13 @@ impl Model {
 
     /// Returns inbound edges projected by the backlinks endpoint.
     ///
-    /// Workspace administrators may inspect an archived target, while the
-    /// default backlinks query still excludes archived source objects.
+    /// The default backlinks query excludes archived source objects, while an
+    /// archived target remains readable to actors with object-admin access.
     #[must_use]
     pub fn visible_incoming_edges(&self, object: Handle, actor: Actor) -> Vec<Handle> {
-        let Some((workspace, _, target_lifecycle, _, _)) = self.objects.get(&object) else {
+        let Some((workspace, _, _, _, _)) = self.objects.get(&object) else {
             return Vec::new();
         };
-        let workspace_admin = self.has_workspace_admin_role(*workspace, actor);
 
         self.edges
             .iter()
@@ -405,10 +404,8 @@ impl Model {
                     && *target == object
                     && *active
                     && source_is_active
-                    && (workspace_admin
-                        || (*target_lifecycle == Lifecycle::Active
-                            && self.can_read_object(*source, actor)
-                            && self.can_read_object(object, actor))))
+                    && self.can_read_object(*source, actor)
+                    && self.can_read_object(object, actor))
                 .then_some(*edge)
             })
             .collect()

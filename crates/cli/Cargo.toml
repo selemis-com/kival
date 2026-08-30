@@ -11,16 +11,13 @@ workspace = true
 
 [dependencies]
 # Vendor
-clap.workspace = true
+argx.workspace = true
 eyre.workspace = true
 libc.workspace = true
-serde = { workspace = true, features = ["derive"] }
-toml.workspace = true
 thiserror.workspace = true
 tokio = { workspace = true, features = ["signal"] }
 
 # Crates
-kival-config.workspace = true
 kival-tasks.workspace = true
 kival-tracing.workspace = true
 

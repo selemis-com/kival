@@ -2,8 +2,8 @@
 
 use std::{fmt, str::FromStr};
 
+use chrono::{DateTime, Utc};
 use sqlx::{PgPool, Postgres, Transaction};
-use time::OffsetDateTime;
 use uuid::Uuid;
 
 use crate::{KernelError, Result, parse_stored};
@@ -62,13 +62,13 @@ pub struct PasskeyRow {
     /// Last accepted authenticator signature counter.
     pub signature_count: i64,
     /// Creation timestamp.
-    pub created_at: OffsetDateTime,
+    pub created_at: DateTime<Utc>,
     /// Last update timestamp.
-    pub updated_at: OffsetDateTime,
+    pub updated_at: DateTime<Utc>,
     /// Last successful credential-use timestamp.
-    pub last_used_at: Option<OffsetDateTime>,
+    pub last_used_at: Option<DateTime<Utc>>,
     /// Revocation timestamp, when revoked.
-    pub revoked_at: Option<OffsetDateTime>,
+    pub revoked_at: Option<DateTime<Utc>>,
 }
 
 /// Enrollment-code identity locked while starting registration.
@@ -92,7 +92,7 @@ pub struct FreshAuthenticationCeremony {
     /// Persisted `WebAuthn` challenge bytes.
     pub challenge: Vec<u8>,
     /// Expiration timestamp of the session being freshly authenticated.
-    pub session_expires_at: OffsetDateTime,
+    pub session_expires_at: DateTime<Utc>,
     /// Captured user-agent value, when available.
     pub user_agent: Option<String>,
     /// Captured peer IP address, when available.
@@ -274,7 +274,7 @@ pub async fn lock_fresh_authentication_ceremony(
     user_id: Uuid,
     session_id: Uuid,
 ) -> Result<Option<FreshAuthenticationCeremony>> {
-    let row = sqlx::query_as::<_, (Vec<u8>, OffsetDateTime, Option<String>, Option<String>)>(
+    let row = sqlx::query_as::<_, (Vec<u8>, DateTime<Utc>, Option<String>, Option<String>)>(
         r#"
         SELECT c.challenge, s.expires_at, s.user_agent, s.ip_address::text
         FROM kival.webauthn_ceremonies c

@@ -221,7 +221,7 @@ kival search <WORKSPACE_ID> "database migration"
 Most commands support machine-readable output:
 
 ```sh
-kival objects get <WORKSPACE_ID> <OBJECT_ID> --json
+kival objects get <WORKSPACE_ID> <OBJECT_ID> -O json
 ```
 
 The CLI can also describe its own commands and JSON Schema contracts:

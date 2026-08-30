@@ -2,15 +2,13 @@
 
 use std::path::{Path, PathBuf};
 
-use clap::{Parser, ValueEnum};
-use clap_schema::schema_handler;
+use argx::{Args, ValueEnum, argx};
 use eyre::{Result, WrapErr};
 use kival_cli::runner::CliContext;
 use kival_sdk::{
     ArchiveStatus, CreateObjectRequest, ListResponse, ObjectListItem, ObjectListOrder,
     ObjectListParams, ObjectResponse, ObjectRole, ObjectVersion, UpdateObjectRequest,
 };
-use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use serde_json::{Map, Value, json};
 use uuid::Uuid;
@@ -19,12 +17,12 @@ use super::{
     ObjectTargetArgs,
     display::{print_object_line, print_object_response},
     document::{ObjectDocument, parse_object_document, render_object_document},
-    io::{ensure_output_available, parse_body_file_path, resolve_body, write_output_file},
+    io::{ensure_output_available, resolve_body, write_output_file},
 };
 use crate::utils::{
     args::{
-        CliArchiveListStatus, DEFAULT_LIST_LIMIT, DEFAULT_LIST_LIMIT_HELP, metadata_value,
-        validate_flat_metadata, validate_flat_metadata_member,
+        CliArchiveListStatus, DEFAULT_LIST_LIMIT, metadata_value, validate_flat_metadata,
+        validate_flat_metadata_member,
     },
     credentials::authenticated_client,
     editor::edit_document,
@@ -55,63 +53,63 @@ impl From<CliObjectListOrder> for ObjectListOrder {
 }
 
 /// Arguments for `kival objects list`.
-#[derive(Debug, Parser)]
+#[derive(Debug, Args)]
 pub struct ObjectsListCommand {
     /// Workspace ID.
-    #[arg(value_name = "WORKSPACE_ID")]
     pub workspace_id: Uuid,
     /// Archive status filter: active, archived, or all.
-    #[arg(long, value_name = "STATUS", value_enum, default_value = "active")]
+    #[argx(long, value_enum, default = CliArchiveListStatus::Active)]
     pub status: CliArchiveListStatus,
     /// Sort order: creation time or last update time, newest first.
-    #[arg(long, value_name = "ORDER", value_enum, default_value = "created")]
+    #[argx(long, value_enum, default = CliObjectListOrder::Created)]
     pub order: CliObjectListOrder,
     /// Restrict by the authenticated user's favorite state.
-    #[arg(long, value_name = "BOOL")]
+    #[argx(long)]
     pub favorited: Option<bool>,
     /// Restrict by the authenticated user's personal pin state.
-    #[arg(long, value_name = "BOOL")]
+    #[argx(long)]
     pub pinned: Option<bool>,
     /// Maximum number of objects to return.
-    #[arg(long, value_name = "N", default_value = DEFAULT_LIST_LIMIT_HELP)]
+    #[argx(long, default = DEFAULT_LIST_LIMIT)]
     pub limit: Option<i64>,
     /// Opaque `response.next_cursor` from the previous page; reuse it with the same filters.
-    #[arg(long, value_name = "CURSOR")]
+    #[argx(long)]
     pub cursor: Option<String>,
 }
 
 /// Arguments for `kival objects get`.
-#[derive(Debug, Clone, Copy, Parser)]
+#[derive(Debug, Clone, Copy, Args)]
 pub struct ObjectsGetCommand {
     /// Object target.
-    #[command(flatten)]
+    #[argx(flatten)]
     pub target: ObjectTargetArgs,
 }
 
 /// Arguments for `kival objects body`.
-#[derive(Debug, Parser)]
+#[derive(Debug, Args)]
 pub struct ObjectsBodyCommand {
     /// Object target.
-    #[command(flatten)]
+    #[argx(flatten)]
     pub target: ObjectTargetArgs,
     /// Write the Markdown body to this file instead of stdout.
-    #[arg(long, short = 'o', value_name = "PATH")]
-    pub output: Option<PathBuf>,
+    #[argx(short = 'o', long = "file")]
+    pub file: Option<PathBuf>,
     /// Overwrite an existing output file.
-    #[arg(long, requires = "output")]
+    #[argx(long, requires = "file")]
     pub force: bool,
 }
 
 /// Arguments for `kival objects edit`.
-#[derive(Debug, Clone, Copy, Parser)]
+#[derive(Debug, Clone, Copy, Args)]
 pub struct ObjectsEditCommand {
     /// Object target.
-    #[command(flatten)]
+    #[argx(flatten)]
     pub target: ObjectTargetArgs,
 }
 
 /// Result of an external editor session.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, JsonSchema)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[argx(schema)]
 pub struct ObjectEditOutput {
     /// Object edited through the external editor.
     pub object_id: Uuid,
@@ -122,7 +120,8 @@ pub struct ObjectEditOutput {
 }
 
 /// Result of reading an object body.
-#[derive(Debug, Serialize, JsonSchema)]
+#[derive(Debug, Serialize)]
+#[argx(schema)]
 pub struct ObjectBodyOutput {
     /// Object ID whose current body was read.
     pub object_id: Uuid,
@@ -172,90 +171,79 @@ pub struct UpdateObjectInput {
 }
 
 /// Arguments for `kival objects create`.
-#[derive(Debug, Parser)]
+#[derive(Debug, Args)]
 pub struct ObjectsCreateCommand {
     /// Structured input source.
-    #[command(flatten)]
+    #[argx(flatten)]
     pub input_source: StructuredInputArgs,
     /// Workspace ID. Required unless supplied by `--input`.
-    #[arg(value_name = "WORKSPACE_ID", required_unless_present = "input")]
     pub workspace_id: Option<Uuid>,
     /// Object title. Required unless supplied by `--input`.
-    #[arg(long, value_name = "TITLE", required_unless_present = "input")]
+    #[argx(long)]
     pub title: Option<String>,
     /// Initial object body, or `-` to read the body from standard input.
-    #[arg(long, value_name = "BODY", conflicts_with = "body_file")]
+    #[argx(long, conflicts = "body_file")]
     pub body: Option<String>,
     /// Read the initial Markdown body from PATH.
-    #[arg(
-        long,
-        value_name = "PATH",
-        value_parser = parse_body_file_path,
-        conflicts_with_all = ["body", "input"]
-    )]
+    #[argx(long, conflicts = ["body", "input"])]
     pub body_file: Option<PathBuf>,
     /// Initial object metadata as a flat JSON object with scalar or scalar-list values.
-    #[arg(long, value_name = "JSON")]
+    #[argx(long)]
     pub metadata: Option<String>,
 }
 
 /// Arguments for `kival objects update`.
-#[derive(Debug, Parser)]
+#[derive(Debug, Args)]
 pub struct ObjectsUpdateCommand {
     /// Structured input source.
-    #[command(flatten)]
+    #[argx(flatten)]
     pub input_source: StructuredInputArgs,
     /// Object target.
-    #[command(flatten)]
+    #[argx(flatten)]
     pub target: ObjectTargetArgs,
     /// Exact current version the update was based on. Required unless supplied by `--input`.
-    #[arg(long, value_name = "VERSION_ID", required_unless_present = "input")]
+    #[argx(long)]
     pub expected_current_version_id: Option<Uuid>,
     /// New object title.
-    #[arg(long, value_name = "TITLE")]
+    #[argx(long)]
     pub title: Option<String>,
     /// New object body, or `-` to read the body from standard input.
-    #[arg(long, value_name = "BODY", conflicts_with = "body_file")]
+    #[argx(long, conflicts = "body_file")]
     pub body: Option<String>,
     /// Read the new Markdown body from PATH.
-    #[arg(
-        long,
-        value_name = "PATH",
-        value_parser = parse_body_file_path,
-        conflicts_with_all = ["body", "input"]
-    )]
+    #[argx(long, conflicts = ["body", "input"])]
     pub body_file: Option<PathBuf>,
     /// New object metadata as a flat JSON object with scalar or scalar-list values.
-    #[arg(long, value_name = "JSON")]
+    #[argx(long)]
     pub metadata: Option<String>,
     /// Set one metadata key to a JSON scalar or scalar list, preserving all other metadata.
     ///
     /// Uses `KEY=JSON`; string values must be JSON strings, for example:
     /// `--metadata-set 'kind="note"'`.
-    #[arg(long, value_name = "KEY=JSON", conflicts_with_all = ["metadata", "input"])]
+    #[argx(long, conflicts = ["metadata", "input"])]
     pub metadata_set: Vec<String>,
     /// Remove one metadata key while preserving all other current metadata.
-    #[arg(long, value_name = "KEY", conflicts_with_all = ["metadata", "input"])]
+    #[argx(long, conflicts = ["metadata", "input"])]
     pub metadata_remove: Vec<String>,
 }
 
 /// Arguments for `kival objects archive`.
-#[derive(Debug, Clone, Copy, Parser)]
+#[derive(Debug, Clone, Copy, Args)]
 pub struct ObjectsArchiveCommand {
     /// Object target.
-    #[command(flatten)]
+    #[argx(flatten)]
     pub target: ObjectTargetArgs,
 }
 
 /// Arguments for `kival objects unarchive`.
-#[derive(Debug, Clone, Copy, Parser)]
+#[derive(Debug, Clone, Copy, Args)]
 pub struct ObjectsUnarchiveCommand {
     /// Object target.
-    #[command(flatten)]
+    #[argx(flatten)]
     pub target: ObjectTargetArgs,
 }
 
-#[schema_handler(run)]
+#[argx(handler = run)]
 impl ObjectsListCommand {
     /// Run `kival objects list`.
     ///
@@ -266,7 +254,7 @@ impl ObjectsListCommand {
         self,
         ctx: CliContext,
         output: OutputMode,
-    ) -> Result<ListResponse<ObjectListItem>> {
+    ) -> std::result::Result<ListResponse<ObjectListItem>, CliError> {
         let client = authenticated_client(&ctx)?;
         let response = client
             .list_objects(
@@ -281,7 +269,7 @@ impl ObjectsListCommand {
                 },
             )
             .await?;
-        print_output(output, &response, || {
+        print_output(&output, &response, || {
             if response.items.is_empty() {
                 print_empty_list("objects");
             } else {
@@ -297,30 +285,38 @@ impl ObjectsListCommand {
     }
 }
 
-#[schema_handler(run)]
+#[argx(handler = run)]
 impl ObjectsGetCommand {
     /// Run `kival objects get`.
     ///
     /// # Errors
     ///
     /// Returns an error if the object cannot be fetched.
-    pub async fn run(self, ctx: CliContext, output: OutputMode) -> Result<ObjectResponse> {
+    pub async fn run(
+        self,
+        ctx: CliContext,
+        output: OutputMode,
+    ) -> std::result::Result<ObjectResponse, CliError> {
         let client = authenticated_client(&ctx)?;
         let response = client.get_object(self.target.workspace_id, self.target.object_id).await?;
-        print_output(output, &response, || print_object_response(&response, None))?;
+        print_output(&output, &response, || print_object_response(&response, None))?;
         Ok(response)
     }
 }
 
-#[schema_handler(run)]
+#[argx(handler = run)]
 impl ObjectsBodyCommand {
     /// Run `kival objects body`.
     ///
     /// # Errors
     ///
     /// Returns an error if the object cannot be fetched or the output file cannot be written.
-    pub async fn run(self, ctx: CliContext, output: OutputMode) -> Result<ObjectBodyOutput> {
-        if let Some(path) = self.output.as_deref() {
+    pub async fn run(
+        self,
+        ctx: CliContext,
+        output: OutputMode,
+    ) -> std::result::Result<ObjectBodyOutput, CliError> {
+        if let Some(path) = self.file.as_deref() {
             ensure_output_available(path, self.force)?;
         }
 
@@ -331,7 +327,7 @@ impl ObjectsBodyCommand {
             .ok_or_else(|| CliError::invalid_argument("object has no current version"))?;
         let bytes_written = version.body.len();
 
-        if let Some(path) = self.output {
+        if let Some(path) = self.file {
             write_output_file(&path, version.body.as_bytes(), self.force)?;
             let result = ObjectBodyOutput {
                 object_id: self.target.object_id,
@@ -340,7 +336,7 @@ impl ObjectsBodyCommand {
                 output: Some(path.display().to_string()),
                 bytes_written,
             };
-            print_output(output, &result, || {
+            print_output(&output, &result, || {
                 println!(
                     "{} version={} action=written output={} bytes_written={}",
                     result.object_id,
@@ -359,7 +355,7 @@ impl ObjectsBodyCommand {
             output: None,
             bytes_written,
         };
-        print_output(output, &result, || {
+        print_output(&output, &result, || {
             if let Some(body) = &result.body {
                 print!("{body}");
             }
@@ -368,7 +364,7 @@ impl ObjectsBodyCommand {
     }
 }
 
-#[schema_handler(run)]
+#[argx(handler = run)]
 impl ObjectsEditCommand {
     /// Run `kival objects edit`.
     ///
@@ -376,7 +372,11 @@ impl ObjectsEditCommand {
     ///
     /// Returns an error when the object cannot be read or edited, the external editor fails, or
     /// the object changes before the edited state can be stored.
-    pub async fn run(self, ctx: CliContext, output: OutputMode) -> Result<ObjectEditOutput> {
+    pub async fn run(
+        self,
+        ctx: CliContext,
+        output: OutputMode,
+    ) -> std::result::Result<ObjectEditOutput, CliError> {
         let client = authenticated_client(&ctx)?;
         let current = client.get_object(self.target.workspace_id, self.target.object_id).await?;
         let version = editable_version(&current)?;
@@ -386,17 +386,17 @@ impl ObjectsEditCommand {
         let parsed = match parse_object_document(edited.document()) {
             Ok(parsed) => parsed,
             Err(error) => {
-                return Err(local_edit_error(&error.to_string(), edited.path()).into());
+                return Err(local_edit_error(&error.to_string(), edited.path()));
             }
         };
         let request = match update_edit_request(version.id, &initial, parsed) {
             Ok(Some(request)) => request,
             Ok(None) => {
                 edited.discard()?;
-                return print_edit_result(output, &current, false);
+                return Ok(print_edit_result(&output, &current, false)?);
             }
             Err(error) => {
-                return Err(local_edit_error(&error.to_string(), edited.path()).into());
+                return Err(local_edit_error(&error.to_string(), edited.path()));
             }
         };
         let response = match client
@@ -406,14 +406,14 @@ impl ObjectsEditCommand {
             Ok(response) => response,
             Err(error) => {
                 let body = CliErrorBody::from_client_error(&error);
-                return Err(edit_recovery_error(&body, edited.path()).into());
+                return Err(edit_recovery_error(&body, edited.path()));
             }
         };
 
         edited.discard().wrap_err(
             "object was updated, but the temporary object document could not be removed",
         )?;
-        print_edit_result(output, &response, true)
+        Ok(print_edit_result(&output, &response, true)?)
     }
 }
 
@@ -522,7 +522,7 @@ fn object_edit_output(response: &ObjectResponse, changed: bool) -> Result<Object
 ///
 /// Returns an error if the result cannot be built or structured output serialization fails.
 fn print_edit_result(
-    output: OutputMode,
+    output: &OutputMode,
     response: &ObjectResponse,
     changed: bool,
 ) -> Result<ObjectEditOutput> {
@@ -534,18 +534,22 @@ fn print_edit_result(
     Ok(result)
 }
 
-#[schema_handler(run)]
+#[argx(handler = run)]
 impl ObjectsCreateCommand {
     /// Run `kival objects create`.
     ///
     /// # Errors
     ///
     /// Returns an error if the object cannot be created.
-    pub async fn run(self, ctx: CliContext, output: OutputMode) -> Result<ObjectResponse> {
+    pub async fn run(
+        self,
+        ctx: CliContext,
+        output: OutputMode,
+    ) -> std::result::Result<ObjectResponse, CliError> {
         let input = self.into_input()?;
         let title = input.title.trim();
         if title.is_empty() {
-            return Err(CliError::invalid_argument("title must not be empty").into());
+            return Err(CliError::invalid_argument("title must not be empty"));
         }
         let client = authenticated_client(&ctx)?;
         let response = client
@@ -558,7 +562,7 @@ impl ObjectsCreateCommand {
                 },
             )
             .await?;
-        print_output(output, &response, || print_object_response(&response, Some("created")))?;
+        print_output(&output, &response, || print_object_response(&response, Some("created")))?;
         Ok(response)
     }
 
@@ -596,14 +600,18 @@ impl ObjectsCreateCommand {
     }
 }
 
-#[schema_handler(run)]
+#[argx(handler = run)]
 impl ObjectsUpdateCommand {
     /// Run `kival objects update`.
     ///
     /// # Errors
     ///
     /// Returns an error if the object cannot be updated.
-    pub async fn run(self, ctx: CliContext, output: OutputMode) -> Result<ObjectResponse> {
+    pub async fn run(
+        self,
+        ctx: CliContext,
+        output: OutputMode,
+    ) -> std::result::Result<ObjectResponse, CliError> {
         let target = self.target;
         let metadata_sets = parse_metadata_sets(&self.metadata_set)?;
         let metadata_remove = self.metadata_remove.clone();
@@ -614,10 +622,10 @@ impl ObjectsUpdateCommand {
             && input.metadata.is_none()
             && !has_metadata_mutations
         {
-            return Err(CliError::invalid_argument("at least one field must be provided").into());
+            return Err(CliError::invalid_argument("at least one field must be provided"));
         }
         if input.title.as_deref().is_some_and(|title| title.trim().is_empty()) {
-            return Err(CliError::invalid_argument("title must not be empty").into());
+            return Err(CliError::invalid_argument("title must not be empty"));
         }
 
         let client = authenticated_client(&ctx)?;
@@ -634,11 +642,10 @@ impl ObjectsUpdateCommand {
                         "expected_current_version_id": input.expected_current_version_id,
                         "actual_current_version_id": version.id,
                     })),
-                }
-                .into());
+                });
             }
             let Value::Object(mut metadata) = version.metadata else {
-                return Err(eyre::eyre!("current object metadata is not a JSON object"));
+                return Err(eyre::eyre!("current object metadata is not a JSON object").into());
             };
             apply_metadata_mutations(&mut metadata, &metadata_sets, &metadata_remove)?;
             validate_flat_metadata(&metadata)?;
@@ -652,7 +659,7 @@ impl ObjectsUpdateCommand {
             metadata: input.metadata.map(Value::Object),
         };
         let response = client.update_object(target.workspace_id, target.object_id, request).await?;
-        print_output(output, &response, || print_object_response(&response, Some("updated")))?;
+        print_output(&output, &response, || print_object_response(&response, Some("updated")))?;
         Ok(response)
     }
 
@@ -756,36 +763,44 @@ fn apply_metadata_mutations(
     Ok(())
 }
 
-#[schema_handler(run)]
+#[argx(handler = run)]
 impl ObjectsArchiveCommand {
     /// Run `kival objects archive`.
     ///
     /// # Errors
     ///
     /// Returns an error if the object cannot be archived.
-    pub async fn run(self, ctx: CliContext, output: OutputMode) -> Result<ObjectResponse> {
+    pub async fn run(
+        self,
+        ctx: CliContext,
+        output: OutputMode,
+    ) -> std::result::Result<ObjectResponse, CliError> {
         let client = authenticated_client(&ctx)?;
         let response =
             client.archive_object(self.target.workspace_id, self.target.object_id).await?;
-        print_output(output, &response, || {
+        print_output(&output, &response, || {
             print_object_line(&response.object, Some("archived"));
         })?;
         Ok(response)
     }
 }
 
-#[schema_handler(run)]
+#[argx(handler = run)]
 impl ObjectsUnarchiveCommand {
     /// Run `kival objects unarchive`.
     ///
     /// # Errors
     ///
     /// Returns an error if the object cannot be unarchived.
-    pub async fn run(self, ctx: CliContext, output: OutputMode) -> Result<ObjectResponse> {
+    pub async fn run(
+        self,
+        ctx: CliContext,
+        output: OutputMode,
+    ) -> std::result::Result<ObjectResponse, CliError> {
         let client = authenticated_client(&ctx)?;
         let response =
             client.unarchive_object(self.target.workspace_id, self.target.object_id).await?;
-        print_output(output, &response, || {
+        print_output(&output, &response, || {
             print_object_line(&response.object, Some("unarchived"));
         })?;
         Ok(response)
@@ -796,8 +811,8 @@ impl ObjectsUnarchiveCommand {
 mod tests {
     use std::fs;
 
+    use chrono::{DateTime, Utc};
     use kival_sdk::ObjectResource;
-    use time::OffsetDateTime;
 
     use super::*;
 
@@ -1045,7 +1060,7 @@ mod tests {
         let workspace_id = Uuid::now_v7();
         let object_id = Uuid::now_v7();
         let version_id = Uuid::now_v7();
-        let now = OffsetDateTime::UNIX_EPOCH;
+        let now = DateTime::<Utc>::UNIX_EPOCH;
 
         ObjectResponse {
             object: ObjectResource {

@@ -1,7 +1,6 @@
 //! Group commands.
 
-use clap::{Parser, Subcommand};
-use clap_schema::{CommandSchema, schema_handler};
+use argx::{Args, Subcommand, argx};
 use eyre::Result;
 use kival_cli::runner::CliContext;
 use kival_sdk::{
@@ -12,10 +11,7 @@ use serde::Deserialize;
 use uuid::Uuid;
 
 use crate::utils::{
-    args::{
-        CliArchiveListStatus, CliMembershipRole, DEFAULT_LIST_LIMIT, DEFAULT_LIST_LIMIT_HELP,
-        list_params,
-    },
+    args::{CliArchiveListStatus, CliMembershipRole, DEFAULT_LIST_LIMIT, list_params},
     credentials::authenticated_client,
     error::CliError,
     input::{
@@ -28,72 +24,66 @@ use crate::utils::{
 };
 
 /// Arguments for `kival groups`.
-#[derive(Debug, Parser, CommandSchema)]
+#[derive(Debug, Args)]
+#[argx(schema)]
 pub struct GroupsCommand {
     /// The group command to run.
-    #[command(subcommand)]
+    #[argx(subcommand)]
     pub command: GroupsSubcommand,
 }
 
 /// The available `kival groups` commands.
-#[derive(Debug, Subcommand, CommandSchema)]
+#[derive(Debug, Subcommand)]
+#[argx(schema)]
 pub enum GroupsSubcommand {
     /// List groups, newest first.
     ///
     /// Active groups are returned by default. Use `--status` to select archived groups or both
     /// lifecycle states.
-    #[command(name = "list")]
     List(GroupsListCommand),
     /// Get a group by ID.
-    #[command(name = "get")]
     Get(GroupsGetCommand),
     /// Create a group.
-    #[command(
-        name = "create",
-        after_help = "Examples:\n  kival groups create --name \"Editors\"\n  kival groups create --input group.json\n  cat group.json | kival groups create --input -"
-    )]
+    ///
+    /// Examples: `kival groups create --name "Editors"`, `kival groups create --input group.json`,
+    /// or `cat group.json | kival groups create --input -`.
     Create(GroupsCreateCommand),
     /// Update a group.
-    #[command(
-        name = "update",
-        after_help = "Examples:\n  kival groups update <GROUP_ID> --name \"Reviewers\"\n  kival groups update <GROUP_ID> --clear-description\n  kival groups update <GROUP_ID> --input update.json"
-    )]
+    ///
+    /// Examples: `kival groups update <GROUP_ID> --name "Reviewers"`,
+    /// `--clear-description`, or `--input update.json`.
     Update(GroupsUpdateCommand),
     /// Archive a group while retaining its memberships and historical record.
     ///
     /// Archived groups no longer participate in group-based object access.
-    #[command(name = "archive")]
     Archive(GroupsArchiveCommand),
     /// Restore an archived group to active status.
-    #[command(name = "unarchive")]
     Unarchive(GroupsUnarchiveCommand),
     /// Manage group memberships.
-    #[command(name = "memberships")]
     Memberships(GroupMembershipsCommand),
 }
 
 /// Arguments for `kival groups list`.
-#[derive(Debug, Parser)]
+#[derive(Debug, Args)]
 pub struct GroupsListCommand {
     /// Archive status filter: active, archived, or all.
-    #[arg(long, value_name = "STATUS", value_enum, default_value = "active")]
+    #[argx(long, value_enum, default = CliArchiveListStatus::Active)]
     pub status: CliArchiveListStatus,
     /// Case-insensitive group name search.
-    #[arg(long, value_name = "QUERY")]
+    #[argx(long)]
     pub query: Option<String>,
     /// Maximum number of groups to return.
-    #[arg(long, value_name = "N", default_value = DEFAULT_LIST_LIMIT_HELP)]
+    #[argx(long, default = DEFAULT_LIST_LIMIT)]
     pub limit: Option<i64>,
     /// Opaque `response.next_cursor` from the previous page; reuse it with the same filters.
-    #[arg(long, value_name = "CURSOR")]
+    #[argx(long)]
     pub cursor: Option<String>,
 }
 
 /// Arguments for `kival groups get`.
-#[derive(Debug, Clone, Copy, Parser)]
+#[derive(Debug, Clone, Copy, Args)]
 pub struct GroupsGetCommand {
     /// Group ID.
-    #[arg(value_name = "GROUP_ID")]
     pub group_id: Uuid,
 }
 
@@ -121,144 +111,133 @@ pub struct UpdateGroupInput {
 }
 
 /// Arguments for `kival groups create`.
-#[derive(Debug, Parser)]
+#[derive(Debug, Args)]
 pub struct GroupsCreateCommand {
     /// Structured input source.
-    #[command(flatten)]
+    #[argx(flatten)]
     pub input_source: StructuredInputArgs,
     /// Group name.
-    #[arg(long, value_name = "NAME", required_unless_present = "input")]
+    #[argx(long)]
     pub name: Option<String>,
     /// Group description.
-    #[arg(long, value_name = "DESCRIPTION")]
+    #[argx(long)]
     pub description: Option<String>,
 }
 
 /// Arguments for `kival groups update`.
-#[derive(Debug, Parser)]
+#[derive(Debug, Args)]
 pub struct GroupsUpdateCommand {
     /// Structured input source.
-    #[command(flatten)]
+    #[argx(flatten)]
     pub input_source: StructuredInputArgs,
     /// Group ID.
-    #[arg(value_name = "GROUP_ID")]
     pub group_id: Uuid,
     /// Set the group name.
-    #[arg(long, value_name = "NAME")]
+    #[argx(long)]
     pub name: Option<String>,
     /// Set the group description.
-    #[arg(long, value_name = "DESCRIPTION", conflicts_with = "clear_description")]
+    #[argx(long, conflicts = "clear_description")]
     pub description: Option<String>,
     /// Clear the group description.
-    #[arg(long)]
+    #[argx(long)]
     pub clear_description: bool,
 }
 
 /// Arguments for `kival groups archive`.
-#[derive(Debug, Clone, Copy, Parser)]
+#[derive(Debug, Clone, Copy, Args)]
 pub struct GroupsArchiveCommand {
     /// Group ID.
-    #[arg(value_name = "GROUP_ID")]
     pub group_id: Uuid,
 }
 
 /// Arguments for `kival groups unarchive`.
-#[derive(Debug, Clone, Copy, Parser)]
+#[derive(Debug, Clone, Copy, Args)]
 pub struct GroupsUnarchiveCommand {
     /// Group ID.
-    #[arg(value_name = "GROUP_ID")]
     pub group_id: Uuid,
 }
 
 /// Arguments for `kival groups memberships`.
-#[derive(Debug, Parser, CommandSchema)]
+#[derive(Debug, Args)]
+#[argx(schema)]
 pub struct GroupMembershipsCommand {
     /// The membership command to run.
-    #[command(subcommand)]
+    #[argx(subcommand)]
     pub command: GroupMembershipsSubcommand,
 }
 
 /// The available `kival groups memberships` commands.
-#[derive(Debug, Subcommand, CommandSchema)]
+#[derive(Debug, Subcommand)]
+#[argx(schema)]
 pub enum GroupMembershipsSubcommand {
     /// List active group memberships, newest first.
-    #[command(name = "list")]
     List(GroupMembershipsListCommand),
 
     /// Add a user as a member or administrator of a group.
     ///
     /// Group membership can contribute to object access only where the group is actively linked to
     /// the workspace and has an active object grant.
-    #[command(name = "create")]
     Create(GroupMembershipsCreateCommand),
 
     /// Change an active group membership's role.
-    #[command(name = "update")]
     Update(GroupMembershipsUpdateCommand),
 
     /// Revoke a group membership without deleting its historical record.
     ///
     /// Revocation removes access derived through this membership but does not revoke the user's
     /// independent direct access.
-    #[command(name = "revoke")]
     Revoke(GroupMembershipsRevokeCommand),
 }
 
 /// Arguments for `kival groups memberships list`.
-#[derive(Debug, Parser)]
+#[derive(Debug, Args)]
 pub struct GroupMembershipsListCommand {
     /// Group ID.
-    #[arg(value_name = "GROUP_ID")]
     pub group_id: Uuid,
 
     /// Maximum number of memberships to return.
-    #[arg(long, value_name = "N", default_value = DEFAULT_LIST_LIMIT_HELP)]
+    #[argx(long, default = DEFAULT_LIST_LIMIT)]
     pub limit: Option<i64>,
 
     /// Opaque `response.next_cursor` from the previous page; reuse it with the same filters.
-    #[arg(long, value_name = "CURSOR")]
+    #[argx(long)]
     pub cursor: Option<String>,
 }
 
 /// Arguments for `kival groups memberships create`.
-#[derive(Debug, Clone, Copy, Parser)]
+#[derive(Debug, Clone, Copy, Args)]
 pub struct GroupMembershipsCreateCommand {
     /// Group ID.
-    #[arg(value_name = "GROUP_ID")]
     pub group_id: Uuid,
 
     /// User ID.
-    #[arg(long, value_name = "USER_ID")]
+    #[argx(long)]
     pub user_id: Uuid,
 
     /// Group role: member or admin.
-    #[arg(long, value_name = "ROLE", value_enum)]
+    #[argx(long, value_enum)]
     pub role: CliMembershipRole,
 }
 
 /// Arguments for `kival groups memberships update`.
-#[derive(Debug, Clone, Copy, Parser)]
+#[derive(Debug, Clone, Copy, Args)]
 pub struct GroupMembershipsUpdateCommand {
     /// Group ID.
-    #[arg(value_name = "GROUP_ID")]
     pub group_id: Uuid,
     /// Membership ID.
-    #[arg(value_name = "MEMBERSHIP_ID")]
     pub membership_id: Uuid,
     /// New group role: member or admin.
-    #[arg(long, value_name = "ROLE", value_enum)]
+    #[argx(long, value_enum)]
     pub role: CliMembershipRole,
 }
 
 /// Arguments for `kival groups memberships revoke`.
-#[derive(Debug, Clone, Copy, Parser)]
+#[derive(Debug, Clone, Copy, Args)]
 pub struct GroupMembershipsRevokeCommand {
     /// Group ID.
-    #[arg(value_name = "GROUP_ID")]
     pub group_id: Uuid,
 
     /// Membership ID.
-    #[arg(value_name = "MEMBERSHIP_ID")]
     pub membership_id: Uuid,
 }
 
@@ -299,14 +278,18 @@ impl GroupsCommand {
     }
 }
 
-#[schema_handler(run)]
+#[argx(handler = run)]
 impl GroupsListCommand {
     /// Run `kival groups list`.
     ///
     /// # Errors
     ///
     /// Returns an error if groups cannot be listed.
-    pub async fn run(self, ctx: CliContext, output: OutputMode) -> Result<ListResponse<Group>> {
+    pub async fn run(
+        self,
+        ctx: CliContext,
+        output: OutputMode,
+    ) -> std::result::Result<ListResponse<Group>, CliError> {
         let client = authenticated_client(&ctx)?;
         let response = client
             .list_groups(&GroupListParams {
@@ -316,44 +299,52 @@ impl GroupsListCommand {
                 q: self.query,
             })
             .await?;
-        print_output(output, &response, || {
+        print_output(&output, &response, || {
             print_group_page(&response.items, response.next_cursor.as_deref())
         })?;
         Ok(response)
     }
 }
 
-#[schema_handler(run)]
+#[argx(handler = run)]
 impl GroupsGetCommand {
     /// Run `kival groups get`.
     ///
     /// # Errors
     ///
     /// Returns an error if the group cannot be fetched.
-    pub async fn run(self, ctx: CliContext, output: OutputMode) -> Result<Group> {
+    pub async fn run(
+        self,
+        ctx: CliContext,
+        output: OutputMode,
+    ) -> std::result::Result<Group, CliError> {
         let client = authenticated_client(&ctx)?;
         let group = client.get_group(self.group_id).await?;
-        print_output(output, &group, || print_group_line(&group, None))?;
+        print_output(&output, &group, || print_group_line(&group, None))?;
         Ok(group)
     }
 }
 
-#[schema_handler(run)]
+#[argx(handler = run)]
 impl GroupsCreateCommand {
     /// Run `kival groups create`.
     ///
     /// # Errors
     ///
     /// Returns an error if the group cannot be created.
-    pub async fn run(self, ctx: CliContext, output: OutputMode) -> Result<Group> {
+    pub async fn run(
+        self,
+        ctx: CliContext,
+        output: OutputMode,
+    ) -> std::result::Result<Group, CliError> {
         let input = self.into_input()?;
         let name = input.name.trim();
         if name.is_empty() {
-            return Err(CliError::invalid_argument("name must not be empty").into());
+            return Err(CliError::invalid_argument("name must not be empty"));
         }
         let description = input.description.as_deref().map(str::trim);
         if matches!(description, Some("")) {
-            return Err(CliError::invalid_argument("description must not be empty").into());
+            return Err(CliError::invalid_argument("description must not be empty"));
         }
         let client = authenticated_client(&ctx)?;
         let group = client
@@ -362,7 +353,7 @@ impl GroupsCreateCommand {
                 description: description.map(ToOwned::to_owned),
             })
             .await?;
-        print_output(output, &group, || print_group_line(&group, Some("created")))?;
+        print_output(&output, &group, || print_group_line(&group, Some("created")))?;
         Ok(group)
     }
 
@@ -382,26 +373,30 @@ impl GroupsCreateCommand {
     }
 }
 
-#[schema_handler(run)]
+#[argx(handler = run)]
 impl GroupsUpdateCommand {
     /// Run `kival groups update`.
     ///
     /// # Errors
     ///
     /// Returns an error if the group cannot be updated.
-    pub async fn run(self, ctx: CliContext, output: OutputMode) -> Result<Group> {
+    pub async fn run(
+        self,
+        ctx: CliContext,
+        output: OutputMode,
+    ) -> std::result::Result<Group, CliError> {
         let group_id = self.group_id;
         let input = self.into_input()?;
         let name = input.name.as_deref().map(str::trim);
         let description = input.description.as_ref().map(|value| value.as_deref().map(str::trim));
         if name.is_none() && input.description.is_none() {
-            return Err(CliError::invalid_argument("at least one field must be provided").into());
+            return Err(CliError::invalid_argument("at least one field must be provided"));
         }
         if matches!(name, Some("")) {
-            return Err(CliError::invalid_argument("name must not be empty").into());
+            return Err(CliError::invalid_argument("name must not be empty"));
         }
         if matches!(description, Some(Some(""))) {
-            return Err(CliError::invalid_argument("description must not be empty").into());
+            return Err(CliError::invalid_argument("description must not be empty"));
         }
         let client = authenticated_client(&ctx)?;
         let description = match description {
@@ -415,7 +410,7 @@ impl GroupsUpdateCommand {
                 UpdateGroupRequest { name: name.map(ToOwned::to_owned), description },
             )
             .await?;
-        print_output(output, &group, || print_group_line(&group, Some("updated")))?;
+        print_output(&output, &group, || print_group_line(&group, Some("updated")))?;
         Ok(group)
     }
 
@@ -453,32 +448,40 @@ impl GroupsUpdateCommand {
     }
 }
 
-#[schema_handler(run)]
+#[argx(handler = run)]
 impl GroupsArchiveCommand {
     /// Run `kival groups archive`.
     ///
     /// # Errors
     ///
     /// Returns an error if the group cannot be archived.
-    pub async fn run(self, ctx: CliContext, output: OutputMode) -> Result<Group> {
+    pub async fn run(
+        self,
+        ctx: CliContext,
+        output: OutputMode,
+    ) -> std::result::Result<Group, CliError> {
         let client = authenticated_client(&ctx)?;
         let group = client.archive_group(self.group_id).await?;
-        print_output(output, &group, || print_group_line(&group, Some("archived")))?;
+        print_output(&output, &group, || print_group_line(&group, Some("archived")))?;
         Ok(group)
     }
 }
 
-#[schema_handler(run)]
+#[argx(handler = run)]
 impl GroupsUnarchiveCommand {
     /// Run `kival groups unarchive`.
     ///
     /// # Errors
     ///
     /// Returns an error if the group cannot be unarchived.
-    pub async fn run(self, ctx: CliContext, output: OutputMode) -> Result<Group> {
+    pub async fn run(
+        self,
+        ctx: CliContext,
+        output: OutputMode,
+    ) -> std::result::Result<Group, CliError> {
         let client = authenticated_client(&ctx)?;
         let group = client.unarchive_group(self.group_id).await?;
-        print_output(output, &group, || print_group_line(&group, Some("unarchived")))?;
+        print_output(&output, &group, || print_group_line(&group, Some("unarchived")))?;
         Ok(group)
     }
 }
@@ -508,7 +511,7 @@ impl GroupMembershipsCommand {
     }
 }
 
-#[schema_handler(run)]
+#[argx(handler = run)]
 impl GroupMembershipsListCommand {
     /// Run `kival groups memberships list`.
     ///
@@ -519,12 +522,12 @@ impl GroupMembershipsListCommand {
         self,
         ctx: CliContext,
         output: OutputMode,
-    ) -> Result<ListResponse<GroupMembership>> {
+    ) -> std::result::Result<ListResponse<GroupMembership>, CliError> {
         let client = authenticated_client(&ctx)?;
         let response = client
             .list_group_memberships(self.group_id, &list_params(self.limit, self.cursor))
             .await?;
-        print_output(output, &response, || {
+        print_output(&output, &response, || {
             if response.items.is_empty() {
                 print_empty_list("memberships");
             } else {
@@ -540,14 +543,18 @@ impl GroupMembershipsListCommand {
     }
 }
 
-#[schema_handler(run)]
+#[argx(handler = run)]
 impl GroupMembershipsCreateCommand {
     /// Run `kival groups memberships create`.
     ///
     /// # Errors
     ///
     /// Returns an error if the membership cannot be created.
-    pub async fn run(self, ctx: CliContext, output: OutputMode) -> Result<GroupMembership> {
+    pub async fn run(
+        self,
+        ctx: CliContext,
+        output: OutputMode,
+    ) -> std::result::Result<GroupMembership, CliError> {
         let role = MembershipRole::from(self.role);
         let client = authenticated_client(&ctx)?;
         let membership = client
@@ -560,21 +567,25 @@ impl GroupMembershipsCreateCommand {
                 },
             )
             .await?;
-        print_output(output, &membership, || {
+        print_output(&output, &membership, || {
             print_group_membership_line(&membership, Some("created"));
         })?;
         Ok(membership)
     }
 }
 
-#[schema_handler(run)]
+#[argx(handler = run)]
 impl GroupMembershipsUpdateCommand {
     /// Run `kival groups memberships update`.
     ///
     /// # Errors
     ///
     /// Returns an error if the active membership role cannot be updated.
-    pub async fn run(self, ctx: CliContext, output: OutputMode) -> Result<GroupMembership> {
+    pub async fn run(
+        self,
+        ctx: CliContext,
+        output: OutputMode,
+    ) -> std::result::Result<GroupMembership, CliError> {
         let client = authenticated_client(&ctx)?;
         let membership = client
             .update_group_membership(
@@ -583,24 +594,28 @@ impl GroupMembershipsUpdateCommand {
                 UpdateGroupMembershipRequest { group_role: self.role.into() },
             )
             .await?;
-        print_output(output, &membership, || {
+        print_output(&output, &membership, || {
             print_group_membership_line(&membership, Some("updated"));
         })?;
         Ok(membership)
     }
 }
 
-#[schema_handler(run)]
+#[argx(handler = run)]
 impl GroupMembershipsRevokeCommand {
     /// Run `kival groups memberships revoke`.
     ///
     /// # Errors
     ///
     /// Returns an error if the membership cannot be revoked.
-    pub async fn run(self, ctx: CliContext, output: OutputMode) -> Result<GroupMembership> {
+    pub async fn run(
+        self,
+        ctx: CliContext,
+        output: OutputMode,
+    ) -> std::result::Result<GroupMembership, CliError> {
         let client = authenticated_client(&ctx)?;
         let membership = client.revoke_group_membership(self.group_id, self.membership_id).await?;
-        print_output(output, &membership, || {
+        print_output(&output, &membership, || {
             print_group_membership_line(&membership, Some("revoked"));
         })?;
         Ok(membership)

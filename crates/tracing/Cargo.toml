@@ -11,7 +11,7 @@ workspace = true
 
 [dependencies]
 # Vendor
-clap = { workspace = true, features = ["derive"] }
+argx.workspace = true
 eyre.workspace = true
 tracing.workspace = true
 tracing-subscriber = { workspace = true, features = [

@@ -1,7 +1,7 @@
 //! Browser-session state bindings.
 
+use chrono::{DateTime, Utc};
 use sqlx::{Acquire, PgPool, Postgres, Transaction};
-use time::OffsetDateTime;
 use uuid::Uuid;
 
 use crate::Result;
@@ -14,19 +14,19 @@ pub struct SessionRow {
     /// User identifier.
     pub user_id: Uuid,
     /// Creation timestamp.
-    pub created_at: OffsetDateTime,
+    pub created_at: DateTime<Utc>,
     /// Last update timestamp.
-    pub updated_at: OffsetDateTime,
+    pub updated_at: DateTime<Utc>,
     /// Expiration timestamp.
-    pub expires_at: OffsetDateTime,
+    pub expires_at: DateTime<Utc>,
     /// Revocation timestamp, when revoked.
-    pub revoked_at: Option<OffsetDateTime>,
+    pub revoked_at: Option<DateTime<Utc>>,
     /// User that revoked the row, when retained.
     pub revoked_by: Option<Uuid>,
     /// Recorded reason for session revocation.
     pub revocation_reason: Option<String>,
     /// Last activity timestamp recorded for the session.
-    pub last_seen_at: Option<OffsetDateTime>,
+    pub last_seen_at: Option<DateTime<Utc>>,
     /// Captured user-agent value, when available.
     pub user_agent: Option<String>,
     /// Captured peer IP address, when available.
@@ -54,7 +54,7 @@ pub struct FreshAuthenticationSessionRotation<'a> {
     /// Hash of the replacement CSRF token.
     pub csrf_token_hash: &'a [u8],
     /// Expiration timestamp preserved from the previous session.
-    pub expires_at: OffsetDateTime,
+    pub expires_at: DateTime<Utc>,
     /// Captured user-agent value, when available.
     pub user_agent: Option<&'a str>,
     /// Captured peer IP address, when available.
@@ -189,7 +189,7 @@ pub async fn create_session(
     ttl_interval: &str,
     user_agent: Option<&str>,
     ip_address: &str,
-) -> Result<OffsetDateTime> {
+) -> Result<DateTime<Utc>> {
     Ok(sqlx::query_scalar(
         r#"
         INSERT INTO kival.sessions (

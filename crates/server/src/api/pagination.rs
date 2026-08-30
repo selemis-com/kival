@@ -1,10 +1,10 @@
 //! Cursor pagination helpers.
 
 use base64::{Engine as _, engine::general_purpose::URL_SAFE_NO_PAD};
+use chrono::{DateTime, Utc};
 use kival_sdk::{EventListParams, ListParams, ListResponse};
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
-use time::{OffsetDateTime, serde::rfc3339};
 use uuid::Uuid;
 
 use crate::api::error::{ApiError, ApiResult};
@@ -16,7 +16,7 @@ const MAX_CURSOR_LENGTH: usize = 1024;
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct CreatedAtCursor {
     /// Creation timestamp at the page boundary.
-    pub(crate) created_at: OffsetDateTime,
+    pub(crate) created_at: DateTime<Utc>,
     /// Stable ID tie-breaker at the page boundary.
     pub(crate) id: Uuid,
 }
@@ -25,7 +25,7 @@ pub(crate) struct CreatedAtCursor {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct UpdatedAtCursor {
     /// Update timestamp at the page boundary.
-    pub(crate) updated_at: OffsetDateTime,
+    pub(crate) updated_at: DateTime<Utc>,
     /// Stable ID tie-breaker at the page boundary.
     pub(crate) id: Uuid,
 }
@@ -68,8 +68,7 @@ enum Cursor {
         /// Optional parent scope this cursor is valid for.
         scope: Option<Uuid>,
         /// Creation timestamp at the page boundary.
-        #[serde(with = "rfc3339")]
-        created_at: OffsetDateTime,
+        created_at: DateTime<Utc>,
         /// Stable ID tie-breaker at the page boundary.
         id: Uuid,
     },
@@ -80,8 +79,7 @@ enum Cursor {
         /// Optional parent scope this cursor is valid for.
         scope: Option<Uuid>,
         /// Update timestamp at the page boundary.
-        #[serde(with = "rfc3339")]
-        updated_at: OffsetDateTime,
+        updated_at: DateTime<Utc>,
         /// Stable ID tie-breaker at the page boundary.
         id: Uuid,
     },
@@ -291,7 +289,7 @@ pub(crate) fn created_at_page<T>(
     limit: i64,
     kind: &str,
     scope: Option<Uuid>,
-    cursor_of: impl Fn(&T) -> (OffsetDateTime, Uuid),
+    cursor_of: impl Fn(&T) -> (DateTime<Utc>, Uuid),
 ) -> ApiResult<ListResponse<T>> {
     let has_next = items.len() > limit as usize;
     if has_next {
@@ -319,7 +317,7 @@ pub(crate) fn updated_at_page<T>(
     limit: i64,
     kind: &str,
     scope: Option<Uuid>,
-    cursor_of: impl Fn(&T) -> (OffsetDateTime, Uuid),
+    cursor_of: impl Fn(&T) -> (DateTime<Utc>, Uuid),
 ) -> ApiResult<ListResponse<T>> {
     let has_next = items.len() > limit as usize;
     if has_next {

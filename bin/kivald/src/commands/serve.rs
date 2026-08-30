@@ -8,10 +8,9 @@ use std::{
     time::Duration,
 };
 
-use clap::Parser;
+use argx::Args;
 use eyre::Result;
-use kival_cli::{commands::config::load_config_for_command, runner::CliContext};
-use kival_config::DEFAULT_CONFIG_FILENAME;
+use kival_cli::{DEFAULT_CONFIG_FILENAME, runner::CliContext};
 use kival_kernel::{DatabasePoolSettings, open_pool_with_settings};
 use kival_metrics::{
     Hooks, VersionInfo, counter, describe_counter, describe_gauge, gauge, start_metrics_server,
@@ -20,7 +19,6 @@ use kival_server::{Server, ServerState, WebAuthnConfig};
 use kival_storage::BlobStore;
 use kival_tasks::DurableTasks;
 use kival_tracing::{error, info};
-use serde::Serialize;
 
 use crate::{
     ServerConfig,
@@ -36,61 +34,42 @@ use crate::{
 };
 
 /// The `serve` command arguments.
-#[derive(Debug, Parser, Serialize)]
+#[derive(Debug, Args)]
 pub struct ServeCommand {
     /// The path to the configuration file to use.
-    #[arg(long, value_name = "FILE")]
-    #[serde(skip)]
+    #[argx(long)]
     pub config: Option<PathBuf>,
 
-    /// Enable Prometheus metrics on the optionally specified address.
-    #[arg(
-        long,
-        value_name = "ADDRESS",
-        num_args = 0..=1,
-        default_missing_value = "127.0.0.1:9001"
-    )]
-    pub metrics: Option<SocketAddr>,
+    /// Enable Prometheus metrics.
+    #[argx(long)]
+    pub metrics: bool,
+
+    /// Address the Prometheus metrics server should bind to.
+    #[argx(long)]
+    pub metrics_address: Option<SocketAddr>,
 
     /// Address the HTTP server should bind to.
-    #[arg(long, env = "KIVAL_SERVER_LISTEN", value_name = "ADDRESS")]
+    #[argx(long)]
     pub listen: Option<SocketAddr>,
 
     /// Canonical URL of this Kival deployment.
-    #[arg(long, env = "KIVAL_CANONICAL_URL", value_name = "URL")]
+    #[argx(long)]
     pub canonical_url: Option<String>,
 
     /// Additional exact browser origins allowed to perform passkey ceremonies.
-    #[arg(
-        long = "allowed-origin",
-        env = "KIVAL_ALLOWED_ORIGINS",
-        value_name = "URL",
-        value_delimiter = ','
-    )]
+    #[argx(long = "allowed-origin", delimited)]
     pub allowed_origins: Option<Vec<String>>,
 
     /// Maximum PostgreSQL connections owned by this Kival process.
-    #[arg(
-        long = "database-max-connections",
-        env = "KIVAL_DATABASE_MAX_CONNECTIONS",
-        value_name = "COUNT"
-    )]
+    #[argx(long = "database-max-connections")]
     pub database_max_connections: Option<NonZeroU32>,
 
     /// Maximum seconds a request waits for an available PostgreSQL connection.
-    #[arg(
-        long = "database-acquire-timeout-seconds",
-        env = "KIVAL_DATABASE_ACQUIRE_TIMEOUT_SECONDS",
-        value_name = "SECONDS"
-    )]
+    #[argx(long = "database-acquire-timeout-seconds")]
     pub database_acquire_timeout_seconds: Option<NonZeroU64>,
 
     /// Maximum seconds to wait for graceful shutdown.
-    #[arg(
-        long = "graceful-shutdown-timeout-seconds",
-        env = "KIVAL_GRACEFUL_SHUTDOWN_TIMEOUT_SECONDS",
-        value_name = "SECONDS"
-    )]
+    #[argx(long = "graceful-shutdown-timeout-seconds")]
     pub graceful_shutdown_timeout_seconds: Option<NonZeroU64>,
 }
 
@@ -100,7 +79,7 @@ const MIN_SERVER_DATABASE_CONNECTIONS: u32 = 2;
 
 /// Resolves and validates the PostgreSQL pool budget for the server process.
 fn database_pool_settings(config: &ServerConfig) -> Result<DatabasePoolSettings> {
-    let max_connections = config.database_max_connections();
+    let max_connections = config.database_max_connections;
     eyre::ensure!(
         max_connections.get() >= MIN_SERVER_DATABASE_CONNECTIONS,
         "database_max_connections must be at least {MIN_SERVER_DATABASE_CONNECTIONS} for `kivald serve` because realtime holds one pool connection"
@@ -108,7 +87,7 @@ fn database_pool_settings(config: &ServerConfig) -> Result<DatabasePoolSettings>
 
     Ok(DatabasePoolSettings {
         max_connections,
-        acquire_timeout: Duration::from_secs(config.database_acquire_timeout_seconds().get()),
+        acquire_timeout: Duration::from_secs(config.database_acquire_timeout_seconds.get()),
     })
 }
 
@@ -125,7 +104,9 @@ impl ServeCommand {
     /// The supervised HTTP or metrics task panics if its server fails after setup so the task
     /// manager can propagate the critical failure to the CLI runner.
     pub async fn run(&self, ctx: CliContext, quiet: bool) -> Result<Duration> {
-        let Self { config, metrics, .. } = self;
+        let Self { config, metrics, metrics_address, .. } = self;
+        let metrics_address = metrics
+            .then(|| metrics_address.unwrap_or_else(|| SocketAddr::from(([127, 0, 0, 1], 9001))));
 
         if !quiet {
             println!("{BANNER}\n\n{LONG_VERSION}\n");
@@ -133,8 +114,28 @@ impl ServeCommand {
 
         let config_path =
             config.clone().unwrap_or_else(|| ctx.datadir.join(DEFAULT_CONFIG_FILENAME));
-        let config = match load_config_for_command::<ServerConfig, _>(&config_path, self) {
-            Ok(config) => config,
+        let config = match ServerConfig::load(&config_path) {
+            Ok(mut config) => {
+                if let Some(listen) = self.listen {
+                    config.listen = listen;
+                }
+                if let Some(canonical_url) = &self.canonical_url {
+                    config.canonical_url.clone_from(canonical_url);
+                }
+                if let Some(allowed_origins) = &self.allowed_origins {
+                    config.allowed_origins.clone_from(allowed_origins);
+                }
+                if let Some(max_connections) = self.database_max_connections {
+                    config.database_max_connections = max_connections;
+                }
+                if let Some(timeout) = self.database_acquire_timeout_seconds {
+                    config.database_acquire_timeout_seconds = timeout;
+                }
+                if let Some(timeout) = self.graceful_shutdown_timeout_seconds {
+                    config.graceful_shutdown_timeout_seconds = timeout;
+                }
+                config
+            }
             Err(err) => {
                 error!(target: "kival::cli", path = %config_path.display(), error = ?err, "Failed to load configuration file");
                 return Err(err);
@@ -144,10 +145,10 @@ impl ServeCommand {
         info!(target: "kival::cli", "Configuration loaded from: {}", config_path.display());
         info!(target: "kival::cli", version = ?SHORT_VERSION, "Starting Kival server");
 
-        let canonical_url = config.canonical_url();
+        let canonical_url = config.canonical_url.clone();
         let webauthn = WebAuthnConfig::from_canonical_url_with_allowed_origins(
             &canonical_url,
-            &config.allowed_origins(),
+            &config.allowed_origins,
         )?;
 
         let database_pool_settings = database_pool_settings(&config)?;
@@ -172,7 +173,7 @@ impl ServeCommand {
         let blob_store = BlobStore::filesystem(&blob_path)?;
         info!(target: "kival::cli", "Blob store opened at: {}", blob_path.display());
 
-        if let Some(metrics_address) = metrics {
+        if let Some(metrics_address) = metrics_address {
             let db_pool_metrics = db_pool.clone();
             let durable_task_metrics = durable_tasks.queue().metrics();
             let hooks = Hooks::builder()
@@ -271,7 +272,7 @@ impl ServeCommand {
 
             let metrics_handle = start_metrics_server(
                 "kival",
-                metrics_address,
+                &metrics_address,
                 VersionInfo {
                     version: KIVAL_RELEASE_VERSION,
                     build_timestamp: KIVAL_BUILD_TIMESTAMP,
@@ -307,7 +308,7 @@ impl ServeCommand {
             durable_tasks,
             webauthn,
         )));
-        let server_address = config.listen();
+        let server_address = config.listen;
 
         ctx.task_executor.spawn_critical_with_graceful_shutdown_signal(
             "http-server",
@@ -327,7 +328,7 @@ impl ServeCommand {
             },
         );
 
-        Ok(Duration::from_secs(config.graceful_shutdown_timeout_seconds().get()))
+        Ok(Duration::from_secs(config.graceful_shutdown_timeout_seconds.get()))
     }
 }
 
@@ -337,10 +338,11 @@ mod tests {
 
     #[test]
     fn server_pool_requires_capacity_beyond_realtime_listener() {
-        let config = ServerConfig {
-            database_max_connections: Some(NonZeroU32::new(1).expect("non-zero test value")),
-            ..ServerConfig::default()
-        };
+        let mut config = ServerConfig::loader()
+            .layer(argx::Defaults)
+            .resolve()
+            .expect("defaults should resolve");
+        config.database_max_connections = NonZeroU32::new(1).expect("non-zero test value");
 
         let error = database_pool_settings(&config)
             .expect_err("one connection would be monopolized by the realtime listener");

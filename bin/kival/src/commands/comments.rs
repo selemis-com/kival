@@ -1,19 +1,17 @@
 //! Object comment and discussion-thread commands.
 
-use clap::{Parser, Subcommand};
-use clap_schema::{CommandSchema, schema_handler};
+use argx::{Args, Subcommand, argx};
 use eyre::Result;
 use kival_cli::runner::CliContext;
 use kival_sdk::{
     Comment, CommentMentionCandidate, CommentMentionCandidateParams, CommentStatus, CommentThread,
     CreateCommentRequest, KivalClient, ListParams, ListResponse, MAX_LIMIT, UpdateCommentRequest,
 };
-use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
 use crate::utils::{
-    args::{DEFAULT_LIST_LIMIT_HELP, list_params},
+    args::{DEFAULT_LIST_LIMIT, list_params},
     credentials::authenticated_client,
     error::{CliError, CliErrorCode},
     input::{StructuredInputArgs, read_json_input, reject_conflicting_input},
@@ -23,54 +21,46 @@ use crate::utils::{
 };
 
 /// Arguments for `kival comments`.
-#[derive(Debug, Parser, CommandSchema)]
+#[derive(Debug, Args)]
+#[argx(schema)]
 pub struct CommentsCommand {
     /// The comments command to run.
-    #[command(subcommand)]
+    #[argx(subcommand)]
     pub command: CommentsSubcommand,
 }
 
 /// The available `kival comments` commands.
-#[derive(Debug, Subcommand, CommandSchema)]
+#[derive(Debug, Subcommand)]
+#[argx(schema)]
 pub enum CommentsSubcommand {
     /// List discussion threads, or list one thread's comments with `--thread-id`.
-    #[command(name = "list")]
     List(CommentsListCommand),
     /// List users who can currently view the object and may be mentioned in comments.
-    #[command(name = "mentions")]
     Mentions(CommentsMentionsCommand),
     /// Create a new root comment and discussion thread.
-    #[command(name = "create")]
     Create(CommentsCreateCommand),
     /// Reply in the discussion thread containing a comment.
     ///
     /// Kival commentary is thread-rooted rather than arbitrarily nested. The supplied comment may
     /// be any comment in the thread; the server retains its canonical root comment as the reply's
     /// parent.
-    #[command(name = "reply")]
     Reply(CommentsReplyCommand),
     /// Update a comment authored by the current user.
-    #[command(name = "update")]
     Update(CommentsUpdateCommand),
     /// Delete a comment authored by the current user, or moderate it as an object admin.
-    #[command(name = "delete")]
     Delete(CommentsDeleteCommand),
     /// Resolve a discussion thread.
-    #[command(name = "resolve")]
     Resolve(CommentsResolveCommand),
     /// Reopen a resolved discussion thread.
-    #[command(name = "reopen")]
     Reopen(CommentsReopenCommand),
 }
 
 /// Shared workspace/object selector for object commentary commands.
-#[derive(Debug, Clone, Copy, Parser)]
+#[derive(Debug, Clone, Copy, Args)]
 pub struct CommentObjectTargetArgs {
     /// Workspace ID.
-    #[arg(value_name = "WORKSPACE_ID")]
     pub workspace_id: Uuid,
     /// Object ID.
-    #[arg(value_name = "OBJECT_ID")]
     pub object_id: Uuid,
 }
 
@@ -86,24 +76,25 @@ pub struct CommentWriteInput {
 }
 
 /// Arguments for `kival comments list`.
-#[derive(Debug, Parser)]
+#[derive(Debug, Args)]
 pub struct CommentsListCommand {
     /// Object whose discussion should be listed.
-    #[command(flatten)]
+    #[argx(flatten)]
     pub target: CommentObjectTargetArgs,
     /// List comments in this thread instead of listing object threads.
-    #[arg(long, value_name = "THREAD_ID")]
+    #[argx(long)]
     pub thread_id: Option<Uuid>,
     /// Maximum number of threads or comments to return.
-    #[arg(long, value_name = "N", default_value = DEFAULT_LIST_LIMIT_HELP)]
+    #[argx(long, default = DEFAULT_LIST_LIMIT)]
     pub limit: Option<i64>,
     /// Opaque `response.next_cursor` from the previous page; reuse it with the same list mode.
-    #[arg(long, value_name = "CURSOR")]
+    #[argx(long)]
     pub cursor: Option<String>,
 }
 
 /// Structured output from `kival comments list`.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, JsonSchema)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[argx(schema)]
 #[serde(tag = "collection", rename_all = "snake_case")]
 pub enum CommentsListOutput {
     /// A page of discussion threads. Each thread includes its initial bounded comment page.
@@ -127,106 +118,101 @@ pub enum CommentsListOutput {
 }
 
 /// Arguments for `kival comments mentions`.
-#[derive(Debug, Parser)]
+#[derive(Debug, Args)]
 pub struct CommentsMentionsCommand {
     /// Object whose mention candidates should be listed.
-    #[command(flatten)]
+    #[argx(flatten)]
     pub target: CommentObjectTargetArgs,
     /// Username prefix or display-name fragment.
-    #[arg(long, value_name = "QUERY")]
+    #[argx(long)]
     pub query: Option<String>,
     /// Maximum number of candidates to return. Defaults to 8 and is capped at 20.
-    #[arg(long, value_name = "N")]
+    #[argx(long)]
     pub limit: Option<i64>,
 }
 
 /// Arguments for `kival comments create`.
-#[derive(Debug, Parser)]
+#[derive(Debug, Args)]
 pub struct CommentsCreateCommand {
     /// Object receiving the new discussion thread.
-    #[command(flatten)]
+    #[argx(flatten)]
     pub target: CommentObjectTargetArgs,
     /// Structured input source.
-    #[command(flatten)]
+    #[argx(flatten)]
     pub input_source: StructuredInputArgs,
     /// Comment body. Required unless supplied by `--input`.
-    #[arg(long, value_name = "BODY", required_unless_present = "input")]
+    #[argx(long)]
     pub body: Option<String>,
     /// Stable user ID to mention. May be repeated.
-    #[arg(long, value_name = "USER_ID")]
+    #[argx(long)]
     pub mention_user_id: Vec<Uuid>,
 }
 
 /// Arguments for `kival comments reply`.
-#[derive(Debug, Parser)]
+#[derive(Debug, Args)]
 pub struct CommentsReplyCommand {
     /// Object containing the discussion.
-    #[command(flatten)]
+    #[argx(flatten)]
     pub target: CommentObjectTargetArgs,
     /// Any comment in the thread to reply in.
-    #[arg(value_name = "COMMENT_ID")]
     pub comment_id: Uuid,
     /// Structured input source.
-    #[command(flatten)]
+    #[argx(flatten)]
     pub input_source: StructuredInputArgs,
     /// Reply body. Required unless supplied by `--input`.
-    #[arg(long, value_name = "BODY", required_unless_present = "input")]
+    #[argx(long)]
     pub body: Option<String>,
     /// Stable user ID to mention. May be repeated.
-    #[arg(long, value_name = "USER_ID")]
+    #[argx(long)]
     pub mention_user_id: Vec<Uuid>,
 }
 
 /// Arguments for `kival comments update`.
-#[derive(Debug, Parser)]
+#[derive(Debug, Args)]
 pub struct CommentsUpdateCommand {
     /// Object containing the comment.
-    #[command(flatten)]
+    #[argx(flatten)]
     pub target: CommentObjectTargetArgs,
     /// Comment ID.
-    #[arg(value_name = "COMMENT_ID")]
     pub comment_id: Uuid,
     /// Structured input source.
-    #[command(flatten)]
+    #[argx(flatten)]
     pub input_source: StructuredInputArgs,
     /// Complete replacement body. Required unless supplied by `--input`.
-    #[arg(long, value_name = "BODY", required_unless_present = "input")]
+    #[argx(long)]
     pub body: Option<String>,
     /// Stable replacement mention user ID. May be repeated.
-    #[arg(long, value_name = "USER_ID")]
+    #[argx(long)]
     pub mention_user_id: Vec<Uuid>,
 }
 
 /// Arguments for `kival comments delete`.
-#[derive(Debug, Clone, Copy, Parser)]
+#[derive(Debug, Clone, Copy, Args)]
 pub struct CommentsDeleteCommand {
     /// Object containing the comment.
-    #[command(flatten)]
+    #[argx(flatten)]
     pub target: CommentObjectTargetArgs,
     /// Comment ID.
-    #[arg(value_name = "COMMENT_ID")]
     pub comment_id: Uuid,
 }
 
 /// Arguments for `kival comments resolve`.
-#[derive(Debug, Clone, Copy, Parser)]
+#[derive(Debug, Clone, Copy, Args)]
 pub struct CommentsResolveCommand {
     /// Object containing the thread.
-    #[command(flatten)]
+    #[argx(flatten)]
     pub target: CommentObjectTargetArgs,
     /// Thread ID.
-    #[arg(value_name = "THREAD_ID")]
     pub thread_id: Uuid,
 }
 
 /// Arguments for `kival comments reopen`.
-#[derive(Debug, Clone, Copy, Parser)]
+#[derive(Debug, Clone, Copy, Args)]
 pub struct CommentsReopenCommand {
     /// Object containing the thread.
-    #[command(flatten)]
+    #[argx(flatten)]
     pub target: CommentObjectTargetArgs,
     /// Thread ID.
-    #[arg(value_name = "THREAD_ID")]
     pub thread_id: Uuid,
 }
 
@@ -267,14 +253,18 @@ impl CommentsCommand {
     }
 }
 
-#[schema_handler(run)]
+#[argx(handler = run)]
 impl CommentsListCommand {
     /// Run `kival comments list`.
     ///
     /// # Errors
     ///
     /// Returns an error if commentary cannot be listed.
-    pub async fn run(self, ctx: CliContext, output: OutputMode) -> Result<CommentsListOutput> {
+    pub async fn run(
+        self,
+        ctx: CliContext,
+        output: OutputMode,
+    ) -> std::result::Result<CommentsListOutput, CliError> {
         let client = authenticated_client(&ctx)?;
         let params = list_params(self.limit, self.cursor);
         let result = if let Some(thread_id) = self.thread_id {
@@ -298,12 +288,12 @@ impl CommentsListCommand {
             CommentsListOutput::Threads { items: response.items, next_cursor: response.next_cursor }
         };
 
-        print_output(output, &result, || print_list_output(&result))?;
+        print_output(&output, &result, || print_list_output(&result))?;
         Ok(result)
     }
 }
 
-#[schema_handler(run)]
+#[argx(handler = run)]
 impl CommentsMentionsCommand {
     /// Run `kival comments mentions`.
     ///
@@ -314,7 +304,7 @@ impl CommentsMentionsCommand {
         self,
         ctx: CliContext,
         output: OutputMode,
-    ) -> Result<ListResponse<CommentMentionCandidate>> {
+    ) -> std::result::Result<ListResponse<CommentMentionCandidate>, CliError> {
         let client = authenticated_client(&ctx)?;
         let response = client
             .list_comment_mention_candidates(
@@ -326,7 +316,7 @@ impl CommentsMentionsCommand {
                 },
             )
             .await?;
-        print_output(output, &response, || {
+        print_output(&output, &response, || {
             if response.items.is_empty() {
                 print_empty_list("mention candidates");
             } else {
@@ -344,21 +334,25 @@ impl CommentsMentionsCommand {
     }
 }
 
-#[schema_handler(run)]
+#[argx(handler = run)]
 impl CommentsCreateCommand {
     /// Run `kival comments create`.
     ///
     /// # Errors
     ///
     /// Returns an error if the root comment cannot be created.
-    pub async fn run(self, ctx: CliContext, output: OutputMode) -> Result<CommentThread> {
+    pub async fn run(
+        self,
+        ctx: CliContext,
+        output: OutputMode,
+    ) -> std::result::Result<CommentThread, CliError> {
         let target = self.target;
         let input = self.into_input()?;
         let client = authenticated_client(&ctx)?;
         let thread = client
             .create_comment_thread(target.workspace_id, target.object_id, &input.into_request())
             .await?;
-        print_output(output, &thread, || print_thread_action(&thread, "created"))?;
+        print_output(&output, &thread, || print_thread_action(&thread, "created"))?;
         Ok(thread)
     }
 
@@ -368,14 +362,18 @@ impl CommentsCreateCommand {
     }
 }
 
-#[schema_handler(run)]
+#[argx(handler = run)]
 impl CommentsReplyCommand {
     /// Run `kival comments reply`.
     ///
     /// # Errors
     ///
     /// Returns an error if the target comment cannot be found or its thread cannot be replied to.
-    pub async fn run(self, ctx: CliContext, output: OutputMode) -> Result<Comment> {
+    pub async fn run(
+        self,
+        ctx: CliContext,
+        output: OutputMode,
+    ) -> std::result::Result<Comment, CliError> {
         let target = self.target;
         let comment_id = self.comment_id;
         let input = self.into_input()?;
@@ -389,7 +387,7 @@ impl CommentsReplyCommand {
                 &input.into_request(),
             )
             .await?;
-        print_output(output, &comment, || print_comment_action(&comment, "created"))?;
+        print_output(&output, &comment, || print_comment_action(&comment, "created"))?;
         Ok(comment)
     }
 
@@ -399,14 +397,18 @@ impl CommentsReplyCommand {
     }
 }
 
-#[schema_handler(run)]
+#[argx(handler = run)]
 impl CommentsUpdateCommand {
     /// Run `kival comments update`.
     ///
     /// # Errors
     ///
     /// Returns an error if the comment cannot be updated.
-    pub async fn run(self, ctx: CliContext, output: OutputMode) -> Result<Comment> {
+    pub async fn run(
+        self,
+        ctx: CliContext,
+        output: OutputMode,
+    ) -> std::result::Result<Comment, CliError> {
         let target = self.target;
         let comment_id = self.comment_id;
         let input = self.into_input()?;
@@ -422,7 +424,7 @@ impl CommentsUpdateCommand {
                 },
             )
             .await?;
-        print_output(output, &comment, || print_comment_action(&comment, "updated"))?;
+        print_output(&output, &comment, || print_comment_action(&comment, "updated"))?;
         Ok(comment)
     }
 
@@ -432,53 +434,65 @@ impl CommentsUpdateCommand {
     }
 }
 
-#[schema_handler(run)]
+#[argx(handler = run)]
 impl CommentsDeleteCommand {
     /// Run `kival comments delete`.
     ///
     /// # Errors
     ///
     /// Returns an error if the comment cannot be deleted.
-    pub async fn run(self, ctx: CliContext, output: OutputMode) -> Result<Comment> {
+    pub async fn run(
+        self,
+        ctx: CliContext,
+        output: OutputMode,
+    ) -> std::result::Result<Comment, CliError> {
         let client = authenticated_client(&ctx)?;
         let comment = client
             .delete_comment(self.target.workspace_id, self.target.object_id, self.comment_id)
             .await?;
-        print_output(output, &comment, || print_comment_action(&comment, "deleted"))?;
+        print_output(&output, &comment, || print_comment_action(&comment, "deleted"))?;
         Ok(comment)
     }
 }
 
-#[schema_handler(run)]
+#[argx(handler = run)]
 impl CommentsResolveCommand {
     /// Run `kival comments resolve`.
     ///
     /// # Errors
     ///
     /// Returns an error if the thread cannot be resolved.
-    pub async fn run(self, ctx: CliContext, output: OutputMode) -> Result<CommentThread> {
+    pub async fn run(
+        self,
+        ctx: CliContext,
+        output: OutputMode,
+    ) -> std::result::Result<CommentThread, CliError> {
         let client = authenticated_client(&ctx)?;
         let thread = client
             .resolve_comment_thread(self.target.workspace_id, self.target.object_id, self.thread_id)
             .await?;
-        print_output(output, &thread, || print_thread_action(&thread, "resolved"))?;
+        print_output(&output, &thread, || print_thread_action(&thread, "resolved"))?;
         Ok(thread)
     }
 }
 
-#[schema_handler(run)]
+#[argx(handler = run)]
 impl CommentsReopenCommand {
     /// Run `kival comments reopen`.
     ///
     /// # Errors
     ///
     /// Returns an error if the thread cannot be reopened.
-    pub async fn run(self, ctx: CliContext, output: OutputMode) -> Result<CommentThread> {
+    pub async fn run(
+        self,
+        ctx: CliContext,
+        output: OutputMode,
+    ) -> std::result::Result<CommentThread, CliError> {
         let client = authenticated_client(&ctx)?;
         let thread = client
             .reopen_comment_thread(self.target.workspace_id, self.target.object_id, self.thread_id)
             .await?;
-        print_output(output, &thread, || print_thread_action(&thread, "reopened"))?;
+        print_output(&output, &thread, || print_thread_action(&thread, "reopened"))?;
         Ok(thread)
     }
 }

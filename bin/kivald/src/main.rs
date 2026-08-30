@@ -3,93 +3,113 @@
 use std::{
     net::SocketAddr,
     num::{NonZeroU32, NonZeroU64},
+    path::Path,
 };
 
-use clap::{Parser, Subcommand};
+use argx::{Defaults, Environment, Parser, Subcommand, Toml};
 use kival_cli::{
     args::{datadir::DatadirArgs, log::LogArgs},
-    commands::config::ConfigCommand,
     dotenv,
     runner::CliRunner,
     sigsegv,
 };
-use kival_config::config;
 
 use crate::{
     commands::{admin::AdminCommand, serve::ServeCommand},
-    utils::{
-        banner::BANNER,
-        version::{LONG_VERSION, SHORT_VERSION},
-    },
+    utils::version::{LONG_VERSION, SHORT_VERSION},
 };
 
 pub mod commands;
 mod database;
 pub mod utils;
 
-config! {
-    /// The `kivald` configuration.
-    pub struct ServerConfig {
-        /// Address the HTTP server should bind to.
-        pub listen: SocketAddr = "127.0.0.1:3000".parse().expect("valid default listen address"),
+/// Effective server configuration.
+#[derive(Debug, Clone, serde::Serialize, argx::Config)]
+pub struct ServerConfig {
+    /// Address the HTTP server should bind to.
+    #[argx(
+        default = "127.0.0.1:3000".parse().expect("valid default listen address"),
+        env = "KIVAL_SERVER_LISTEN"
+    )]
+    pub listen: SocketAddr,
 
-        /// Canonical URL of this Kival deployment.
-        pub canonical_url: String = "http://localhost:3000".to_owned(),
+    /// Canonical URL of this Kival deployment.
+    #[argx(default = "http://localhost:3000".to_owned(), env = "KIVAL_CANONICAL_URL")]
+    pub canonical_url: String,
 
-        /// Additional exact browser origins allowed to perform passkey ceremonies.
-        pub allowed_origins: Vec<String> = Vec::new(),
+    /// Additional exact browser origins allowed to perform passkey ceremonies.
+    #[argx(default, env = "KIVAL_ALLOWED_ORIGINS", delimited)]
+    pub allowed_origins: Vec<String>,
 
-        /// Maximum PostgreSQL connections owned by this Kival server process.
-        pub database_max_connections: NonZeroU32 = NonZeroU32::new(8).expect("non-zero default"),
+    /// Maximum PostgreSQL connections owned by this Kival server process.
+    #[argx(
+        default = NonZeroU32::new(8).expect("non-zero default"),
+        env = "KIVAL_DATABASE_MAX_CONNECTIONS"
+    )]
+    pub database_max_connections: NonZeroU32,
 
-        /// Maximum seconds a request waits for an available PostgreSQL connection.
-        pub database_acquire_timeout_seconds: NonZeroU64 =
-            NonZeroU64::new(5).expect("non-zero default"),
+    /// Maximum seconds a request waits for an available PostgreSQL connection.
+    #[argx(
+        default = NonZeroU64::new(5).expect("non-zero default"),
+        env = "KIVAL_DATABASE_ACQUIRE_TIMEOUT_SECONDS"
+    )]
+    pub database_acquire_timeout_seconds: NonZeroU64,
 
-        /// Maximum seconds to wait for graceful shutdown.
-        pub graceful_shutdown_timeout_seconds: NonZeroU64 =
-            NonZeroU64::new(30).expect("non-zero default"),
+    /// Maximum seconds to wait for graceful shutdown.
+    #[argx(
+        default = NonZeroU64::new(30).expect("non-zero default"),
+        env = "KIVAL_GRACEFUL_SHUTDOWN_TIMEOUT_SECONDS"
+    )]
+    pub graceful_shutdown_timeout_seconds: NonZeroU64,
+}
+
+impl ServerConfig {
+    /// Loads effective server configuration from defaults, an optional TOML file, and environment.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error when a configured source cannot be loaded or resolved.
+    pub fn load(path: &Path) -> eyre::Result<Self> {
+        let loader = Self::loader().layer(Defaults);
+        if path.exists() {
+            Ok(loader.layer(Environment).layer(Toml::new(path)).layer(Environment).resolve()?)
+        } else {
+            Ok(loader.layer(Environment).resolve()?)
+        }
     }
 }
 
 /// The available CLI commands for the `kivald` CLI.
 #[derive(Debug, Subcommand)]
 pub enum Commands {
-    /// Manage the `kivald` configuration.
-    #[command(name = "config")]
-    Config(ConfigCommand),
-
-    /// Manage the `kivald` as admin.
-    #[command(name = "admin")]
+    /// Manage Kival as an administrator.
     Admin(AdminCommand),
 
-    /// Start the `kivald`.
-    #[command(name = "serve")]
+    /// Start the Kival server.
     Serve(ServeCommand),
 }
 
 /// CLI server to host Kival.
-///
-/// This is the entrypoint to the executable.
+/// ```text
+///     __ __ __            __
+///    / //_//_/_  ______ _/ /
+///   / ,<  / / | / / __ `/ /
+///  / /| |/ /| |/ / /_/ / /
+/// /_/ |_/_/ |___/\__,_/_/
+/// ```
 #[derive(Debug, Parser)]
-#[command(
-    author,
-    version = SHORT_VERSION,
-    long_version = LONG_VERSION,
-    long_about = None,
-    before_help = BANNER,
-)]
+#[argx(name = "kivald", version = SHORT_VERSION, long_version = LONG_VERSION)]
 pub struct Cli {
     /// The command to run.
-    #[command(subcommand)]
+    #[argx(subcommand)]
     pub command: Commands,
 
-    /// The data directory to use.
-    #[command(flatten)]
+    /// # Data directory
+    #[argx(flatten)]
     pub datadir: DatadirArgs,
 
-    /// The logging configuration.
-    #[command(flatten)]
+    /// # Logging
+    #[argx(flatten)]
     pub logs: LogArgs,
 }
 
@@ -107,9 +127,6 @@ impl Cli {
         let runner = CliRunner::try_default_runtime(datadir_path.into())?;
 
         match self.command {
-            Commands::Config(command) => {
-                Ok(runner.run_until_ctrl_c(command.run::<ServerConfig>())?)
-            }
             Commands::Admin(command) => runner.run_command_until_ctrl_c(|ctx| command.run(ctx)),
             Commands::Serve(command) => {
                 runner.run_command_until_exit(|ctx| command.run(ctx, quiet))
@@ -234,23 +251,22 @@ mod tests {
     }
 
     #[test]
-    fn serve_metrics_listener_is_optional_and_defaults_to_loopback() {
+    fn serve_metrics_listener_is_optional() {
         let cli = Cli::try_parse_from(["kivald", "serve"]).expect("serve should parse");
         let Commands::Serve(serve) = cli.command else {
             panic!("serve command should parse");
         };
-        assert!(serve.metrics.is_none());
+        assert!(!serve.metrics);
+        assert!(serve.metrics_address.is_none());
 
         let cli =
             Cli::try_parse_from(["kivald", "serve", "--metrics", "--listen", "127.0.0.1:3000"])
-                .expect("metrics without an explicit address should parse before another option");
+                .expect("bare metrics flag should parse");
         let Commands::Serve(serve) = cli.command else {
             panic!("serve command should parse");
         };
-        assert_eq!(
-            serve.metrics,
-            Some("127.0.0.1:9001".parse().expect("default metrics address should parse"))
-        );
+        assert!(serve.metrics);
+        assert!(serve.metrics_address.is_none());
     }
 
     #[test]
@@ -259,6 +275,7 @@ mod tests {
             "kivald",
             "serve",
             "--metrics",
+            "--metrics-address",
             "0.0.0.0:9100",
             "--listen",
             "0.0.0.0:3000",
@@ -268,8 +285,9 @@ mod tests {
             panic!("serve command should parse");
         };
 
+        assert!(serve.metrics);
         assert_eq!(
-            serve.metrics,
+            serve.metrics_address,
             Some("0.0.0.0:9100".parse().expect("metrics address should parse"))
         );
         assert_eq!(serve.listen, Some("0.0.0.0:3000".parse().expect("HTTP address should parse")));
@@ -277,7 +295,10 @@ mod tests {
 
     #[test]
     fn serve_rejects_invalid_or_removed_listener_options() {
-        assert!(Cli::try_parse_from(["kivald", "serve", "--metrics", "not-an-address"]).is_err());
+        assert!(
+            Cli::try_parse_from(["kivald", "serve", "--metrics-address", "not-an-address"])
+                .is_err()
+        );
         assert!(Cli::try_parse_from(["kivald", "serve", "--listen", "localhost"]).is_err());
         assert!(Cli::try_parse_from(["kivald", "serve", "--metrics-port", "9001"]).is_err());
         assert!(Cli::try_parse_from(["kivald", "serve", "--server-port", "3000"]).is_err());

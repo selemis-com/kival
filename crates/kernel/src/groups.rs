@@ -1,7 +1,7 @@
 //! Group state bindings.
 
+use chrono::{DateTime, Utc};
 use sqlx::{PgPool, Postgres, Transaction};
-use time::OffsetDateTime;
 use uuid::Uuid;
 
 use crate::{ArchiveListStatus, ArchiveStatus, KernelError, Result, parse_stored};
@@ -22,11 +22,11 @@ pub struct GroupRow {
     /// Archiver.
     pub archived_by: Option<Uuid>,
     /// Creation timestamp.
-    pub created_at: OffsetDateTime,
+    pub created_at: DateTime<Utc>,
     /// Update timestamp.
-    pub updated_at: OffsetDateTime,
+    pub updated_at: DateTime<Utc>,
     /// Archive timestamp.
-    pub archived_at: Option<OffsetDateTime>,
+    pub archived_at: Option<DateTime<Utc>>,
 }
 
 /// Raw `PostgreSQL` projection used before constrained values are converted to typed kernel
@@ -46,11 +46,11 @@ struct StoredGroupRow {
     /// Stored archiver identifier, when retained.
     archived_by: Option<Uuid>,
     /// Stored creation timestamp.
-    created_at: OffsetDateTime,
+    created_at: DateTime<Utc>,
     /// Stored update timestamp.
-    updated_at: OffsetDateTime,
+    updated_at: DateTime<Utc>,
     /// Stored archive timestamp, when present.
-    archived_at: Option<OffsetDateTime>,
+    archived_at: Option<DateTime<Utc>>,
 }
 
 impl TryFrom<StoredGroupRow> for GroupRow {
@@ -104,7 +104,7 @@ pub(crate) async fn lock_active_group_for_reference(
 /// Returns an error if `PostgreSQL` cannot read group state.
 pub async fn list_groups(
     pool: &PgPool,
-    cursor_created_at: Option<OffsetDateTime>,
+    cursor_created_at: Option<DateTime<Utc>>,
     cursor_id: Option<Uuid>,
     limit: i64,
     status: ArchiveListStatus,

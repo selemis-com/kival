@@ -5,9 +5,9 @@
 //! attachments and imported binary artifacts, but normal textual object reads
 //! and writes do not hydrate through blobs.
 
+use chrono::{DateTime, Utc};
 use serde_json::Value;
 use sqlx::{Postgres, Transaction};
-use time::OffsetDateTime;
 use uuid::Uuid;
 
 use crate::{KernelError, MembershipRole, ObjectRole, Result, parse_optional_stored};
@@ -30,7 +30,7 @@ pub struct ObjectVersion {
     /// User that created this version.
     pub created_by: Option<Uuid>,
     /// Creation timestamp.
-    pub created_at: OffsetDateTime,
+    pub created_at: DateTime<Utc>,
 }
 
 /// Creator identity and effective access context for an object version.
@@ -249,7 +249,7 @@ struct StoredObjectVersionRow {
     /// User that created this version.
     created_by: Option<Uuid>,
     /// Creation timestamp.
-    created_at: OffsetDateTime,
+    created_at: DateTime<Utc>,
 }
 
 /// Create an object version.

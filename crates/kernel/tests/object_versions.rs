@@ -37,7 +37,7 @@ mod tests {
                     String,
                     serde_json::Value,
                     Option<Uuid>,
-                    time::OffsetDateTime,
+                    chrono::DateTime<chrono::Utc>,
                 ),
             >(
                 r#"
@@ -411,7 +411,7 @@ mod tests {
             .await?;
         tx.commit().await?;
 
-        let before_updated_at = sqlx::query_scalar::<_, time::OffsetDateTime>(
+        let before_updated_at = sqlx::query_scalar::<_, chrono::DateTime<chrono::Utc>>(
             "SELECT updated_at FROM kival.objects WHERE id = $1",
         )
         .bind(object_id)
@@ -446,7 +446,7 @@ mod tests {
         .await?;
         assert_eq!(version_count, 1);
 
-        let after_updated_at = sqlx::query_scalar::<_, time::OffsetDateTime>(
+        let after_updated_at = sqlx::query_scalar::<_, chrono::DateTime<chrono::Utc>>(
             "SELECT updated_at FROM kival.objects WHERE id = $1",
         )
         .bind(object_id)

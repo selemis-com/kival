@@ -1,8 +1,8 @@
 //! Workspace wire protocol types.
 
+use chrono::{DateTime, Utc};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
-use time::{OffsetDateTime, serde::rfc3339};
 use uuid::Uuid;
 
 use crate::{ArchiveListStatus, ArchiveStatus, ListParams, MembershipRole, PatchField};
@@ -119,19 +119,13 @@ pub struct Workspace {
     pub archived_by: Option<Uuid>,
 
     /// Creation timestamp.
-    #[schemars(with = "String", extend("format" = "date-time"))]
-    #[serde(with = "rfc3339")]
-    pub created_at: OffsetDateTime,
+    pub created_at: DateTime<Utc>,
 
     /// Last update timestamp.
-    #[schemars(with = "String", extend("format" = "date-time"))]
-    #[serde(with = "rfc3339")]
-    pub updated_at: OffsetDateTime,
+    pub updated_at: DateTime<Utc>,
 
     /// Archive timestamp.
-    #[schemars(with = "Option<String>", extend("format" = "date-time"))]
-    #[serde(with = "rfc3339::option")]
-    pub archived_at: Option<OffsetDateTime>,
+    pub archived_at: Option<DateTime<Utc>>,
 }
 
 /// Workspace response envelope.
@@ -152,9 +146,7 @@ pub struct WorkspaceListItem {
     pub pinned: bool,
 
     /// Time at which the authenticated user pinned this workspace.
-    #[schemars(with = "Option<String>", extend("format" = "date-time"))]
-    #[serde(with = "rfc3339::option")]
-    pub pinned_at: Option<OffsetDateTime>,
+    pub pinned_at: Option<DateTime<Utc>>,
 }
 
 impl std::ops::Deref for WorkspaceListItem {
@@ -217,19 +209,13 @@ pub struct WorkspaceMembership {
     pub revoked_by: Option<Uuid>,
 
     /// Creation timestamp.
-    #[schemars(with = "String", extend("format" = "date-time"))]
-    #[serde(with = "rfc3339")]
-    pub created_at: OffsetDateTime,
+    pub created_at: DateTime<Utc>,
 
     /// Last update timestamp.
-    #[schemars(with = "String", extend("format" = "date-time"))]
-    #[serde(with = "rfc3339")]
-    pub updated_at: OffsetDateTime,
+    pub updated_at: DateTime<Utc>,
 
     /// Revocation timestamp.
-    #[schemars(with = "Option<String>", extend("format" = "date-time"))]
-    #[serde(with = "rfc3339::option")]
-    pub revoked_at: Option<OffsetDateTime>,
+    pub revoked_at: Option<DateTime<Utc>>,
 }
 
 /// Workspace membership response envelope.
@@ -274,19 +260,13 @@ pub struct WorkspaceGroup {
     pub archived_by: Option<Uuid>,
 
     /// Creation timestamp.
-    #[schemars(with = "String", extend("format" = "date-time"))]
-    #[serde(with = "rfc3339")]
-    pub created_at: OffsetDateTime,
+    pub created_at: DateTime<Utc>,
 
     /// Last update timestamp.
-    #[schemars(with = "String", extend("format" = "date-time"))]
-    #[serde(with = "rfc3339")]
-    pub updated_at: OffsetDateTime,
+    pub updated_at: DateTime<Utc>,
 
     /// Archive timestamp.
-    #[schemars(with = "Option<String>", extend("format" = "date-time"))]
-    #[serde(with = "rfc3339::option")]
-    pub archived_at: Option<OffsetDateTime>,
+    pub archived_at: Option<DateTime<Utc>>,
 }
 
 /// Workspace group response envelope.

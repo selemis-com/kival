@@ -4,13 +4,13 @@
 mod tests {
     use std::time::{SystemTime, UNIX_EPOCH};
 
+    use chrono::{DateTime, Utc};
     use kival_kernel::{
         CreateInitialObject, GrantPrincipal, KernelError, MembershipRole, ObjectRole, Result,
         create_initial_object, create_object_grant, replace_object_grant, revoke_object_grant,
     };
     use serde_json::json;
     use sqlx::PgPool;
-    use time::OffsetDateTime;
     use uuid::Uuid;
 
     /// Builds a unique name for rows created by these tests.
@@ -137,7 +137,7 @@ mod tests {
         assert!(matches!(error, KernelError::ObjectMustRetainAdminGrant));
         tx.commit().await?;
 
-        let (role, revoked_at) = sqlx::query_as::<_, (String, Option<OffsetDateTime>)>(
+        let (role, revoked_at) = sqlx::query_as::<_, (String, Option<DateTime<Utc>>)>(
             r#"
             SELECT object_role::text, revoked_at
             FROM kival.object_grants
@@ -215,7 +215,7 @@ mod tests {
         .await?;
         assert_eq!(active_admin_count, 1);
 
-        let second_admin_revoked_at = sqlx::query_scalar::<_, Option<OffsetDateTime>>(
+        let second_admin_revoked_at = sqlx::query_scalar::<_, Option<DateTime<Utc>>>(
             r#"
             SELECT revoked_at
             FROM kival.object_grants

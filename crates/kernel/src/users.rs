@@ -66,11 +66,11 @@ pub struct UserRow {
     /// Lifecycle status.
     pub status: UserStatus,
     /// Creation timestamp.
-    pub created_at: time::OffsetDateTime,
+    pub created_at: chrono::DateTime<chrono::Utc>,
     /// Last update timestamp.
-    pub updated_at: time::OffsetDateTime,
+    pub updated_at: chrono::DateTime<chrono::Utc>,
     /// Disable timestamp.
-    pub disabled_at: Option<time::OffsetDateTime>,
+    pub disabled_at: Option<chrono::DateTime<chrono::Utc>>,
     /// User that disabled this user.
     pub disabled_by: Option<Uuid>,
 }
@@ -88,11 +88,11 @@ struct StoredUserRow {
     /// Stored lifecycle status before typed parsing.
     status: String,
     /// Stored creation timestamp.
-    created_at: time::OffsetDateTime,
+    created_at: chrono::DateTime<chrono::Utc>,
     /// Stored update timestamp.
-    updated_at: time::OffsetDateTime,
+    updated_at: chrono::DateTime<chrono::Utc>,
     /// Stored disable timestamp, when present.
-    disabled_at: Option<time::OffsetDateTime>,
+    disabled_at: Option<chrono::DateTime<chrono::Utc>>,
     /// Stored disabling-user identifier, when retained.
     disabled_by: Option<Uuid>,
 }
@@ -220,7 +220,7 @@ pub async fn lock_active_user_by_id(
 pub async fn list_users(
     pool: &sqlx::PgPool,
     actor_id: Uuid,
-    cursor_created_at: Option<time::OffsetDateTime>,
+    cursor_created_at: Option<chrono::DateTime<chrono::Utc>>,
     cursor_id: Option<Uuid>,
     limit: i64,
     status: UserListStatus,

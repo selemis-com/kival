@@ -2,8 +2,7 @@
 
 use std::collections::HashMap;
 
-use clap::{Parser, Subcommand, ValueEnum};
-use clap_schema::{CommandSchema, schema_handler};
+use argx::{Args, Subcommand, ValueEnum, argx};
 use eyre::Result;
 use kival_cli::runner::CliContext;
 use kival_sdk::{
@@ -15,8 +14,9 @@ use uuid::Uuid;
 
 use super::ObjectTargetArgs;
 use crate::utils::{
-    args::{DEFAULT_LIST_LIMIT_HELP, list_params},
+    args::{DEFAULT_LIST_LIMIT, list_params},
     credentials::authenticated_client,
+    error::CliError,
     output::{
         OutputMode, TREE_BRANCH, TREE_LAST, print_empty_list, print_indented_tree_none,
         print_output, print_tree_none, quote_human_string, tree_connector,
@@ -24,25 +24,25 @@ use crate::utils::{
 };
 
 /// Arguments for `kival objects graph`.
-#[derive(Debug, Clone, Copy, Parser)]
+#[derive(Debug, Clone, Copy, Args)]
 pub struct ObjectsGraphCommand {
     /// Object target.
-    #[command(flatten)]
+    #[argx(flatten)]
     pub target: ObjectTargetArgs,
     /// Maximum number of edge hops from the root to traverse.
-    #[arg(long, value_name = "N")]
+    #[argx(long)]
     pub depth: Option<i32>,
     /// Traversal direction: both, incoming, or outgoing.
-    #[arg(long, value_name = "DIRECTION", default_value = "both", value_enum)]
+    #[argx(long, default = CliObjectGraphDirection::Both, value_enum)]
     pub direction: CliObjectGraphDirection,
     /// Maximum number of nodes to return.
-    #[arg(long = "max-nodes", alias = "limit-nodes", value_name = "N")]
+    #[argx(long = "max-nodes", alias = "limit-nodes")]
     pub max_nodes: Option<i64>,
     /// Maximum number of edges to return.
-    #[arg(long = "max-edges", alias = "limit-edges", value_name = "N")]
+    #[argx(long = "max-edges", alias = "limit-edges")]
     pub max_edges: Option<i64>,
     /// Exclude the root from the returned node set after traversal.
-    #[arg(long)]
+    #[argx(long)]
     pub no_root: bool,
 }
 
@@ -67,117 +67,114 @@ impl From<CliObjectGraphDirection> for ObjectGraphDirection {
     }
 }
 /// Arguments for kival objects backlinks.
-#[derive(Debug, Parser)]
+#[derive(Debug, Args)]
 pub struct ObjectsBacklinksCommand {
     /// Object target.
-    #[command(flatten)]
+    #[argx(flatten)]
     pub target: ObjectTargetArgs,
     /// Maximum number of backlinks to return.
-    #[arg(long, value_name = "N", default_value = DEFAULT_LIST_LIMIT_HELP)]
+    #[argx(long, default = DEFAULT_LIST_LIMIT)]
     pub limit: Option<i64>,
     /// Opaque cursor for the next explicit-edge page.
-    #[arg(long, value_name = "CURSOR")]
+    #[argx(long)]
     pub edge_cursor: Option<String>,
     /// Opaque cursor for the next textual-reference page.
-    #[arg(long, value_name = "CURSOR")]
+    #[argx(long)]
     pub reference_cursor: Option<String>,
     /// Include archived source objects when authorized.
-    #[arg(long)]
+    #[argx(long)]
     pub include_archived: bool,
 }
 
 /// Arguments for `kival objects edges`.
-#[derive(Debug, Parser, CommandSchema)]
+#[derive(Debug, Args)]
+#[argx(schema)]
 pub struct ObjectEdgesCommand {
     /// The edge command to run.
-    #[command(subcommand)]
+    #[argx(subcommand)]
     pub command: ObjectEdgesSubcommand,
 }
 
 /// The available `kival objects edges` commands.
-#[derive(Debug, Subcommand, CommandSchema)]
+#[derive(Debug, Subcommand)]
+#[argx(schema)]
 pub enum ObjectEdgesSubcommand {
     /// List active incoming and outgoing edges attached to an object.
     ///
     /// An edge is returned when the selected object is either its source or target. Both endpoint
     /// objects must be active and visible to the current user.
-    #[command(name = "list")]
     List(ObjectEdgesListCommand),
     /// Create a directed edge from a source object to a target object.
     ///
     /// `--source-object-id` is the origin of the relationship and `--target-object-id` is its
     /// destination.
-    #[command(
-        name = "create",
-        after_help = "Example:\n  kival objects edges create <WORKSPACE_ID> --source-object-id <SOURCE_ID> --target-object-id <TARGET_ID>"
-    )]
+    ///
+    /// Example: `kival objects edges create <WORKSPACE_ID> --source-object-id <SOURCE_ID>
+    /// --target-object-id <TARGET_ID>`.
     Create(ObjectEdgesCreateCommand),
     /// Get an object edge.
-    #[command(name = "get")]
     Get(ObjectEdgesGetCommand),
     /// Revoke an active object edge without deleting its historical record.
-    #[command(name = "revoke")]
     Revoke(ObjectEdgesRevokeCommand),
 }
 
 /// Arguments for `kival objects edges list`.
-#[derive(Debug, Parser)]
+#[derive(Debug, Args)]
 pub struct ObjectEdgesListCommand {
     /// Object target.
-    #[command(flatten)]
+    #[argx(flatten)]
     pub target: ObjectTargetArgs,
     /// Maximum number of edges to return.
-    #[arg(long, value_name = "N", default_value = DEFAULT_LIST_LIMIT_HELP)]
+    #[argx(long, default = DEFAULT_LIST_LIMIT)]
     pub limit: Option<i64>,
     /// Opaque `response.next_cursor` from the previous page; reuse it with the same filters.
-    #[arg(long, value_name = "CURSOR")]
+    #[argx(long)]
     pub cursor: Option<String>,
 }
 
 /// Arguments for `kival objects edges create`.
-#[derive(Debug, Clone, Copy, Parser)]
+#[derive(Debug, Clone, Copy, Args)]
 pub struct ObjectEdgesCreateCommand {
     /// Workspace ID.
-    #[arg(value_name = "WORKSPACE_ID")]
     pub workspace_id: Uuid,
     /// Source object ID.
-    #[arg(long, value_name = "OBJECT_ID")]
+    #[argx(long)]
     pub source_object_id: Uuid,
     /// Target object ID.
-    #[arg(long, value_name = "OBJECT_ID")]
+    #[argx(long)]
     pub target_object_id: Uuid,
 }
 
 /// Arguments for `kival objects edges get`.
-#[derive(Debug, Clone, Copy, Parser)]
+#[derive(Debug, Clone, Copy, Args)]
 pub struct ObjectEdgesGetCommand {
     /// Workspace ID.
-    #[arg(value_name = "WORKSPACE_ID")]
     pub workspace_id: Uuid,
     /// Edge ID.
-    #[arg(value_name = "EDGE_ID")]
     pub edge_id: Uuid,
 }
 
 /// Arguments for `kival objects edges revoke`.
-#[derive(Debug, Clone, Copy, Parser)]
+#[derive(Debug, Clone, Copy, Args)]
 pub struct ObjectEdgesRevokeCommand {
     /// Workspace ID.
-    #[arg(value_name = "WORKSPACE_ID")]
     pub workspace_id: Uuid,
     /// Edge ID.
-    #[arg(value_name = "EDGE_ID")]
     pub edge_id: Uuid,
 }
 
-#[schema_handler(run)]
+#[argx(handler = run)]
 impl ObjectsGraphCommand {
     /// Run `kival objects graph`.
     ///
     /// # Errors
     ///
     /// Returns an error if arguments, API-key resolution, or graph retrieval fail.
-    pub async fn run(self, ctx: CliContext, output: OutputMode) -> Result<ObjectGraphResponse> {
+    pub async fn run(
+        self,
+        ctx: CliContext,
+        output: OutputMode,
+    ) -> std::result::Result<ObjectGraphResponse, CliError> {
         let direction = ObjectGraphDirection::from(self.direction);
         let client = authenticated_client(&ctx)?;
         let graph = client
@@ -194,7 +191,7 @@ impl ObjectsGraphCommand {
             )
             .await?;
 
-        print_output(output, &graph, || {
+        print_output(&output, &graph, || {
             print_object_graph(&graph);
         })?;
         Ok(graph)
@@ -287,14 +284,18 @@ const fn pluralized<'a>(count: usize, singular: &'a str, plural: &'a str) -> &'a
     if count == 1 { singular } else { plural }
 }
 
-#[schema_handler(run)]
+#[argx(handler = run)]
 impl ObjectsBacklinksCommand {
     /// Runs the object backlinks command.
     ///
     /// # Errors
     ///
     /// Returns an error if backlinks cannot be listed.
-    pub async fn run(self, ctx: CliContext, output: OutputMode) -> Result<ObjectBacklinksResponse> {
+    pub async fn run(
+        self,
+        ctx: CliContext,
+        output: OutputMode,
+    ) -> std::result::Result<ObjectBacklinksResponse, CliError> {
         let client = authenticated_client(&ctx)?;
         let response = client
             .get_object_backlinks(
@@ -309,7 +310,7 @@ impl ObjectsBacklinksCommand {
             )
             .await?;
 
-        print_output(output, &response, || print_backlinks(&response))?;
+        print_output(&output, &response, || print_backlinks(&response))?;
         Ok(response)
     }
 }
@@ -339,7 +340,7 @@ impl ObjectEdgesCommand {
     }
 }
 
-#[schema_handler(run)]
+#[argx(handler = run)]
 impl ObjectEdgesListCommand {
     /// Run `kival objects edges list`.
     ///
@@ -350,7 +351,7 @@ impl ObjectEdgesListCommand {
         self,
         ctx: CliContext,
         output: OutputMode,
-    ) -> Result<ListResponse<ObjectEdge>> {
+    ) -> std::result::Result<ListResponse<ObjectEdge>, CliError> {
         let client = authenticated_client(&ctx)?;
         let response = client
             .list_object_edges(
@@ -359,7 +360,7 @@ impl ObjectEdgesListCommand {
                 &list_params(self.limit, self.cursor),
             )
             .await?;
-        print_output(output, &response, || {
+        print_output(&output, &response, || {
             if response.items.is_empty() {
                 print_empty_list("edges");
             } else {
@@ -373,14 +374,18 @@ impl ObjectEdgesListCommand {
     }
 }
 
-#[schema_handler(run)]
+#[argx(handler = run)]
 impl ObjectEdgesCreateCommand {
     /// Run `kival objects edges create`.
     ///
     /// # Errors
     ///
     /// Returns an error if the edge cannot be created.
-    pub async fn run(self, ctx: CliContext, output: OutputMode) -> Result<ObjectEdge> {
+    pub async fn run(
+        self,
+        ctx: CliContext,
+        output: OutputMode,
+    ) -> std::result::Result<ObjectEdge, CliError> {
         let client = authenticated_client(&ctx)?;
         let edge = client
             .create_object_edge(
@@ -391,37 +396,45 @@ impl ObjectEdgesCreateCommand {
                 },
             )
             .await?;
-        print_output(output, &edge, || print_edge_line(&edge, Some("created")))?;
+        print_output(&output, &edge, || print_edge_line(&edge, Some("created")))?;
         Ok(edge)
     }
 }
 
-#[schema_handler(run)]
+#[argx(handler = run)]
 impl ObjectEdgesGetCommand {
     /// Run `kival objects edges get`.
     ///
     /// # Errors
     ///
     /// Returns an error if the edge cannot be fetched.
-    pub async fn run(self, ctx: CliContext, output: OutputMode) -> Result<ObjectEdge> {
+    pub async fn run(
+        self,
+        ctx: CliContext,
+        output: OutputMode,
+    ) -> std::result::Result<ObjectEdge, CliError> {
         let client = authenticated_client(&ctx)?;
         let edge = client.get_object_edge(self.workspace_id, self.edge_id).await?;
-        print_output(output, &edge, || print_edge_line(&edge, None))?;
+        print_output(&output, &edge, || print_edge_line(&edge, None))?;
         Ok(edge)
     }
 }
 
-#[schema_handler(run)]
+#[argx(handler = run)]
 impl ObjectEdgesRevokeCommand {
     /// Run `kival objects edges revoke`.
     ///
     /// # Errors
     ///
     /// Returns an error if the edge cannot be revoked.
-    pub async fn run(self, ctx: CliContext, output: OutputMode) -> Result<ObjectEdge> {
+    pub async fn run(
+        self,
+        ctx: CliContext,
+        output: OutputMode,
+    ) -> std::result::Result<ObjectEdge, CliError> {
         let client = authenticated_client(&ctx)?;
         let edge = client.revoke_object_edge(self.workspace_id, self.edge_id).await?;
-        print_output(output, &edge, || print_edge_line(&edge, Some("revoked")))?;
+        print_output(&output, &edge, || print_edge_line(&edge, Some("revoked")))?;
         Ok(edge)
     }
 }

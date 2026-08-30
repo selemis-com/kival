@@ -1,10 +1,10 @@
 //! Event wire protocol types.
 
+use chrono::{DateTime, Utc};
 pub use kival_types::EventOrder;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
-use time::{OffsetDateTime, serde::rfc3339};
 use uuid::Uuid;
 
 use crate::{DEFAULT_LIMIT, MAX_LIMIT};
@@ -64,9 +64,7 @@ pub struct Event {
     pub payload: Value,
 
     /// Creation timestamp.
-    #[schemars(with = "String", extend("format" = "date-time"))]
-    #[serde(with = "rfc3339")]
-    pub created_at: OffsetDateTime,
+    pub created_at: DateTime<Utc>,
 }
 
 /// Event list query parameters.

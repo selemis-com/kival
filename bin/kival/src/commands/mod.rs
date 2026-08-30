@@ -6,7 +6,6 @@ pub mod completions;
 pub mod events;
 pub mod groups;
 pub mod objects;
-pub mod schema;
 pub mod search;
 pub mod server;
 pub mod whoami;

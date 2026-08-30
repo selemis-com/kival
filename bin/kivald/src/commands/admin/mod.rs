@@ -2,14 +2,12 @@
 
 use std::path::PathBuf;
 
-use clap::{Parser, Subcommand};
+use argx::{Args, Subcommand};
 use eyre::{Context, Result};
-use kival_cli::{commands::config::load_config_for_command, runner::CliContext};
-use kival_config::DEFAULT_CONFIG_FILENAME;
+use kival_cli::{DEFAULT_CONFIG_FILENAME, runner::CliContext};
 use kival_kernel::open_pool_with_options;
 use kival_server::WebAuthnConfig;
 use kival_tracing::trace;
-use serde::Serialize;
 use sqlx::PgPool;
 
 use crate::{
@@ -27,47 +25,35 @@ mod users;
 mod workspaces;
 
 /// The `admin` command arguments.
-#[derive(Debug, Parser, Serialize)]
+#[derive(Debug, Args)]
 pub struct AdminCommand {
     /// The path to the configuration file to use.
-    #[arg(long, value_name = "FILE", global = true)]
-    #[serde(skip)]
+    #[argx(long, global)]
     pub config: Option<PathBuf>,
 
     /// Canonical URL used to generate passkey enrollment links.
-    #[arg(long, env = "KIVAL_CANONICAL_URL", value_name = "URL", global = true)]
+    #[argx(long, global)]
     pub canonical_url: Option<String>,
 
     /// The admin subcommand to run.
-    #[command(subcommand)]
+    #[argx(subcommand)]
     pub(crate) command: AdminSubcommand,
 }
 
 /// The available `admin` subcommands.
-#[derive(Debug, Subcommand, Serialize)]
+#[derive(Debug, Subcommand)]
 pub(crate) enum AdminSubcommand {
     /// Bootstrap the first global admin user.
-    #[command(name = "bootstrap")]
     Bootstrap(AdminBootstrapCommand),
 
     /// Reset a user's interactive credentials and issue a one-time passkey enrollment link.
-    #[command(name = "recover")]
     Recover(AdminRecoverCommand),
 
     /// Provision, disable, and enable users.
-    #[command(name = "users")]
     Users(AdminUsersCommand),
 
     /// Create workspaces with optional one-shot administrative initialization.
-    #[command(name = "workspaces")]
     Workspaces(AdminWorkspacesCommand),
-}
-
-/// Configuration overrides accepted by deployment-operator commands.
-#[derive(Serialize)]
-struct AdminConfigOverrides<'a> {
-    /// Optional canonical public URL used to generate enrollment links.
-    canonical_url: &'a Option<String>,
 }
 
 impl AdminCommand {
@@ -82,12 +68,12 @@ impl AdminCommand {
 
         let config_path =
             config.clone().unwrap_or_else(|| ctx.datadir.join(DEFAULT_CONFIG_FILENAME));
-        let config = load_config_for_command::<ServerConfig, _>(
-            &config_path,
-            &AdminConfigOverrides { canonical_url },
-        )?;
+        let mut config = ServerConfig::load(&config_path)?;
+        if let Some(canonical_url) = canonical_url {
+            config.canonical_url.clone_from(canonical_url);
+        }
 
-        let canonical_url = config.canonical_url();
+        let canonical_url = config.canonical_url;
         let webauthn = WebAuthnConfig::from_canonical_url(&canonical_url)?;
         let origin = webauthn.origin();
         let db_pool = open_admin_pool().await?;

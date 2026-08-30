@@ -1,7 +1,7 @@
 //! Workspace state bindings.
 
+use chrono::{DateTime, Utc};
 use sqlx::{Acquire, PgPool, Postgres, Transaction};
-use time::OffsetDateTime;
 use uuid::Uuid;
 
 use crate::{ArchiveListStatus, ArchiveStatus, KernelError, MembershipRole, Result, parse_stored};
@@ -22,11 +22,11 @@ pub struct WorkspaceRow {
     /// Archiving user.
     pub archived_by: Option<Uuid>,
     /// Creation timestamp.
-    pub created_at: OffsetDateTime,
+    pub created_at: DateTime<Utc>,
     /// Last update timestamp.
-    pub updated_at: OffsetDateTime,
+    pub updated_at: DateTime<Utc>,
     /// Archive timestamp.
-    pub archived_at: Option<OffsetDateTime>,
+    pub archived_at: Option<DateTime<Utc>>,
 }
 
 /// Actor-relative workspace directory row.
@@ -47,15 +47,15 @@ pub struct VisibleWorkspaceRow {
     /// Archiving user.
     pub archived_by: Option<Uuid>,
     /// Creation timestamp.
-    pub created_at: OffsetDateTime,
+    pub created_at: DateTime<Utc>,
     /// Last update timestamp.
-    pub updated_at: OffsetDateTime,
+    pub updated_at: DateTime<Utc>,
     /// Archive timestamp.
-    pub archived_at: Option<OffsetDateTime>,
+    pub archived_at: Option<DateTime<Utc>>,
     /// Whether the actor pinned the workspace.
     pub pinned: bool,
     /// Workspace pin creation timestamp.
-    pub pinned_at: Option<OffsetDateTime>,
+    pub pinned_at: Option<DateTime<Utc>>,
 }
 
 /// Raw `PostgreSQL` projection used before constrained values are converted to typed kernel
@@ -75,11 +75,11 @@ struct StoredWorkspaceRow {
     /// Stored archiver identifier, when retained.
     archived_by: Option<Uuid>,
     /// Stored creation timestamp.
-    created_at: OffsetDateTime,
+    created_at: DateTime<Utc>,
     /// Stored update timestamp.
-    updated_at: OffsetDateTime,
+    updated_at: DateTime<Utc>,
     /// Stored archive timestamp, when present.
-    archived_at: Option<OffsetDateTime>,
+    archived_at: Option<DateTime<Utc>>,
 }
 
 impl TryFrom<StoredWorkspaceRow> for WorkspaceRow {
@@ -119,15 +119,15 @@ struct StoredVisibleWorkspaceRow {
     /// Stored archiver identifier, when retained.
     archived_by: Option<Uuid>,
     /// Stored creation timestamp.
-    created_at: OffsetDateTime,
+    created_at: DateTime<Utc>,
     /// Stored update timestamp.
-    updated_at: OffsetDateTime,
+    updated_at: DateTime<Utc>,
     /// Stored archive timestamp, when present.
-    archived_at: Option<OffsetDateTime>,
+    archived_at: Option<DateTime<Utc>>,
     /// Stored actor-relative pin projection.
     pinned: bool,
     /// Stored pin creation timestamp, when present.
-    pinned_at: Option<OffsetDateTime>,
+    pinned_at: Option<DateTime<Utc>>,
 }
 
 impl TryFrom<StoredVisibleWorkspaceRow> for VisibleWorkspaceRow {
@@ -155,7 +155,7 @@ impl TryFrom<StoredVisibleWorkspaceRow> for VisibleWorkspaceRow {
 #[derive(Debug, Clone, Copy)]
 pub struct ListVisibleWorkspaces<'a> {
     /// Cursor timestamp.
-    pub cursor_created_at: Option<OffsetDateTime>,
+    pub cursor_created_at: Option<DateTime<Utc>>,
     /// Cursor ID.
     pub cursor_id: Option<Uuid>,
     /// Actor user ID.

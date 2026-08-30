@@ -1,24 +1,33 @@
 //! Output helpers for the `kival` CLI.
 
+use argx::Schema;
+use chrono::{DateTime, Utc};
 use eyre::Result;
 use serde::Serialize;
-use time::OffsetDateTime;
 use uuid::Uuid;
 
-use crate::utils::fields::{Projection, project_value};
+use crate::utils::fields::{Projection, project_value, validate_projection};
 
 /// Connector for a non-final item in a tree branch.
 pub(crate) const TREE_BRANCH: &str = "├─";
 /// Connector for the final item in a tree branch.
 pub(crate) const TREE_LAST: &str = "└─";
 
+/// Output format selected by the command line.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, argx::ValueEnum)]
+pub enum OutputFormat {
+    /// Human-readable text.
+    Text,
+    /// JSON.
+    Json,
+}
+
 /// Output mode for command results.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum OutputMode {
-    /// Human-readable text output.
+    /// Human-readable text.
     Text,
-
-    /// Machine-readable JSON output.
+    /// JSON with an optional field projection.
     Json {
         /// Optional successful-output field projection.
         projection: Option<Projection>,
@@ -26,10 +35,13 @@ pub enum OutputMode {
 }
 
 impl OutputMode {
-    /// Returns the output mode implied by global output flags.
+    /// Builds the runtime output mode from parsed CLI options.
     #[must_use]
-    pub fn from_options(json: bool, projection: Option<Projection>) -> Self {
-        if json { Self::Json { projection } } else { Self::Text }
+    pub fn from_options(format: OutputFormat, projection: Option<Projection>) -> Self {
+        match format {
+            OutputFormat::Text => Self::Text,
+            OutputFormat::Json => Self::Json { projection },
+        }
     }
 }
 
@@ -46,16 +58,16 @@ where
     Ok(())
 }
 
-/// Prints either text output or JSON output.
+/// Prints either human-readable text or JSON.
 ///
-/// The `text` closure is only evaluated in text mode.
+/// The `text` closure is evaluated only in text mode.
 ///
 /// # Errors
 ///
-/// Returns an error if the value cannot be serialized in JSON mode.
-pub fn print_output<T, F>(mode: OutputMode, value: &T, text: F) -> Result<()>
+/// Returns an error if the value cannot be serialized as JSON.
+pub fn print_output<T, F>(mode: &OutputMode, value: &T, text: F) -> Result<()>
 where
-    T: Serialize,
+    T: Schema + Serialize,
     F: FnOnce(),
 {
     match mode {
@@ -65,8 +77,10 @@ where
         }
         OutputMode::Json { projection: None } => print_json(value),
         OutputMode::Json { projection: Some(projection) } => {
+            let schema = T::schema();
+            validate_projection(&schema, projection)?;
             let value = serde_json::to_value(value)?;
-            let value = project_value(&value, &projection)?;
+            let value = project_value(&value, projection)?;
             print_json(&value)
         }
     }
@@ -95,16 +109,8 @@ pub(crate) fn print_indented_tree_none(prefix: &str) {
 
 /// Formats a timestamp for compact human-readable output.
 #[must_use]
-pub fn format_human_timestamp(value: OffsetDateTime) -> String {
-    format!(
-        "{:04}-{:02}-{:02}T{:02}:{:02}:{:02}Z",
-        value.year(),
-        u8::from(value.month()),
-        value.day(),
-        value.hour(),
-        value.minute(),
-        value.second()
-    )
+pub fn format_human_timestamp(value: DateTime<Utc>) -> String {
+    value.format("%Y-%m-%dT%H:%M:%SZ").to_string()
 }
 
 /// Formats user-controlled text as a quoted single-line string value.

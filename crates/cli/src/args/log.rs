@@ -2,7 +2,7 @@
 
 use std::{fmt, fmt::Display, sync::OnceLock};
 
-use clap::{ArgAction, Args, ValueEnum};
+use argx::{Args, ValueEnum};
 use kival_tracing::{
     FileInfo, FileWorkerGuard, KivalTracer, LayerInfo, Level, LogFormat, Tracer,
     level_filters::LevelFilter, tracing_subscriber::filter::Directive,
@@ -18,66 +18,59 @@ static LOG_DEFAULTS: OnceLock<DefaultLogArgs> = OnceLock::new();
 
 /// The log configuration.
 #[derive(Debug, Args)]
-#[command(next_help_heading = "Logging")]
 pub struct LogArgs {
     /// The format to use for logs written to stdout.
-    #[arg(long = "log.stdout.format", value_name = "FORMAT", global = true, default_value_t = DefaultLogArgs::get_global().log_stdout_format)]
+    #[argx(long = "log.stdout.format", global, default = DefaultLogArgs::get_global().log_stdout_format)]
     pub log_stdout_format: LogFormat,
 
     /// The filter to use for logs written to stdout.
-    #[arg(long = "log.stdout.filter", value_name = "FILTER", global = true, default_value_t = DefaultLogArgs::get_global().log_stdout_filter.clone())]
+    #[argx(long = "log.stdout.filter", global, default = DefaultLogArgs::get_global().log_stdout_filter.clone())]
     pub log_stdout_filter: String,
 
     /// The format to use for logs written to the log file.
-    #[arg(long = "log.file.format", value_name = "FORMAT", global = true, default_value_t = DefaultLogArgs::get_global().log_file_format)]
+    #[argx(long = "log.file.format", global, default = DefaultLogArgs::get_global().log_file_format)]
     pub log_file_format: LogFormat,
 
     /// The filter to use for logs written to the log file.
-    #[arg(long = "log.file.filter", value_name = "FILTER", global = true, default_value_t = DefaultLogArgs::get_global().log_file_filter.clone())]
+    #[argx(long = "log.file.filter", global, default = DefaultLogArgs::get_global().log_file_filter.clone())]
     pub log_file_filter: String,
 
     /// The path to put log files in.
-    #[arg(long = "log.file.directory", value_name = "PATH", global = true, default_value_t)]
+    #[argx(long = "log.file.directory", global, default = PlatformPath::<LogsDir>::default())]
     pub log_file_directory: PlatformPath<LogsDir>,
 
     /// The prefix name of the log files.
-    #[arg(long = "log.file.name", value_name = "NAME", global = true, default_value_t = DefaultLogArgs::get_global().log_file_name.clone())]
+    #[argx(long = "log.file.name", global, default = DefaultLogArgs::get_global().log_file_name.clone())]
     pub log_file_name: String,
 
     /// The maximum size (in MB) of one log file.
-    #[arg(long = "log.file.max-size", value_name = "SIZE", global = true, default_value_t = DefaultLogArgs::get_global().log_file_max_size)]
+    #[argx(long = "log.file.max-size", global, default = DefaultLogArgs::get_global().log_file_max_size)]
     pub log_file_max_size: u64,
 
     /// The maximum amount of log files that will be stored. If set to 0, background file logging
     /// is disabled.
-    #[arg(long = "log.file.max-files", value_name = "COUNT", global = true, default_value_t = 5)]
+    #[argx(long = "log.file.max-files", global, default = 5)]
     pub log_file_max_files: usize,
 
     /// Write logs to journald.
-    #[arg(long = "log.journald", global = true, default_value_t = DefaultLogArgs::get_global().journald)]
+    #[argx(long = "log.journald", global)]
     pub journald: bool,
 
     /// The filter to use for logs written to journald.
-    #[arg(
+    #[argx(
         long = "log.journald.filter",
-        value_name = "FILTER",
-        global = true,
-        default_value_t = DefaultLogArgs::get_global().journald_filter.clone()
+        global,
+        default = DefaultLogArgs::get_global().journald_filter.clone()
     )]
     pub journald_filter: String,
 
     /// Sets whether or not the formatter emits ANSI terminal escape codes for colors and other
     /// text formatting.
-    #[arg(
-        long,
-        value_name = "COLOR",
-        global = true,
-        default_value_t = DefaultLogArgs::get_global().color
-    )]
+    #[argx(long, global, default = DefaultLogArgs::get_global().color)]
     pub color: ColorMode,
 
     /// The verbosity settings for the tracer.
-    #[command(flatten)]
+    #[argx(flatten)]
     pub verbosity: Verbosity,
 }
 
@@ -144,8 +137,6 @@ struct DefaultLogArgs {
     log_file_name: String,
     /// Default maximum file log size in megabytes.
     log_file_max_size: u64,
-    /// Whether journald logging is enabled by default.
-    journald: bool,
     /// Default journald filter directives.
     journald_filter: String,
     /// Default terminal color mode.
@@ -168,7 +159,6 @@ impl Default for DefaultLogArgs {
             log_file_filter: "debug".to_owned(),
             log_file_name: "kival.log".to_owned(),
             log_file_max_size: 200,
-            journald: false,
             journald_filter: "error".to_owned(),
             color: ColorMode::Always,
         }
@@ -198,7 +188,6 @@ impl Display for ColorMode {
 
 /// The verbosity settings for the CLI.
 #[derive(Debug, Copy, Clone, Args)]
-#[command(next_help_heading = "Display")]
 pub struct Verbosity {
     /// Set the minimum log level.
     ///
@@ -207,11 +196,11 @@ pub struct Verbosity {
     /// -vvv    Info
     /// -vvvv   Debug
     /// -vvvvv  Traces (warning: very verbose!)
-    #[arg(short, long, action = ArgAction::Count, global = true, default_value_t = 3, verbatim_doc_comment, help_heading = "Display")]
+    #[argx(short, long, count, global, default = 3)]
     verbosity: u8,
 
     /// Silence all log output.
-    #[arg(long, alias = "silent", short = 'q', global = true, help_heading = "Display")]
+    #[argx(long, alias = "silent", short = 'q', global)]
     quiet: bool,
 }
 

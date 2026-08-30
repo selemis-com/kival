@@ -1,7 +1,7 @@
 //! Direct workspace membership state bindings.
 
+use chrono::{DateTime, Utc};
 use sqlx::{Acquire, PgPool, Postgres, Transaction};
-use time::OffsetDateTime;
 use uuid::Uuid;
 
 use crate::{KernelError, MembershipRole, Result, parse_stored, users::ActiveUserIdentity};
@@ -26,11 +26,11 @@ pub struct WorkspaceMembershipRow {
     /// Revoker.
     pub revoked_by: Option<Uuid>,
     /// Creation timestamp.
-    pub created_at: OffsetDateTime,
+    pub created_at: DateTime<Utc>,
     /// Update timestamp.
-    pub updated_at: OffsetDateTime,
+    pub updated_at: DateTime<Utc>,
     /// Revocation timestamp.
-    pub revoked_at: Option<OffsetDateTime>,
+    pub revoked_at: Option<DateTime<Utc>>,
 }
 
 /// Raw `PostgreSQL` projection used before constrained values are converted to typed kernel
@@ -54,11 +54,11 @@ struct StoredWorkspaceMembershipRow {
     /// Stored revoker identifier, when retained.
     revoked_by: Option<Uuid>,
     /// Stored creation timestamp.
-    created_at: OffsetDateTime,
+    created_at: DateTime<Utc>,
     /// Stored update timestamp.
-    updated_at: OffsetDateTime,
+    updated_at: DateTime<Utc>,
     /// Stored revocation timestamp, when present.
-    revoked_at: Option<OffsetDateTime>,
+    revoked_at: Option<DateTime<Utc>>,
 }
 
 impl TryFrom<StoredWorkspaceMembershipRow> for WorkspaceMembershipRow {
@@ -90,7 +90,7 @@ pub async fn list_workspace_memberships(
     pool: &PgPool,
     workspace_id: Uuid,
     actor_id: Uuid,
-    cursor_created_at: Option<OffsetDateTime>,
+    cursor_created_at: Option<DateTime<Utc>>,
     cursor_id: Option<Uuid>,
     limit: i64,
 ) -> Result<Vec<WorkspaceMembershipRow>> {

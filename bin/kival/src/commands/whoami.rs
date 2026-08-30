@@ -1,31 +1,31 @@
 //! API-key identity commands.
 
-use clap::Parser;
-use clap_schema::schema_handler;
-use eyre::Result;
+use argx::{Args, argx};
 use kival_cli::runner::CliContext;
-use schemars::JsonSchema;
 use serde::Serialize;
 use uuid::Uuid;
 
 use crate::utils::{
     credentials::authenticated_client,
+    error::CliError,
     output::{OutputMode, print_output, quote_human_string},
 };
 
 /// Arguments for `kival whoami`.
-#[derive(Debug, Clone, Copy, Parser)]
+#[derive(Debug, Clone, Copy, Args)]
 pub struct WhoamiCommand {}
 
 /// Resolved API-key identity output.
-#[derive(Debug, Clone, Serialize, JsonSchema)]
+#[derive(Debug, Clone, Serialize)]
+#[argx(schema)]
 pub struct WhoamiOutput {
     /// User associated with the resolved API key.
     user: WhoamiUserOutput,
 }
 
 /// User fields returned by `kival whoami`.
-#[derive(Debug, Clone, Serialize, JsonSchema)]
+#[derive(Debug, Clone, Serialize)]
+#[argx(schema)]
 struct WhoamiUserOutput {
     /// Stable user identifier.
     id: Uuid,
@@ -35,14 +35,14 @@ struct WhoamiUserOutput {
     username: String,
 }
 
-#[schema_handler(run)]
+#[argx(handler = run)]
 impl WhoamiCommand {
     /// Resolves the configured API key and fetches its user.
     ///
     /// # Errors
     ///
     /// Returns an error when API-key resolution or the identity request fails.
-    pub async fn run(self, ctx: CliContext, output: OutputMode) -> Result<WhoamiOutput> {
+    pub async fn run(self, ctx: CliContext, output: OutputMode) -> Result<WhoamiOutput, CliError> {
         let client = authenticated_client(&ctx)?;
         let user = client.whoami().await?;
         let value = WhoamiOutput {
@@ -53,7 +53,7 @@ impl WhoamiCommand {
             },
         };
 
-        print_output(output, &value, || {
+        print_output(&output, &value, || {
             println!(
                 "{} username={} display_name={}",
                 value.user.id,

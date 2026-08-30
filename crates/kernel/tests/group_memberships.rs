@@ -4,12 +4,12 @@
 mod tests {
     use std::time::{SystemTime, UNIX_EPOCH};
 
+    use chrono::{DateTime, Utc};
     use kival_kernel::{
         KernelError, MembershipRole, Result, create_group_membership, replace_group_membership,
         revoke_group_membership,
     };
     use sqlx::PgPool;
-    use time::OffsetDateTime;
     use uuid::Uuid;
 
     fn unique_name(prefix: &str) -> String {
@@ -151,7 +151,7 @@ mod tests {
         assert!(matches!(error, KernelError::ResourceNotFound));
         replace_tx.commit().await?;
 
-        let revoked_at = sqlx::query_scalar::<_, Option<OffsetDateTime>>(
+        let revoked_at = sqlx::query_scalar::<_, Option<DateTime<Utc>>>(
             "SELECT revoked_at FROM kival.group_memberships WHERE id = $1",
         )
         .bind(membership.id)

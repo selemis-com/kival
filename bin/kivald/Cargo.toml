@@ -12,7 +12,7 @@ workspace = true
 
 [dependencies]
 # Vendor
-clap = { workspace = true, features = ["derive"] }
+argx.workspace = true
 eyre.workspace = true
 serde = { workspace = true, features = ["derive"] }
 serde_json.workspace = true
@@ -25,7 +25,6 @@ uuid.workspace = true
 kival-cli.workspace = true
 kival-common.workspace = true
 kival-kernel.workspace = true
-kival-config.workspace = true
 kival-metrics.workspace = true
 kival-server.workspace = true
 kival-storage.workspace = true

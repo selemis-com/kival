@@ -1,7 +1,6 @@
 //! Public commands.
 
-use clap::{Args, Parser, Subcommand};
-use clap_schema::{CommandSchema, schema_handler};
+use argx::{Args, Subcommand, argx};
 use eyre::Result;
 use kival_cli::runner::CliContext;
 use kival_sdk::{KivalClient, StatusResponse};
@@ -10,26 +9,27 @@ use url::Url;
 
 use crate::utils::{
     config,
+    error::CliError,
     output::{OutputMode, print_output},
 };
 
 /// Kival server status commands.
-#[derive(Debug, Args, CommandSchema)]
+#[derive(Debug, Args)]
+#[argx(schema)]
 pub struct ServerCommand {
     /// The server command to run.
-    #[command(subcommand)]
+    #[argx(subcommand)]
     pub command: ServerSubcommand,
 }
 
 /// Commands for inspecting Kival server status.
-#[derive(Debug, Subcommand, CommandSchema)]
+#[derive(Debug, Subcommand)]
+#[argx(schema)]
 pub enum ServerSubcommand {
     /// Check Kival server health.
-    #[command(name = "health")]
     Health(HealthCommand),
 
     /// Check Kival server readiness.
-    #[command(name = "ready")]
     Ready(ReadyCommand),
 }
 
@@ -53,41 +53,48 @@ impl ServerCommand {
 }
 
 /// Arguments for `kival health`.
-#[derive(Debug, Parser, Serialize)]
+#[derive(Debug, Args, Serialize)]
 pub struct HealthCommand {
     /// Override the configured Kival server root URL.
-    #[arg(long, value_name = "URL")]
+    #[argx(long)]
     pub url: Option<Url>,
 }
 
 /// Arguments for `kival ready`.
-#[derive(Debug, Parser, Serialize)]
+#[derive(Debug, Args, Serialize)]
 pub struct ReadyCommand {
     /// Override the configured Kival server root URL.
-    #[arg(long, value_name = "URL")]
+    #[argx(long)]
     pub url: Option<Url>,
 }
 
-#[schema_handler(run)]
+#[argx(handler = run)]
 impl HealthCommand {
     /// Run `kival health`.
     ///
     /// # Errors
     ///
     /// Returns an error if the server cannot be reached or the health response cannot be decoded.
-    pub async fn run(self, ctx: CliContext, output: OutputMode) -> Result<StatusResponse> {
-        let config = config::load_client_config_for_command(&ctx, &self)?;
-        let client = KivalClient::new(config.url())?;
+    pub async fn run(
+        self,
+        ctx: CliContext,
+        output: OutputMode,
+    ) -> std::result::Result<StatusResponse, CliError> {
+        let mut config = config::load_client_config(&ctx)?;
+        if let Some(url) = self.url {
+            config.url = url;
+        }
+        let client = KivalClient::new(config.url)?;
         let health = client.health().await?;
 
-        print_output(output, &health, || {
+        print_output(&output, &health, || {
             println!("{}", health.status);
         })?;
         Ok(health)
     }
 }
 
-#[schema_handler(run)]
+#[argx(handler = run)]
 impl ReadyCommand {
     /// Run `kival ready`.
     ///
@@ -95,12 +102,19 @@ impl ReadyCommand {
     ///
     /// Returns an error if the server cannot be reached, is not ready, or the readiness response
     /// cannot be decoded.
-    pub async fn run(self, ctx: CliContext, output: OutputMode) -> Result<StatusResponse> {
-        let config = config::load_client_config_for_command(&ctx, &self)?;
-        let client = KivalClient::new(config.url())?;
+    pub async fn run(
+        self,
+        ctx: CliContext,
+        output: OutputMode,
+    ) -> std::result::Result<StatusResponse, CliError> {
+        let mut config = config::load_client_config(&ctx)?;
+        if let Some(url) = self.url {
+            config.url = url;
+        }
+        let client = KivalClient::new(config.url)?;
         let ready = client.ready().await?;
 
-        print_output(output, &ready, || {
+        print_output(&output, &ready, || {
             println!("{}", ready.status);
         })?;
         Ok(ready)
