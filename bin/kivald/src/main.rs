@@ -90,11 +90,13 @@ pub enum Commands {
 }
 
 /// CLI server to host Kival.
+/// ~~~text
 ///     __ __ __            __
 ///    / //_//_/_  ______ _/ /
-///   / ,<  / / | / / __ \`/ /
+///   / ,<  / / | / / __ `/ /
 ///  / /| |/ /| |/ / /_/ / /
 /// /_/ |_/_/ |___/\__,_/_/
+/// ~~~
 #[derive(Debug, Parser)]
 #[argx(name = "kivald", version = SHORT_VERSION, long_version = LONG_VERSION)]
 pub struct Cli {
