@@ -7775,8 +7775,8 @@ limitations under the License.
 Apache License 2.0
 
 #### Used by
-- [argx]( https://github.com/selemis-com/argx ) 0.1.1
-- [argx-derive]( https://github.com/selemis-com/argx ) 0.1.1
+- [argx]( https://github.com/selemis-com/argx ) 0.2.1
+- [argx-derive]( https://github.com/selemis-com/argx ) 0.2.1
 - [kival]( https://crates.io/crates/kival ) 0.1.0
 - [kivald]( https://crates.io/crates/kivald ) 0.1.0
 - [kival-cli]( https://crates.io/crates/kival-cli ) 0.1.0
