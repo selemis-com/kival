@@ -10,8 +10,14 @@ pub(crate) const TREE_BRANCH: &str = "├─";
 /// Connector for the final item in a tree branch.
 pub(crate) const TREE_LAST: &str = "└─";
 
-/// Output mode for command results, owned by Argx.
-pub type OutputMode = argx::Output;
+/// Output format for command results.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, argx::ValueEnum)]
+pub enum OutputMode {
+    /// Human-readable text.
+    Text,
+    /// JSON.
+    Json,
+}
 
 /// Prints a serializable value as JSON.
 ///
@@ -26,29 +32,24 @@ where
     Ok(())
 }
 
-/// Prints either application-defined text output or Argx-managed structured output.
+/// Prints either human-readable text or JSON.
 ///
-/// The `text` closure is only evaluated in text mode. Argx owns structured serialization, schema
-/// validation, and field projection.
+/// The `text` closure is evaluated only in text mode.
 ///
 /// # Errors
 ///
-/// Returns an error if the value cannot be serialized or projected in structured output mode.
+/// Returns an error if the value cannot be serialized as JSON.
 pub fn print_output<T, F>(mode: &OutputMode, value: &T, text: F) -> Result<()>
 where
     T: Serialize,
     F: FnOnce(),
 {
-    match mode.format() {
-        argx::OutputFormat::Text => {
+    match mode {
+        OutputMode::Text => {
             text();
             Ok(())
         }
-        argx::OutputFormat::Json => {
-            println!("{}", serde_json::to_string_pretty(&mode.value(value)?)?);
-            Ok(())
-        }
-        _ => eyre::bail!("unsupported output format"),
+        OutputMode::Json => print_json(value),
     }
 }
 

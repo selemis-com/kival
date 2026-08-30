@@ -2,7 +2,7 @@
 
 use std::path::Path;
 
-use argx::{Defaults, Environment, OutputFormat, Parser, Subcommand, Toml};
+use argx::{Defaults, Environment, Parser, Subcommand, Toml};
 use eyre::Result;
 use kival_cli::{args::datadir::DatadirArgs, runner::CliRunner, sigsegv};
 use url::Url;
@@ -122,6 +122,10 @@ pub struct Cli {
     /// Override the configured Kival server root URL.
     #[argx(long, global)]
     pub url: Option<Url>,
+
+    /// Output format.
+    #[argx(short = 'O', long, value_enum, global, default = OutputMode::Text)]
+    pub output: OutputMode,
 }
 
 impl Cli {
@@ -130,14 +134,12 @@ impl Cli {
     /// # Errors
     ///
     /// Returns an error if runtime creation or command execution fails.
-    pub fn run(self, output: OutputMode) -> Result<()> {
-        let Self { command, datadir, api_key, url } = self;
+    pub fn run(self) -> Result<()> {
+        let Self { command, datadir, api_key, url, output } = self;
 
         utils::credentials::set_command_overrides(api_key, url)?;
 
-        if matches!(command, Commands::Completions(_))
-            && (output.format() != OutputFormat::Text || !output.fields().is_empty())
-        {
+        if matches!(command, Commands::Completions(_)) && output != OutputMode::Text {
             return Err(CliError::invalid_argument(
                 "completions output is shell script text and does not support structured output",
             )
@@ -212,16 +214,9 @@ fn main() {
         }
     }
 
-    // Generated completion adapters use Argx's process protocol before ordinary parsing.
-    if Cli::handle_completion() {
-        return;
-    }
-
-    // Parse command-line arguments together with Argx's built-in output options.
-    let invocation = Cli::try_parse_invocation().unwrap_or_else(|error| error.exit());
-    let (cli, output) = invocation.into_parts();
-    let json_errors = output.format() == OutputFormat::Json;
-    if let Err(error) = cli.run(output) {
+    let cli = Cli::parse();
+    let json_errors = cli.output == OutputMode::Json;
+    if let Err(error) = cli.run() {
         let error = CliError::from(error);
         if json_errors {
             print_json_error(&CliErrorBody::from_cli_error(&error));
@@ -237,22 +232,6 @@ mod tests {
     use argx::Parser as _;
 
     use super::{Cli, Commands};
-
-    #[test]
-    fn output_fields_are_owned_by_argx() {
-        assert!(Cli::try_parse_invocation_from(["kival", "whoami", "-F", "user.id"]).is_err());
-
-        let invocation = Cli::try_parse_invocation_from([
-            "kival",
-            "whoami",
-            "-O",
-            "json",
-            "-F",
-            "user.id,user.username",
-        ])
-        .expect("Argx output selection should parse");
-        assert_eq!(invocation.output.fields(), ["user.id", "user.username"]);
-    }
 
     #[test]
     fn admin_is_a_normal_command() {

@@ -7775,6 +7775,8 @@ limitations under the License.
 Apache License 2.0
 
 #### Used by
+- [argx]( https://github.com/selemis-com/argx ) 0.1.1
+- [argx-derive]( https://github.com/selemis-com/argx ) 0.1.1
 - [kival]( https://crates.io/crates/kival ) 0.1.0
 - [kivald]( https://crates.io/crates/kivald ) 0.1.0
 - [kival-cli]( https://crates.io/crates/kival-cli ) 0.1.0
@@ -7789,8 +7791,6 @@ Apache License 2.0
 - [kival-types]( https://github.com/selemis-com/kival ) 0.1.0
 - [allocator-api2]( https://github.com/zakarumych/allocator-api2 ) 0.2.21
 - [android_system_properties]( https://github.com/nical/android_system_properties ) 0.1.5
-- [argx-derive]( https://github.com/selemis-com/argx ) 0.1.0
-- [argx]( https://github.com/selemis-com/argx ) 0.1.0
 - [async-trait]( https://github.com/dtolnay/async-trait ) 0.1.89
 - [aws-lc-sys]( https://github.com/aws/aws-lc-rs ) 0.41.0
 - [document-features]( https://github.com/slint-ui/document-features ) 0.2.12

@@ -257,14 +257,9 @@ mod tests {
         assert!(!serve.metrics);
         assert!(serve.metrics_address.is_none());
 
-        let cli = Cli::try_parse_from([
-            "kivald",
-            "serve",
-            "--metrics",
-            "--listen",
-            "127.0.0.1:3000",
-        ])
-        .expect("bare metrics flag should parse");
+        let cli =
+            Cli::try_parse_from(["kivald", "serve", "--metrics", "--listen", "127.0.0.1:3000"])
+                .expect("bare metrics flag should parse");
         let Commands::Serve(serve) = cli.command else {
             panic!("serve command should parse");
         };
