@@ -3,7 +3,7 @@
 pub use kival_types::ApiKeyScope;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
-use time::{OffsetDateTime, serde::rfc3339};
+use chrono::{DateTime, Utc};
 use uuid::Uuid;
 
 use crate::ListResponse;
@@ -20,9 +20,7 @@ pub struct CreateApiKeyRequest {
     /// An empty list grants no workspace-scoped access.
     pub workspace_ids: Vec<Uuid>,
     /// Optional expiration timestamp.
-    #[schemars(with = "Option<String>", extend("format" = "date-time"))]
-    #[serde(with = "rfc3339::option")]
-    pub expires_at: Option<OffsetDateTime>,
+    pub expires_at: Option<DateTime<Utc>>,
 }
 
 /// Request body for replacing an active API key's delegated authorization.
@@ -55,25 +53,15 @@ pub struct ApiKey {
     /// Workspaces in which the key may exercise workspace-scoped capabilities.
     pub workspace_ids: Vec<Uuid>,
     /// Creation timestamp.
-    #[schemars(with = "String", extend("format" = "date-time"))]
-    #[serde(with = "rfc3339")]
-    pub created_at: OffsetDateTime,
+    pub created_at: DateTime<Utc>,
     /// Last update timestamp.
-    #[schemars(with = "String", extend("format" = "date-time"))]
-    #[serde(with = "rfc3339")]
-    pub updated_at: OffsetDateTime,
+    pub updated_at: DateTime<Utc>,
     /// Optional expiration timestamp.
-    #[schemars(with = "Option<String>", extend("format" = "date-time"))]
-    #[serde(with = "rfc3339::option")]
-    pub expires_at: Option<OffsetDateTime>,
+    pub expires_at: Option<DateTime<Utc>>,
     /// Revocation timestamp.
-    #[schemars(with = "Option<String>", extend("format" = "date-time"))]
-    #[serde(with = "rfc3339::option")]
-    pub revoked_at: Option<OffsetDateTime>,
+    pub revoked_at: Option<DateTime<Utc>>,
     /// Last authenticated use timestamp. Updates are intentionally coalesced.
-    #[schemars(with = "Option<String>", extend("format" = "date-time"))]
-    #[serde(with = "rfc3339::option")]
-    pub last_used_at: Option<OffsetDateTime>,
+    pub last_used_at: Option<DateTime<Utc>>,
 }
 
 /// API key response envelope.

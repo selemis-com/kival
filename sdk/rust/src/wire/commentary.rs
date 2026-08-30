@@ -3,7 +3,7 @@
 pub use kival_types::CommentStatus;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
-use time::{OffsetDateTime, serde::rfc3339};
+use chrono::{DateTime, Utc};
 use uuid::Uuid;
 
 use crate::ListResponse;
@@ -58,31 +58,19 @@ pub struct Comment {
     /// Explicit stable user mentions associated with the current body.
     pub mentions: Vec<CommentMention>,
     /// Creation timestamp.
-    #[schemars(with = "String", extend("format" = "date-time"))]
-    #[serde(with = "rfc3339")]
-    pub created_at: OffsetDateTime,
+    pub created_at: DateTime<Utc>,
     /// Last modification timestamp.
-    #[schemars(with = "String", extend("format" = "date-time"))]
-    #[serde(with = "rfc3339")]
-    pub updated_at: OffsetDateTime,
+    pub updated_at: DateTime<Utc>,
     /// Most recent body-edit timestamp.
-    #[schemars(with = "Option<String>", extend("format" = "date-time"))]
-    #[serde(with = "time::serde::rfc3339::option")]
-    pub edited_at: Option<OffsetDateTime>,
+    pub edited_at: Option<DateTime<Utc>>,
     /// Soft-deletion timestamp.
-    #[schemars(with = "Option<String>", extend("format" = "date-time"))]
-    #[serde(with = "time::serde::rfc3339::option")]
-    pub deleted_at: Option<OffsetDateTime>,
+    pub deleted_at: Option<DateTime<Utc>>,
     /// User who soft-deleted the comment.
     pub deleted_by: Option<Uuid>,
     /// Timestamp at which retention removed the body.
-    #[schemars(with = "Option<String>", extend("format" = "date-time"))]
-    #[serde(with = "time::serde::rfc3339::option")]
-    pub expired_at: Option<OffsetDateTime>,
+    pub expired_at: Option<DateTime<Utc>>,
     /// Explicit boundary consumed by retention workers.
-    #[schemars(with = "Option<String>", extend("format" = "date-time"))]
-    #[serde(with = "time::serde::rfc3339::option")]
-    pub retention_expires_at: Option<OffsetDateTime>,
+    pub retention_expires_at: Option<DateTime<Utc>>,
 }
 
 /// A top-level discussion with a bounded page of comments.
@@ -97,23 +85,15 @@ pub struct CommentThread {
     /// User who created the root comment.
     pub created_by: Uuid,
     /// Creation timestamp.
-    #[schemars(with = "String", extend("format" = "date-time"))]
-    #[serde(with = "rfc3339")]
-    pub created_at: OffsetDateTime,
+    pub created_at: DateTime<Utc>,
     /// Last thread activity timestamp.
-    #[schemars(with = "String", extend("format" = "date-time"))]
-    #[serde(with = "rfc3339")]
-    pub updated_at: OffsetDateTime,
+    pub updated_at: DateTime<Utc>,
     /// Resolution timestamp, when resolved.
-    #[schemars(with = "Option<String>", extend("format" = "date-time"))]
-    #[serde(with = "time::serde::rfc3339::option")]
-    pub resolved_at: Option<OffsetDateTime>,
+    pub resolved_at: Option<DateTime<Utc>>,
     /// User who most recently resolved the thread.
     pub resolved_by: Option<Uuid>,
     /// Explicit boundary consumed by retention workers.
-    #[schemars(with = "Option<String>", extend("format" = "date-time"))]
-    #[serde(with = "time::serde::rfc3339::option")]
-    pub retention_expires_at: Option<OffsetDateTime>,
+    pub retention_expires_at: Option<DateTime<Utc>>,
     /// Comments ordered by creation time, with the root first.
     pub comments: Vec<Comment>,
     /// Opaque cursor for loading more comments in this thread.

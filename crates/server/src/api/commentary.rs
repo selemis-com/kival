@@ -34,7 +34,7 @@ use kival_sdk::{
 use kival_types::ObjectRole;
 use serde_json::json;
 use sqlx::{PgPool, Postgres, Transaction};
-use time::OffsetDateTime;
+use chrono::{DateTime, Utc};
 use uuid::Uuid;
 
 /// Number of initial comments hydrated for each listed thread.
@@ -625,7 +625,7 @@ async fn require_comment_locked(
     workspace_id: Uuid,
     object_id: Uuid,
     comment_id: Uuid,
-) -> ApiResult<(Uuid, Uuid, Option<OffsetDateTime>, Option<OffsetDateTime>, Option<OffsetDateTime>)>
+) -> ApiResult<(Uuid, Uuid, Option<DateTime<Utc>>, Option<DateTime<Utc>>, Option<DateTime<Utc>>)>
 {
     lock_comment(tx, workspace_id, object_id, comment_id)
         .await?

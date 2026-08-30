@@ -2,7 +2,7 @@
 
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
-use time::{OffsetDateTime, serde::rfc3339};
+use chrono::{DateTime, Utc};
 use uuid::Uuid;
 
 use crate::{DEFAULT_LIMIT, MAX_LIMIT};
@@ -23,9 +23,7 @@ pub struct ObjectNotificationPreference {
     pub explicit: bool,
 
     /// Last explicit preference update, when one exists.
-    #[schemars(with = "Option<String>", extend("format" = "date-time"))]
-    #[serde(with = "rfc3339::option")]
-    pub updated_at: Option<OffsetDateTime>,
+    pub updated_at: Option<DateTime<Utc>>,
 }
 
 /// Request body for changing an object notification preference.
@@ -91,19 +89,13 @@ pub struct InboxEntry {
     pub comment_excerpt: Option<String>,
 
     /// Read timestamp.
-    #[schemars(with = "Option<String>", extend("format" = "date-time"))]
-    #[serde(with = "rfc3339::option")]
-    pub read_at: Option<OffsetDateTime>,
+    pub read_at: Option<DateTime<Utc>>,
 
     /// Creation timestamp.
-    #[schemars(with = "String", extend("format" = "date-time"))]
-    #[serde(with = "rfc3339")]
-    pub created_at: OffsetDateTime,
+    pub created_at: DateTime<Utc>,
 
     /// Last projection update timestamp.
-    #[schemars(with = "String", extend("format" = "date-time"))]
-    #[serde(with = "rfc3339")]
-    pub updated_at: OffsetDateTime,
+    pub updated_at: DateTime<Utc>,
 }
 
 /// Inbox list query parameters.

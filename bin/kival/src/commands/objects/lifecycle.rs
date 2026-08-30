@@ -812,7 +812,7 @@ mod tests {
     use std::fs;
 
     use kival_sdk::ObjectResource;
-    use time::OffsetDateTime;
+    use chrono::{DateTime, Utc};
 
     use super::*;
 
@@ -1060,7 +1060,7 @@ mod tests {
         let workspace_id = Uuid::now_v7();
         let object_id = Uuid::now_v7();
         let version_id = Uuid::now_v7();
-        let now = OffsetDateTime::UNIX_EPOCH;
+        let now = DateTime::<Utc>::UNIX_EPOCH;
 
         ObjectResponse {
             object: ObjectResource {

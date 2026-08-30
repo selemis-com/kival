@@ -2,7 +2,7 @@
 
 use eyre::Result;
 use serde::Serialize;
-use time::OffsetDateTime;
+use chrono::{DateTime, Utc};
 use uuid::Uuid;
 
 /// Connector for a non-final item in a tree branch.
@@ -76,16 +76,8 @@ pub(crate) fn print_indented_tree_none(prefix: &str) {
 
 /// Formats a timestamp for compact human-readable output.
 #[must_use]
-pub fn format_human_timestamp(value: OffsetDateTime) -> String {
-    format!(
-        "{:04}-{:02}-{:02}T{:02}:{:02}:{:02}Z",
-        value.year(),
-        u8::from(value.month()),
-        value.day(),
-        value.hour(),
-        value.minute(),
-        value.second()
-    )
+pub fn format_human_timestamp(value: DateTime<Utc>) -> String {
+    value.format("%Y-%m-%dT%H:%M:%SZ").to_string()
 }
 
 /// Formats user-controlled text as a quoted single-line string value.

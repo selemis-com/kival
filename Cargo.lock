@@ -275,7 +275,10 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1aa79e62e7697b8e29b513a68abacf485adcd1fe8284a4316c5ae868e6633327"
 dependencies = [
  "iana-time-zone",
+ "js-sys",
  "num-traits",
+ "serde",
+ "wasm-bindgen",
  "windows-link",
 ]
 
@@ -1317,13 +1320,13 @@ name = "kival"
 version = "0.1.0"
 dependencies = [
  "argx",
+ "chrono",
  "eyre",
  "kival-cli",
  "kival-sdk",
  "serde",
  "serde_json",
  "serde_path_to_error",
- "time",
  "url",
  "uuid",
 ]
@@ -1357,11 +1360,11 @@ dependencies = [
 name = "kival-kernel"
 version = "0.1.0"
 dependencies = [
+ "chrono",
  "kival-types",
  "serde_json",
  "sqlx",
  "thiserror",
- "time",
  "tokio",
  "uuid",
 ]
@@ -1382,6 +1385,7 @@ dependencies = [
 name = "kival-sdk"
 version = "0.1.0"
 dependencies = [
+ "chrono",
  "http",
  "kival-types",
  "reqwest",
@@ -1389,7 +1393,6 @@ dependencies = [
  "serde",
  "serde_json",
  "thiserror",
- "time",
  "tokio",
  "tower",
  "url",
@@ -1402,6 +1405,7 @@ version = "0.1.0"
 dependencies = [
  "axum",
  "base64",
+ "chrono",
  "ciborium",
  "coset",
  "eyre",
@@ -1424,7 +1428,6 @@ dependencies = [
  "sha2 0.11.0",
  "sqlx",
  "steda",
- "time",
  "tokio",
  "tokio-util",
  "tower",
@@ -2645,6 +2648,7 @@ dependencies = [
  "base64",
  "bytes",
  "cfg-if",
+ "chrono",
  "crc",
  "crossbeam-queue",
  "either",
@@ -2722,6 +2726,7 @@ dependencies = [
  "bitflags",
  "byteorder",
  "bytes",
+ "chrono",
  "crc",
  "digest 0.11.3",
  "dotenvy",
@@ -2751,6 +2756,7 @@ dependencies = [
  "base64",
  "bitflags",
  "byteorder",
+ "chrono",
  "crc",
  "dotenvy",
  "etcetera",
@@ -2785,6 +2791,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "488e99c397a62007e4229aec669a179816339afc6d2620ca6fa420dbee2e982c"
 dependencies = [
  "atoi",
+ "chrono",
  "flume",
  "form_urlencoded",
  "futures-channel",

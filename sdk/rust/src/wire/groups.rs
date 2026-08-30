@@ -2,7 +2,7 @@
 
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
-use time::{OffsetDateTime, serde::rfc3339};
+use chrono::{DateTime, Utc};
 use uuid::Uuid;
 
 use crate::{ArchiveListStatus, ArchiveStatus, ListParams, PatchField};
@@ -77,17 +77,11 @@ pub struct Group {
     /// User that archived this group.
     pub archived_by: Option<Uuid>,
     /// Creation timestamp.
-    #[schemars(with = "String", extend("format" = "date-time"))]
-    #[serde(with = "rfc3339")]
-    pub created_at: OffsetDateTime,
+    pub created_at: DateTime<Utc>,
     /// Last update timestamp.
-    #[schemars(with = "String", extend("format" = "date-time"))]
-    #[serde(with = "rfc3339")]
-    pub updated_at: OffsetDateTime,
+    pub updated_at: DateTime<Utc>,
     /// Archive timestamp.
-    #[schemars(with = "Option<String>", extend("format" = "date-time"))]
-    #[serde(with = "rfc3339::option")]
-    pub archived_at: Option<OffsetDateTime>,
+    pub archived_at: Option<DateTime<Utc>>,
 }
 
 /// Group response envelope.
@@ -139,17 +133,11 @@ pub struct GroupMembership {
     /// User that revoked this membership.
     pub revoked_by: Option<Uuid>,
     /// Creation timestamp.
-    #[schemars(with = "String", extend("format" = "date-time"))]
-    #[serde(with = "rfc3339")]
-    pub created_at: OffsetDateTime,
+    pub created_at: DateTime<Utc>,
     /// Last update timestamp.
-    #[schemars(with = "String", extend("format" = "date-time"))]
-    #[serde(with = "rfc3339")]
-    pub updated_at: OffsetDateTime,
+    pub updated_at: DateTime<Utc>,
     /// Revocation timestamp.
-    #[schemars(with = "Option<String>", extend("format" = "date-time"))]
-    #[serde(with = "rfc3339::option")]
-    pub revoked_at: Option<OffsetDateTime>,
+    pub revoked_at: Option<DateTime<Utc>>,
 }
 
 /// Group membership response envelope.

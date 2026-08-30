@@ -2,7 +2,7 @@
 
 use kival_types::CommentStatus;
 use sqlx::{Acquire, PgPool, Postgres, Transaction};
-use time::OffsetDateTime;
+use chrono::{DateTime, Utc};
 use uuid::Uuid;
 
 use crate::Result;
@@ -19,15 +19,15 @@ pub struct ThreadRow {
     /// User that created the row, when retained.
     pub created_by: Uuid,
     /// Creation timestamp.
-    pub created_at: OffsetDateTime,
+    pub created_at: DateTime<Utc>,
     /// Last update timestamp.
-    pub updated_at: OffsetDateTime,
+    pub updated_at: DateTime<Utc>,
     /// Resolution timestamp, when resolved.
-    pub resolved_at: Option<OffsetDateTime>,
+    pub resolved_at: Option<DateTime<Utc>>,
     /// User that resolved the thread, when resolved.
     pub resolved_by: Option<Uuid>,
     /// Timestamp after which retention may remove the row.
-    pub retention_expires_at: Option<OffsetDateTime>,
+    pub retention_expires_at: Option<DateTime<Utc>>,
 }
 
 /// Stored comment projection with author identity.
@@ -52,19 +52,19 @@ pub struct CommentRow {
     /// Comment body, absent after deletion or expiry.
     pub body: Option<String>,
     /// Creation timestamp.
-    pub created_at: OffsetDateTime,
+    pub created_at: DateTime<Utc>,
     /// Last update timestamp.
-    pub updated_at: OffsetDateTime,
+    pub updated_at: DateTime<Utc>,
     /// Last explicit edit timestamp.
-    pub edited_at: Option<OffsetDateTime>,
+    pub edited_at: Option<DateTime<Utc>>,
     /// Deletion timestamp, when deleted.
-    pub deleted_at: Option<OffsetDateTime>,
+    pub deleted_at: Option<DateTime<Utc>>,
     /// User that deleted the comment, when retained.
     pub deleted_by: Option<Uuid>,
     /// Retention-expiry timestamp, when expired.
-    pub expired_at: Option<OffsetDateTime>,
+    pub expired_at: Option<DateTime<Utc>>,
     /// Timestamp after which retention may remove the row.
-    pub retention_expires_at: Option<OffsetDateTime>,
+    pub retention_expires_at: Option<DateTime<Utc>>,
 }
 
 impl CommentRow {
@@ -106,7 +106,7 @@ pub struct CommentPageQuery {
     /// Commentary thread being paginated.
     pub thread_id: Uuid,
     /// Optional lower-exclusive creation timestamp cursor.
-    pub cursor_created_at: Option<OffsetDateTime>,
+    pub cursor_created_at: Option<DateTime<Utc>>,
     /// Optional lower-exclusive row identifier cursor.
     pub cursor_id: Option<Uuid>,
     /// Maximum rows returned by `PostgreSQL`.
@@ -123,7 +123,7 @@ pub async fn list_comment_threads(
     workspace_id: Uuid,
     object_id: Uuid,
     actor_id: Uuid,
-    cursor_updated_at: Option<OffsetDateTime>,
+    cursor_updated_at: Option<DateTime<Utc>>,
     cursor_id: Option<Uuid>,
     limit: i64,
 ) -> Result<Vec<ThreadRow>> {
@@ -258,7 +258,7 @@ pub async fn lock_thread_for_reply(
     workspace_id: Uuid,
     object_id: Uuid,
     thread_id: Uuid,
-) -> Result<Option<(Uuid, Uuid, Option<OffsetDateTime>)>> {
+) -> Result<Option<(Uuid, Uuid, Option<DateTime<Utc>>)>> {
     require_active_commentary_object(tx, workspace_id, object_id).await?;
     Ok(sqlx::query_as(
         r#"
@@ -364,7 +364,7 @@ pub async fn lock_thread_resolution(
     workspace_id: Uuid,
     object_id: Uuid,
     thread_id: Uuid,
-) -> Result<Option<(Uuid, Option<OffsetDateTime>)>> {
+) -> Result<Option<(Uuid, Option<DateTime<Utc>>)>> {
     require_active_commentary_object(tx, workspace_id, object_id).await?;
     Ok(sqlx::query_as(
         r#"
@@ -681,7 +681,7 @@ pub async fn touch_comment_thread(
 
 /// Comment state locked while applying a commentary transition.
 pub type LockedComment =
-    (Uuid, Uuid, Option<OffsetDateTime>, Option<OffsetDateTime>, Option<OffsetDateTime>);
+    (Uuid, Uuid, Option<DateTime<Utc>>, Option<DateTime<Utc>>, Option<DateTime<Utc>>);
 
 /// Locks a live comment and returns the state required for mutation.
 ///
@@ -700,7 +700,7 @@ pub async fn lock_comment(
 ) -> Result<Option<LockedComment>> {
     require_active_commentary_object(tx, workspace_id, object_id).await?;
 
-    let thread = sqlx::query_as::<_, (Uuid, Option<OffsetDateTime>)>(
+    let thread = sqlx::query_as::<_, (Uuid, Option<DateTime<Utc>>)>(
         r#"
         SELECT c.thread_id, t.resolved_at
         FROM kival.comments c
@@ -725,7 +725,7 @@ pub async fn lock_comment(
         return Ok(None);
     };
 
-    let comment = sqlx::query_as::<_, (Uuid, Option<OffsetDateTime>, Option<OffsetDateTime>)>(
+    let comment = sqlx::query_as::<_, (Uuid, Option<DateTime<Utc>>, Option<DateTime<Utc>>)>(
         r#"
         SELECT
             c.author_user_id,

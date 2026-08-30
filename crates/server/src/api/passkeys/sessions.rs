@@ -12,7 +12,7 @@ use kival_kernel::{
     create_session, current_session_id, lock_active_user_by_id, lock_fresh_session,
 };
 use kival_sdk::{AuthenticatedSessionResponse, User};
-use time::OffsetDateTime;
+use chrono::{DateTime, Utc};
 use uuid::Uuid;
 
 use super::{authentication_failed, interval};
@@ -45,7 +45,7 @@ pub(super) async fn insert_session(
     csrf_token: &str,
     headers: &HeaderMap,
     peer_addr: SocketAddr,
-) -> ApiResult<OffsetDateTime> {
+) -> ApiResult<DateTime<Utc>> {
     let user_agent = headers
         .get(axum::http::header::USER_AGENT)
         .and_then(|value| value.to_str().ok())
@@ -67,7 +67,7 @@ pub(super) async fn insert_session(
 /// Builds the authenticated-session envelope and secure session/CSRF cookies.
 pub(super) fn authenticated_session_response(
     user: User,
-    expires_at: OffsetDateTime,
+    expires_at: DateTime<Utc>,
     session_token: &str,
     csrf_token: &str,
 ) -> ApiResult<Response> {
@@ -79,11 +79,11 @@ pub(super) fn authenticated_session_response(
 
 /// Returns fresh-authentication success while rotating both browser credentials.
 pub(super) fn rotated_session_response(
-    expires_at: OffsetDateTime,
+    expires_at: DateTime<Utc>,
     session_token: &str,
     csrf_token: &str,
 ) -> ApiResult<Response> {
-    let remaining_seconds = (expires_at - OffsetDateTime::now_utc()).whole_seconds().max(1) as u64;
+    let remaining_seconds = (expires_at - Utc::now()).num_seconds().max(1) as u64;
     let mut response = StatusCode::NO_CONTENT.into_response();
     append_auth_cookies(&mut response, session_token, csrf_token, remaining_seconds)?;
     Ok(response)

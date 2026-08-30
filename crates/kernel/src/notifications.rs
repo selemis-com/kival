@@ -1,7 +1,7 @@
 //! Notification preference, inbox, projection, and retention state bindings.
 
 use sqlx::{PgPool, Postgres, Transaction};
-use time::OffsetDateTime;
+use chrono::{DateTime, Utc};
 use uuid::Uuid;
 
 use crate::Result;
@@ -64,11 +64,11 @@ pub struct InboxEntryRow {
     /// Optional comment excerpt projected into the inbox entry.
     pub comment_excerpt: Option<String>,
     /// Timestamp at which the inbox entry was marked read.
-    pub read_at: Option<OffsetDateTime>,
+    pub read_at: Option<DateTime<Utc>>,
     /// Creation timestamp.
-    pub created_at: OffsetDateTime,
+    pub created_at: DateTime<Utc>,
     /// Last update timestamp.
-    pub updated_at: OffsetDateTime,
+    pub updated_at: DateTime<Utc>,
 }
 
 /// Loads a user's notification preference for an object.
@@ -81,7 +81,7 @@ pub async fn object_notification_preference(
     user_id: Uuid,
     workspace_id: Uuid,
     object_id: Uuid,
-) -> Result<(Option<bool>, Option<OffsetDateTime>)> {
+) -> Result<(Option<bool>, Option<DateTime<Utc>>)> {
     Ok(sqlx::query_as(
         r#"
         SELECT preference.ordinary_notifications_enabled, preference.updated_at
@@ -111,7 +111,7 @@ pub async fn set_object_notification_preference(
     workspace_id: Uuid,
     object_id: Uuid,
     enabled: bool,
-) -> Result<OffsetDateTime> {
+) -> Result<DateTime<Utc>> {
     Ok(sqlx::query_scalar(
         r#"
         INSERT INTO kival.object_notification_preferences (

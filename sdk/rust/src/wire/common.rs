@@ -2,7 +2,7 @@
 
 use schemars::JsonSchema;
 use serde::{Deserialize, Deserializer, Serialize};
-use time::{OffsetDateTime, serde::rfc3339};
+use chrono::{DateTime, Utc};
 
 /// Actor-relative state returned after changing a personal favorite.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
@@ -18,9 +18,7 @@ pub struct PinState {
     pub pinned: bool,
 
     /// Time at which the resource entered its current pinned position.
-    #[schemars(with = "Option<String>", extend("format" = "date-time"))]
-    #[serde(with = "rfc3339::option")]
-    pub pinned_at: Option<OffsetDateTime>,
+    pub pinned_at: Option<DateTime<Utc>>,
 }
 
 pub use kival_types::{ArchiveListStatus, ArchiveStatus};

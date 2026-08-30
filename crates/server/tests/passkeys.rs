@@ -22,7 +22,7 @@ mod tests {
         signature::{ECDSA_P256_SHA256_ASN1_SIGNING, EcdsaKeyPair, KeyPair},
     };
     use serde_json::{Value, json};
-    use time::{OffsetDateTime, format_description::well_known::Rfc3339};
+    use chrono::{DateTime, Utc};
     use tokio::time::{Duration, timeout};
     use uuid::Uuid;
 
@@ -335,7 +335,7 @@ mod tests {
 
         for field in ["createdAt", "updatedAt"] {
             let value = passkey[field].as_str().expect("timestamp must be a string");
-            OffsetDateTime::parse(value, &Rfc3339)?;
+            value.parse::<DateTime<Utc>>()?;
         }
         assert!(
             passkey["lastUsedAt"].is_null() || passkey["lastUsedAt"].as_str().is_some(),

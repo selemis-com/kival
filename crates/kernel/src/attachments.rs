@@ -2,7 +2,7 @@
 
 use serde_json::Value;
 use sqlx::{PgPool, Postgres, Transaction};
-use time::OffsetDateTime;
+use chrono::{DateTime, Utc};
 use uuid::Uuid;
 
 use crate::{KernelError, Result};
@@ -33,7 +33,7 @@ pub struct ObjectAttachmentRow {
     /// User that created the row, when retained.
     pub created_by: Option<Uuid>,
     /// Creation timestamp.
-    pub created_at: OffsetDateTime,
+    pub created_at: DateTime<Utc>,
 }
 
 /// Content-addressing data required to serve an attachment.
@@ -99,7 +99,7 @@ pub async fn list_object_attachments(
     actor_id: Uuid,
     workspace_id: Uuid,
     object_id: Uuid,
-    cursor_created_at: Option<OffsetDateTime>,
+    cursor_created_at: Option<DateTime<Utc>>,
     cursor_id: Option<Uuid>,
     limit: i64,
 ) -> Result<Vec<ObjectAttachmentRow>> {

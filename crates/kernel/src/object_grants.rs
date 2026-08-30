@@ -1,7 +1,7 @@
 //! Object grant state bindings.
 
 use sqlx::{Acquire, PgPool, Postgres, Transaction};
-use time::OffsetDateTime;
+use chrono::{DateTime, Utc};
 use uuid::Uuid;
 
 use crate::{GrantPrincipal, KernelError, ObjectRole, Result, parse_stored};
@@ -24,11 +24,11 @@ pub struct ObjectGrantRow {
     /// User that revoked the row, when retained.
     pub revoked_by: Option<Uuid>,
     /// Creation timestamp.
-    pub created_at: OffsetDateTime,
+    pub created_at: DateTime<Utc>,
     /// Last update timestamp.
-    pub updated_at: OffsetDateTime,
+    pub updated_at: DateTime<Utc>,
     /// Revocation timestamp, when revoked.
-    pub revoked_at: Option<OffsetDateTime>,
+    pub revoked_at: Option<DateTime<Utc>>,
 }
 
 /// Raw `PostgreSQL` projection used before constrained values are converted to typed kernel
@@ -52,11 +52,11 @@ struct StoredObjectGrantRow {
     /// Stored revoker identifier, when retained.
     revoked_by: Option<Uuid>,
     /// Stored creation timestamp.
-    created_at: OffsetDateTime,
+    created_at: DateTime<Utc>,
     /// Stored update timestamp.
-    updated_at: OffsetDateTime,
+    updated_at: DateTime<Utc>,
     /// Stored revocation timestamp, when present.
-    revoked_at: Option<OffsetDateTime>,
+    revoked_at: Option<DateTime<Utc>>,
 }
 
 impl TryFrom<StoredObjectGrantRow> for ObjectGrantRow {
@@ -134,7 +134,7 @@ pub async fn list_object_grants(
     workspace_id: Uuid,
     object_id: Uuid,
     actor_id: Uuid,
-    cursor_created_at: Option<OffsetDateTime>,
+    cursor_created_at: Option<DateTime<Utc>>,
     cursor_id: Option<Uuid>,
     limit: i64,
 ) -> Result<Vec<ObjectGrantRow>> {

@@ -16,7 +16,7 @@ use kival_kernel::{
 };
 use serde::Deserialize;
 use serde_json::{Value, json};
-use time::format_description::well_known::Rfc3339;
+use chrono::SecondsFormat;
 use uuid::Uuid;
 
 use super::{
@@ -207,24 +207,12 @@ pub(super) fn normalized_label(label: &str) -> ApiResult<&str> {
 
 /// Serializes safe passkey metadata without public-key bytes.
 fn passkey_json(row: &PasskeyRow) -> ApiResult<Value> {
-    let created_at = row
-        .created_at
-        .format(&Rfc3339)
-        .map_err(|_| ApiError::internal("invalid passkey timestamp"))?;
-    let updated_at = row
-        .updated_at
-        .format(&Rfc3339)
-        .map_err(|_| ApiError::internal("invalid passkey timestamp"))?;
-    let last_used_at = row
-        .last_used_at
-        .map(|value| value.format(&Rfc3339))
-        .transpose()
-        .map_err(|_| ApiError::internal("invalid passkey timestamp"))?;
-    let revoked_at = row
-        .revoked_at
-        .map(|value| value.format(&Rfc3339))
-        .transpose()
-        .map_err(|_| ApiError::internal("invalid passkey timestamp"))?;
+    let created_at = row.created_at.to_rfc3339_opts(SecondsFormat::AutoSi, true);
+    let updated_at = row.updated_at.to_rfc3339_opts(SecondsFormat::AutoSi, true);
+    let last_used_at =
+        row.last_used_at.map(|value| value.to_rfc3339_opts(SecondsFormat::AutoSi, true));
+    let revoked_at =
+        row.revoked_at.map(|value| value.to_rfc3339_opts(SecondsFormat::AutoSi, true));
 
     Ok(json!({
         "id": row.id,

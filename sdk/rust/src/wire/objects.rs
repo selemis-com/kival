@@ -5,7 +5,7 @@ use kival_types::{MembershipRole, ObjectRole};
 use schemars::JsonSchema;
 use serde::{Deserialize, Deserializer, Serialize, de};
 use serde_json::Value;
-use time::{OffsetDateTime, serde::rfc3339};
+use chrono::{DateTime, Utc};
 use uuid::Uuid;
 
 use crate::{ArchiveListStatus, ArchiveStatus, ListParams};
@@ -145,19 +145,13 @@ pub struct ObjectResource {
     pub archived_by: Option<Uuid>,
 
     /// Creation timestamp.
-    #[schemars(with = "String", extend("format" = "date-time"))]
-    #[serde(with = "rfc3339")]
-    pub created_at: OffsetDateTime,
+    pub created_at: DateTime<Utc>,
 
     /// Last update timestamp.
-    #[schemars(with = "String", extend("format" = "date-time"))]
-    #[serde(with = "rfc3339")]
-    pub updated_at: OffsetDateTime,
+    pub updated_at: DateTime<Utc>,
 
     /// Archive timestamp.
-    #[schemars(with = "Option<String>", extend("format" = "date-time"))]
-    #[serde(with = "rfc3339::option")]
-    pub archived_at: Option<OffsetDateTime>,
+    pub archived_at: Option<DateTime<Utc>>,
 }
 
 /// Object resource enriched with scan-oriented workspace-list information.
@@ -196,9 +190,7 @@ pub struct ObjectListItem {
     pub pinned: bool,
 
     /// Time at which the authenticated user pinned this object.
-    #[schemars(with = "Option<String>", extend("format" = "date-time"))]
-    #[serde(with = "rfc3339::option")]
-    pub pinned_at: Option<OffsetDateTime>,
+    pub pinned_at: Option<DateTime<Utc>>,
 }
 
 impl std::ops::Deref for ObjectListItem {
@@ -251,9 +243,7 @@ pub struct ObjectVersion {
     pub created_by_object_role: Option<ObjectRole>,
 
     /// Creation timestamp.
-    #[schemars(with = "String", extend("format" = "date-time"))]
-    #[serde(with = "rfc3339")]
-    pub created_at: OffsetDateTime,
+    pub created_at: DateTime<Utc>,
 }
 
 /// Request to reuse an existing object attachment.
@@ -327,9 +317,7 @@ pub struct ObjectAttachment {
     pub created_by: Option<Uuid>,
 
     /// Creation timestamp.
-    #[schemars(with = "String", extend("format" = "date-time"))]
-    #[serde(with = "rfc3339")]
-    pub created_at: OffsetDateTime,
+    pub created_at: DateTime<Utc>,
 }
 
 /// Object attachment response envelope.

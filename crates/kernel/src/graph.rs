@@ -1,7 +1,7 @@
 //! Object graph, backlink, and edge state bindings.
 
 use sqlx::{PgPool, Postgres, Transaction};
-use time::OffsetDateTime;
+use chrono::{DateTime, Utc};
 use uuid::Uuid;
 
 use crate::{ArchiveStatus, KernelError, ObjectGraphDirection, ObjectRole, Result, parse_stored};
@@ -22,7 +22,7 @@ pub struct ObjectBacklinkRow {
     /// User that created the row, when retained.
     pub created_by: Option<Uuid>,
     /// Creation timestamp.
-    pub created_at: OffsetDateTime,
+    pub created_at: DateTime<Utc>,
 }
 
 /// Resolved textual reference that points to an object.
@@ -51,7 +51,7 @@ pub struct ObjectBacklinkReferenceRow {
     /// UTF-8 byte offset where the reference ends.
     pub span_end: i32,
     /// Creation timestamp.
-    pub created_at: OffsetDateTime,
+    pub created_at: DateTime<Utc>,
 }
 
 /// Raw `PostgreSQL` projection used before constrained values are converted to typed kernel
@@ -71,7 +71,7 @@ struct StoredObjectBacklinkRow {
     /// Stored creator identifier, when retained.
     created_by: Option<Uuid>,
     /// Stored creation timestamp.
-    created_at: OffsetDateTime,
+    created_at: DateTime<Utc>,
 }
 
 impl TryFrom<StoredObjectBacklinkRow> for ObjectBacklinkRow {
@@ -116,7 +116,7 @@ struct StoredObjectBacklinkReferenceRow {
     /// Stored reference end offset.
     span_end: i32,
     /// Stored creation timestamp.
-    created_at: OffsetDateTime,
+    created_at: DateTime<Utc>,
 }
 
 impl TryFrom<StoredObjectBacklinkReferenceRow> for ObjectBacklinkReferenceRow {
@@ -155,11 +155,11 @@ pub struct ObjectEdgeRow {
     /// User that revoked the row, when retained.
     pub revoked_by: Option<Uuid>,
     /// Creation timestamp.
-    pub created_at: OffsetDateTime,
+    pub created_at: DateTime<Utc>,
     /// Last update timestamp.
-    pub updated_at: OffsetDateTime,
+    pub updated_at: DateTime<Utc>,
     /// Revocation timestamp, when revoked.
-    pub revoked_at: Option<OffsetDateTime>,
+    pub revoked_at: Option<DateTime<Utc>>,
 }
 
 /// Object-graph node with distance and degree projections.
@@ -178,9 +178,9 @@ pub struct ObjectGraphNodeRow {
     /// User that created the row, when retained.
     pub created_by: Option<Uuid>,
     /// Creation timestamp.
-    pub created_at: OffsetDateTime,
+    pub created_at: DateTime<Utc>,
     /// Last update timestamp.
-    pub updated_at: OffsetDateTime,
+    pub updated_at: DateTime<Utc>,
     /// Graph distance from the traversal root.
     pub distance: i32,
     /// Number of visible incoming edges.
@@ -205,9 +205,9 @@ pub struct WorkspaceGraphNodeRow {
     /// User that created the row, when retained.
     pub created_by: Option<Uuid>,
     /// Creation timestamp.
-    pub created_at: OffsetDateTime,
+    pub created_at: DateTime<Utc>,
     /// Last update timestamp.
-    pub updated_at: OffsetDateTime,
+    pub updated_at: DateTime<Utc>,
     /// Number of visible incoming edges.
     pub in_degree: i64,
     /// Number of visible outgoing edges.
@@ -231,9 +231,9 @@ struct StoredObjectGraphNodeRow {
     /// Stored creator identifier, when retained.
     created_by: Option<Uuid>,
     /// Stored creation timestamp.
-    created_at: OffsetDateTime,
+    created_at: DateTime<Utc>,
     /// Stored update timestamp.
-    updated_at: OffsetDateTime,
+    updated_at: DateTime<Utc>,
     /// Stored graph distance projection.
     distance: i32,
     /// Stored incoming-edge count.
@@ -278,9 +278,9 @@ struct StoredWorkspaceGraphNodeRow {
     /// Stored creator identifier, when retained.
     created_by: Option<Uuid>,
     /// Stored creation timestamp.
-    created_at: OffsetDateTime,
+    created_at: DateTime<Utc>,
     /// Stored update timestamp.
-    updated_at: OffsetDateTime,
+    updated_at: DateTime<Utc>,
     /// Stored incoming-edge count.
     in_degree: i64,
     /// Stored outgoing-edge count.
@@ -324,9 +324,9 @@ pub struct WorkspaceGraphEdgeRow {
     /// retained.
     pub created_by: Option<Uuid>,
     /// Creation timestamp.
-    pub created_at: OffsetDateTime,
+    pub created_at: DateTime<Utc>,
     /// Last update timestamp.
-    pub updated_at: OffsetDateTime,
+    pub updated_at: DateTime<Utc>,
 }
 
 /// Parameters for listing inbound links to an object.
@@ -339,7 +339,7 @@ pub struct ListObjectBacklinks {
     /// Whether archived source objects may be returned.
     pub include_archived: bool,
     /// Creation timestamp from the pagination cursor, when present.
-    pub cursor_created_at: Option<OffsetDateTime>,
+    pub cursor_created_at: Option<DateTime<Utc>>,
     /// Row identifier from the pagination cursor, when present.
     pub cursor_id: Option<Uuid>,
     /// User whose object permissions constrain the result.
@@ -358,7 +358,7 @@ pub struct ListObjectEdges {
     /// Object whose incident edges are listed.
     pub object_id: Uuid,
     /// Creation timestamp from the pagination cursor, when present.
-    pub cursor_created_at: Option<OffsetDateTime>,
+    pub cursor_created_at: Option<DateTime<Utc>>,
     /// Edge identifier from the pagination cursor, when present.
     pub cursor_id: Option<Uuid>,
     /// User whose object permissions constrain the result.

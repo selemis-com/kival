@@ -51,7 +51,7 @@ mod tests {
                     String,
                     serde_json::Value,
                     Option<Uuid>,
-                    time::OffsetDateTime,
+                    chrono::DateTime<chrono::Utc>,
                 ),
             >(
                 r#"

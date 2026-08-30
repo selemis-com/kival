@@ -229,7 +229,7 @@ mod tests {
         stale_actor.cookie_header = HeaderValue::from_bytes(cookie.as_bytes())?;
         stale_actor.csrf_token = HeaderValue::from_bytes(csrf_token.as_bytes())?;
 
-        let old = sqlx::query_scalar::<_, time::OffsetDateTime>(
+        let old = sqlx::query_scalar::<_, chrono::DateTime<chrono::Utc>>(
             "SELECT last_seen_at FROM kival.sessions WHERE id = $1",
         )
         .bind(session_id)
@@ -237,7 +237,7 @@ mod tests {
         .await?;
 
         r.get_json_as::<UserResponse>(&stale_actor, "/auth/whoami").await?.into_success()?;
-        let first = sqlx::query_scalar::<_, time::OffsetDateTime>(
+        let first = sqlx::query_scalar::<_, chrono::DateTime<chrono::Utc>>(
             "SELECT last_seen_at FROM kival.sessions WHERE id = $1",
         )
         .bind(session_id)
@@ -246,7 +246,7 @@ mod tests {
         assert!(first > old);
 
         r.get_json_as::<UserResponse>(&stale_actor, "/auth/whoami").await?.into_success()?;
-        let second = sqlx::query_scalar::<_, time::OffsetDateTime>(
+        let second = sqlx::query_scalar::<_, chrono::DateTime<chrono::Utc>>(
             "SELECT last_seen_at FROM kival.sessions WHERE id = $1",
         )
         .bind(session_id)

@@ -27,7 +27,7 @@ serde.workspace = true
 serde_json.workspace = true
 thiserror = { workspace = true, optional = true }
 tower = { workspace = true, optional = true, features = ["timeout", "util"] }
-time = { workspace = true, features = ["serde-well-known"] }
+chrono.workspace = true
 url = { workspace = true, optional = true }
 uuid.workspace = true
 

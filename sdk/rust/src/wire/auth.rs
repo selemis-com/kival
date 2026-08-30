@@ -2,7 +2,7 @@
 
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
-use time::{OffsetDateTime, serde::rfc3339};
+use chrono::{DateTime, Utc};
 use uuid::Uuid;
 
 use crate::{ListResponse, User};
@@ -11,9 +11,7 @@ use crate::{ListResponse, User};
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 pub struct AuthenticatedSessionResponse {
     /// Session expiration timestamp.
-    #[schemars(with = "String", extend("format" = "date-time"))]
-    #[serde(with = "rfc3339")]
-    pub expires_at: OffsetDateTime,
+    pub expires_at: DateTime<Utc>,
     /// Authenticated user.
     pub user: User,
 }
@@ -38,29 +36,19 @@ pub struct Session {
     /// User ID.
     pub user_id: Uuid,
     /// Creation timestamp.
-    #[schemars(with = "String", extend("format" = "date-time"))]
-    #[serde(with = "rfc3339")]
-    pub created_at: OffsetDateTime,
+    pub created_at: DateTime<Utc>,
     /// Last update timestamp.
-    #[schemars(with = "String", extend("format" = "date-time"))]
-    #[serde(with = "rfc3339")]
-    pub updated_at: OffsetDateTime,
+    pub updated_at: DateTime<Utc>,
     /// Expiration timestamp.
-    #[schemars(with = "String", extend("format" = "date-time"))]
-    #[serde(with = "rfc3339")]
-    pub expires_at: OffsetDateTime,
+    pub expires_at: DateTime<Utc>,
     /// Revocation timestamp.
-    #[schemars(with = "Option<String>", extend("format" = "date-time"))]
-    #[serde(with = "rfc3339::option")]
-    pub revoked_at: Option<OffsetDateTime>,
+    pub revoked_at: Option<DateTime<Utc>>,
     /// User that revoked this session.
     pub revoked_by: Option<Uuid>,
     /// Revocation reason.
     pub revocation_reason: Option<String>,
     /// Last-seen timestamp.
-    #[schemars(with = "Option<String>", extend("format" = "date-time"))]
-    #[serde(with = "rfc3339::option")]
-    pub last_seen_at: Option<OffsetDateTime>,
+    pub last_seen_at: Option<DateTime<Utc>>,
     /// User agent recorded at session creation.
     pub user_agent: Option<String>,
     /// IP address recorded at session creation.

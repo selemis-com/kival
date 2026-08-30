@@ -1,7 +1,7 @@
 //! API-key state bindings.
 
 use sqlx::{Acquire, PgPool, Postgres, Transaction};
-use time::OffsetDateTime;
+use chrono::{DateTime, Utc};
 use uuid::Uuid;
 
 use crate::{ApiKeyScope, Result, parse_stored};
@@ -18,15 +18,15 @@ pub struct ApiKeyRow {
     /// Mutable authorization revision.
     pub authorization_revision: i32,
     /// Creation timestamp.
-    pub created_at: OffsetDateTime,
+    pub created_at: DateTime<Utc>,
     /// Update timestamp.
-    pub updated_at: OffsetDateTime,
+    pub updated_at: DateTime<Utc>,
     /// Optional expiry.
-    pub expires_at: Option<OffsetDateTime>,
+    pub expires_at: Option<DateTime<Utc>>,
     /// Optional revocation timestamp.
-    pub revoked_at: Option<OffsetDateTime>,
+    pub revoked_at: Option<DateTime<Utc>>,
     /// Optional last-used timestamp.
-    pub last_used_at: Option<OffsetDateTime>,
+    pub last_used_at: Option<DateTime<Utc>>,
 }
 
 /// Previous and current authorization data after an API-key update.
@@ -50,7 +50,7 @@ pub async fn create_api_key(
     user_id: Uuid,
     label: &str,
     token_hash: &[u8],
-    expires_at: Option<OffsetDateTime>,
+    expires_at: Option<DateTime<Utc>>,
 ) -> Result<Option<ApiKeyRow>> {
     Ok(sqlx::query_as::<_, ApiKeyRow>(
         r#"
@@ -199,7 +199,7 @@ pub async fn api_key_workspaces_accessible(
 pub async fn list_api_keys(
     pool: &PgPool,
     user_id: Uuid,
-    cursor_created_at: Option<OffsetDateTime>,
+    cursor_created_at: Option<DateTime<Utc>>,
     cursor_id: Option<Uuid>,
     limit: i64,
 ) -> Result<Vec<ApiKeyRow>> {

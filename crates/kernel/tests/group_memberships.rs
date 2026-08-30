@@ -9,7 +9,7 @@ mod tests {
         revoke_group_membership,
     };
     use sqlx::PgPool;
-    use time::OffsetDateTime;
+    use chrono::{DateTime, Utc};
     use uuid::Uuid;
 
     fn unique_name(prefix: &str) -> String {
@@ -151,7 +151,7 @@ mod tests {
         assert!(matches!(error, KernelError::ResourceNotFound));
         replace_tx.commit().await?;
 
-        let revoked_at = sqlx::query_scalar::<_, Option<OffsetDateTime>>(
+        let revoked_at = sqlx::query_scalar::<_, Option<DateTime<Utc>>>(
             "SELECT revoked_at FROM kival.group_memberships WHERE id = $1",
         )
         .bind(membership.id)

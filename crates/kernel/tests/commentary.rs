@@ -6,7 +6,7 @@ mod tests {
         KernelError, Result, delete_comment, fetch_comment_mentions, replace_comment_mentions,
     };
     use sqlx::PgPool;
-    use time::OffsetDateTime;
+    use chrono::{DateTime, Utc};
     use uuid::Uuid;
 
     async fn insert_user(pool: &PgPool, prefix: &str) -> Result<Uuid> {
@@ -218,7 +218,7 @@ mod tests {
             .await?;
         tx.commit().await?;
 
-        let (body, deleted_at) = sqlx::query_as::<_, (Option<String>, Option<OffsetDateTime>)>(
+        let (body, deleted_at) = sqlx::query_as::<_, (Option<String>, Option<DateTime<Utc>>)>(
             "SELECT body, deleted_at FROM kival.comments WHERE id = $1",
         )
         .bind(comment_id)

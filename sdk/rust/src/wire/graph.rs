@@ -2,7 +2,7 @@
 
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
-use time::{OffsetDateTime, serde::rfc3339};
+use chrono::{DateTime, Utc};
 use uuid::Uuid;
 
 use crate::{ArchiveStatus, DEFAULT_LIMIT, MAX_LIMIT};
@@ -63,9 +63,7 @@ pub struct ObjectBacklink {
     /// User that created the edge.
     pub created_by: Option<Uuid>,
     /// Edge creation timestamp.
-    #[schemars(with = "String", extend("format" = "date-time"))]
-    #[serde(with = "rfc3339")]
-    pub created_at: OffsetDateTime,
+    pub created_at: DateTime<Utc>,
 }
 
 /// Derived textual reference pointing to an object.
@@ -91,9 +89,7 @@ pub struct ObjectBacklinkReference {
     /// Exclusive UTF-8 byte offset in the source body.
     pub span_end: i32,
     /// Reference creation timestamp.
-    #[schemars(with = "String", extend("format" = "date-time"))]
-    #[serde(with = "rfc3339")]
-    pub created_at: OffsetDateTime,
+    pub created_at: DateTime<Utc>,
 }
 
 /// Object-centric inbound references.
@@ -162,13 +158,9 @@ pub struct ObjectGraphNode {
     /// User that created the object.
     pub created_by: Option<Uuid>,
     /// Creation timestamp.
-    #[schemars(with = "String", extend("format" = "date-time"))]
-    #[serde(with = "rfc3339")]
-    pub created_at: OffsetDateTime,
+    pub created_at: DateTime<Utc>,
     /// Last update timestamp.
-    #[schemars(with = "String", extend("format" = "date-time"))]
-    #[serde(with = "rfc3339")]
-    pub updated_at: OffsetDateTime,
+    pub updated_at: DateTime<Utc>,
     /// Shortest traversal distance from the root.
     pub distance: i32,
     /// Visible filtered incoming explicit-relationship count.
@@ -205,13 +197,9 @@ pub struct ObjectGraphEdge {
     /// User that created the representative relationship or source version.
     pub created_by: Option<Uuid>,
     /// Creation timestamp.
-    #[schemars(with = "String", extend("format" = "date-time"))]
-    #[serde(with = "rfc3339")]
-    pub created_at: OffsetDateTime,
+    pub created_at: DateTime<Utc>,
     /// Last update timestamp.
-    #[schemars(with = "String", extend("format" = "date-time"))]
-    #[serde(with = "rfc3339")]
-    pub updated_at: OffsetDateTime,
+    pub updated_at: DateTime<Utc>,
 }
 
 /// Structured object graph truncation details.
@@ -281,13 +269,9 @@ pub struct WorkspaceGraphNode {
     /// User that created the object.
     pub created_by: Option<Uuid>,
     /// Creation timestamp.
-    #[schemars(with = "String", extend("format" = "date-time"))]
-    #[serde(with = "rfc3339")]
-    pub created_at: OffsetDateTime,
+    pub created_at: DateTime<Utc>,
     /// Last update timestamp.
-    #[schemars(with = "String", extend("format" = "date-time"))]
-    #[serde(with = "rfc3339")]
-    pub updated_at: OffsetDateTime,
+    pub updated_at: DateTime<Utc>,
     /// Number of incoming explicit relationships in the visible filtered graph before edge
     /// response truncation.
     pub in_degree: i64,
@@ -312,13 +296,9 @@ pub struct WorkspaceGraphEdge {
     /// User that created the representative relationship or source version.
     pub created_by: Option<Uuid>,
     /// Creation timestamp.
-    #[schemars(with = "String", extend("format" = "date-time"))]
-    #[serde(with = "rfc3339")]
-    pub created_at: OffsetDateTime,
+    pub created_at: DateTime<Utc>,
     /// Last update timestamp.
-    #[schemars(with = "String", extend("format" = "date-time"))]
-    #[serde(with = "rfc3339")]
-    pub updated_at: OffsetDateTime,
+    pub updated_at: DateTime<Utc>,
 }
 
 /// Applied workspace graph limits and truncation indicators.
@@ -379,19 +359,13 @@ pub struct ObjectEdge {
     pub revoked_by: Option<Uuid>,
 
     /// Creation timestamp.
-    #[schemars(with = "String", extend("format" = "date-time"))]
-    #[serde(with = "rfc3339")]
-    pub created_at: OffsetDateTime,
+    pub created_at: DateTime<Utc>,
 
     /// Last update timestamp.
-    #[schemars(with = "String", extend("format" = "date-time"))]
-    #[serde(with = "rfc3339")]
-    pub updated_at: OffsetDateTime,
+    pub updated_at: DateTime<Utc>,
 
     /// Revocation timestamp.
-    #[schemars(with = "Option<String>", extend("format" = "date-time"))]
-    #[serde(with = "rfc3339::option")]
-    pub revoked_at: Option<OffsetDateTime>,
+    pub revoked_at: Option<DateTime<Utc>>,
 }
 
 /// Object edge response envelope.
@@ -446,19 +420,13 @@ pub struct ObjectGrant {
     pub revoked_by: Option<Uuid>,
 
     /// Creation timestamp.
-    #[schemars(with = "String", extend("format" = "date-time"))]
-    #[serde(with = "rfc3339")]
-    pub created_at: OffsetDateTime,
+    pub created_at: DateTime<Utc>,
 
     /// Last update timestamp.
-    #[schemars(with = "String", extend("format" = "date-time"))]
-    #[serde(with = "rfc3339")]
-    pub updated_at: OffsetDateTime,
+    pub updated_at: DateTime<Utc>,
 
     /// Revocation timestamp.
-    #[schemars(with = "Option<String>", extend("format" = "date-time"))]
-    #[serde(with = "rfc3339::option")]
-    pub revoked_at: Option<OffsetDateTime>,
+    pub revoked_at: Option<DateTime<Utc>>,
 }
 
 /// Object grant response envelope.

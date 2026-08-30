@@ -3,7 +3,7 @@
 pub use kival_types::{UserListStatus, UserStatus};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
-use time::{OffsetDateTime, serde::rfc3339};
+use chrono::{DateTime, Utc};
 use uuid::Uuid;
 
 use crate::ListParams;
@@ -59,17 +59,11 @@ pub struct User {
     /// Lifecycle status.
     pub status: UserStatus,
     /// Creation timestamp.
-    #[schemars(with = "String", extend("format" = "date-time"))]
-    #[serde(with = "rfc3339")]
-    pub created_at: OffsetDateTime,
+    pub created_at: DateTime<Utc>,
     /// Last update timestamp.
-    #[schemars(with = "String", extend("format" = "date-time"))]
-    #[serde(with = "rfc3339")]
-    pub updated_at: OffsetDateTime,
+    pub updated_at: DateTime<Utc>,
     /// Disable timestamp.
-    #[schemars(with = "Option<String>", extend("format" = "date-time"))]
-    #[serde(with = "rfc3339::option")]
-    pub disabled_at: Option<OffsetDateTime>,
+    pub disabled_at: Option<DateTime<Utc>>,
     /// User that disabled this user.
     pub disabled_by: Option<Uuid>,
 }

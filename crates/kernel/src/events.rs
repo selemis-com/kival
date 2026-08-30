@@ -2,7 +2,7 @@
 
 use serde_json::Value;
 use sqlx::{PgPool, Postgres, Transaction};
-use time::OffsetDateTime;
+use chrono::{DateTime, Utc};
 use uuid::Uuid;
 
 use crate::{EventOrder, Result};
@@ -351,7 +351,7 @@ pub struct EventRow {
     /// Event payload.
     pub payload: Value,
     /// Creation timestamp.
-    pub created_at: OffsetDateTime,
+    pub created_at: DateTime<Utc>,
 }
 
 /// Filters and ordering for event projections.

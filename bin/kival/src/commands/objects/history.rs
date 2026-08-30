@@ -595,7 +595,7 @@ impl ObjectVersionsWikilinksCommand {
 #[cfg(test)]
 mod tests {
     use kival_sdk::ObjectResource;
-    use time::OffsetDateTime;
+    use chrono::{DateTime, Utc};
 
     use super::*;
 
@@ -775,7 +775,7 @@ mod tests {
             created_by_display_name: None,
             created_by_workspace_role: None,
             created_by_object_role: None,
-            created_at: OffsetDateTime::UNIX_EPOCH,
+            created_at: DateTime::<Utc>::UNIX_EPOCH,
         }
     }
 
@@ -788,7 +788,7 @@ mod tests {
         let workspace_id = Uuid::now_v7();
         let object_id = Uuid::now_v7();
         let version_id = Uuid::now_v7();
-        let now = OffsetDateTime::UNIX_EPOCH;
+        let now = DateTime::<Utc>::UNIX_EPOCH;
 
         ObjectResponse {
             object: ObjectResource {
