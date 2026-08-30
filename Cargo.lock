@@ -28,7 +28,9 @@ dependencies = [
 
 [[package]]
 name = "argx"
-version = "0.1.1"
+version = "0.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c4956c6d870bd9b1b39478c2d73ca8fd8ec89da42d660520c50b0867c0d11620"
 dependencies = [
  "argx-derive",
  "schemars",
@@ -40,7 +42,9 @@ dependencies = [
 
 [[package]]
 name = "argx-derive"
-version = "0.1.1"
+version = "0.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "6d5f9baffe78bb29ba49a88dc7494705d591fcb24640b5571704ecf2e4639640"
 dependencies = [
  "proc-macro-crate",
  "proc-macro2",
