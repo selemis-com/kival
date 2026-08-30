@@ -1,8 +1,8 @@
 //! Notification, inbox, and realtime wire protocol types.
 
+use chrono::{DateTime, Utc};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
-use chrono::{DateTime, Utc};
 use uuid::Uuid;
 
 use crate::{DEFAULT_LIMIT, MAX_LIMIT};

@@ -1,9 +1,9 @@
 //! API key resources and requests.
 
+use chrono::{DateTime, Utc};
 pub use kival_types::ApiKeyScope;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
-use chrono::{DateTime, Utc};
 use uuid::Uuid;
 
 use crate::ListResponse;

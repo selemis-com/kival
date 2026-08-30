@@ -594,8 +594,8 @@ impl ObjectVersionsWikilinksCommand {
 
 #[cfg(test)]
 mod tests {
-    use kival_sdk::ObjectResource;
     use chrono::{DateTime, Utc};
+    use kival_sdk::ObjectResource;
 
     use super::*;
 

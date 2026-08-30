@@ -1,8 +1,8 @@
 //! Common wire protocol types.
 
+use chrono::{DateTime, Utc};
 use schemars::JsonSchema;
 use serde::{Deserialize, Deserializer, Serialize};
-use chrono::{DateTime, Utc};
 
 /// Actor-relative state returned after changing a personal favorite.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]

@@ -1,7 +1,7 @@
 //! Object graph, backlink, and edge state bindings.
 
-use sqlx::{PgPool, Postgres, Transaction};
 use chrono::{DateTime, Utc};
+use sqlx::{PgPool, Postgres, Transaction};
 use uuid::Uuid;
 
 use crate::{ArchiveStatus, KernelError, ObjectGraphDirection, ObjectRole, Result, parse_stored};

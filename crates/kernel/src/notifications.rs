@@ -1,7 +1,7 @@
 //! Notification preference, inbox, projection, and retention state bindings.
 
-use sqlx::{PgPool, Postgres, Transaction};
 use chrono::{DateTime, Utc};
+use sqlx::{PgPool, Postgres, Transaction};
 use uuid::Uuid;
 
 use crate::Result;

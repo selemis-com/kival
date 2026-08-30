@@ -89,7 +89,7 @@ pub enum Commands {
 }
 
 /// CLI client to interact with Kival.
-/// ```ignore
+/// ```text
 ///     __ __ __            __
 ///    / //_//_/_  ______ _/ /
 ///   / ,<  / / | / / __ `/ /

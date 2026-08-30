@@ -1,8 +1,8 @@
 //! Audit event state bindings.
 
+use chrono::{DateTime, Utc};
 use serde_json::Value;
 use sqlx::{PgPool, Postgres, Transaction};
-use chrono::{DateTime, Utc};
 use uuid::Uuid;
 
 use crate::{EventOrder, Result};

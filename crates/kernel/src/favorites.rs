@@ -1,7 +1,7 @@
 //! Personal workspace and object favorite state bindings.
 
-use sqlx::PgPool;
 use chrono::{DateTime, Utc};
+use sqlx::PgPool;
 use uuid::Uuid;
 
 use crate::Result;

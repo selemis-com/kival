@@ -5,9 +5,9 @@
 //! attachments and imported binary artifacts, but normal textual object reads
 //! and writes do not hydrate through blobs.
 
+use chrono::{DateTime, Utc};
 use serde_json::Value;
 use sqlx::{Postgres, Transaction};
-use chrono::{DateTime, Utc};
 use uuid::Uuid;
 
 use crate::{KernelError, MembershipRole, ObjectRole, Result, parse_optional_stored};

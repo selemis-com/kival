@@ -90,7 +90,7 @@ pub enum Commands {
 }
 
 /// CLI server to host Kival.
-/// ```ignore
+/// ```text
 ///     __ __ __            __
 ///    / //_//_/_  ______ _/ /
 ///   / ,<  / / | / / __ `/ /

@@ -14,6 +14,7 @@ use axum::{
     Json,
     extract::{Path, State},
 };
+use chrono::{DateTime, Utc};
 use kival_kernel::{
     CommentPageQuery, CommentRow, EventKind, ThreadRow, allowed_mentioned_user_ids,
     comment_mention_ids_in_tx, comment_thread_exists, create_comment, create_comment_thread,
@@ -34,7 +35,6 @@ use kival_sdk::{
 use kival_types::ObjectRole;
 use serde_json::json;
 use sqlx::{PgPool, Postgres, Transaction};
-use chrono::{DateTime, Utc};
 use uuid::Uuid;
 
 /// Number of initial comments hydrated for each listed thread.
@@ -625,8 +625,7 @@ async fn require_comment_locked(
     workspace_id: Uuid,
     object_id: Uuid,
     comment_id: Uuid,
-) -> ApiResult<(Uuid, Uuid, Option<DateTime<Utc>>, Option<DateTime<Utc>>, Option<DateTime<Utc>>)>
-{
+) -> ApiResult<(Uuid, Uuid, Option<DateTime<Utc>>, Option<DateTime<Utc>>, Option<DateTime<Utc>>)> {
     lock_comment(tx, workspace_id, object_id, comment_id)
         .await?
         .ok_or_else(|| ApiError::not_found("comment not found"))

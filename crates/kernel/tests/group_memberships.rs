@@ -4,12 +4,12 @@
 mod tests {
     use std::time::{SystemTime, UNIX_EPOCH};
 
+    use chrono::{DateTime, Utc};
     use kival_kernel::{
         KernelError, MembershipRole, Result, create_group_membership, replace_group_membership,
         revoke_group_membership,
     };
     use sqlx::PgPool;
-    use chrono::{DateTime, Utc};
     use uuid::Uuid;
 
     fn unique_name(prefix: &str) -> String {

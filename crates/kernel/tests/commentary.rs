@@ -2,11 +2,11 @@
 
 #[cfg(test)]
 mod tests {
+    use chrono::{DateTime, Utc};
     use kival_kernel::{
         KernelError, Result, delete_comment, fetch_comment_mentions, replace_comment_mentions,
     };
     use sqlx::PgPool;
-    use chrono::{DateTime, Utc};
     use uuid::Uuid;
 
     async fn insert_user(pool: &PgPool, prefix: &str) -> Result<Uuid> {

@@ -811,8 +811,8 @@ impl ObjectsUnarchiveCommand {
 mod tests {
     use std::fs;
 
-    use kival_sdk::ObjectResource;
     use chrono::{DateTime, Utc};
+    use kival_sdk::ObjectResource;
 
     use super::*;
 

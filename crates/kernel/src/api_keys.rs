@@ -1,7 +1,7 @@
 //! API-key state bindings.
 
-use sqlx::{Acquire, PgPool, Postgres, Transaction};
 use chrono::{DateTime, Utc};
+use sqlx::{Acquire, PgPool, Postgres, Transaction};
 use uuid::Uuid;
 
 use crate::{ApiKeyScope, Result, parse_stored};

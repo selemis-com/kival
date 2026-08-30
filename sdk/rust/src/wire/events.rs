@@ -1,10 +1,10 @@
 //! Event wire protocol types.
 
+use chrono::{DateTime, Utc};
 pub use kival_types::EventOrder;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
-use chrono::{DateTime, Utc};
 use uuid::Uuid;
 
 use crate::{DEFAULT_LIMIT, MAX_LIMIT};

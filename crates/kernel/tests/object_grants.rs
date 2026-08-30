@@ -4,13 +4,13 @@
 mod tests {
     use std::time::{SystemTime, UNIX_EPOCH};
 
+    use chrono::{DateTime, Utc};
     use kival_kernel::{
         CreateInitialObject, GrantPrincipal, KernelError, MembershipRole, ObjectRole, Result,
         create_initial_object, create_object_grant, replace_object_grant, revoke_object_grant,
     };
     use serde_json::json;
     use sqlx::PgPool;
-    use chrono::{DateTime, Utc};
     use uuid::Uuid;
 
     /// Builds a unique name for rows created by these tests.

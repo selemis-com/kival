@@ -1,8 +1,8 @@
 //! Object commentary state bindings.
 
+use chrono::{DateTime, Utc};
 use kival_types::CommentStatus;
 use sqlx::{Acquire, PgPool, Postgres, Transaction};
-use chrono::{DateTime, Utc};
 use uuid::Uuid;
 
 use crate::Result;

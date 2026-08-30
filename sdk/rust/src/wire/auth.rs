@@ -1,8 +1,8 @@
 //! Authentication response types.
 
+use chrono::{DateTime, Utc};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
-use chrono::{DateTime, Utc};
 use uuid::Uuid;
 
 use crate::{ListResponse, User};

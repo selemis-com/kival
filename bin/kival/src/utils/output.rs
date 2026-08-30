@@ -1,8 +1,8 @@
 //! Output helpers for the `kival` CLI.
 
+use chrono::{DateTime, Utc};
 use eyre::Result;
 use serde::Serialize;
-use chrono::{DateTime, Utc};
 use uuid::Uuid;
 
 /// Connector for a non-final item in a tree branch.

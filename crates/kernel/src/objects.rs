@@ -1,8 +1,8 @@
 //! Stable Kival objects and their lifecycle transitions.
 
+use chrono::{DateTime, Utc};
 use serde_json::Value;
 use sqlx::{Acquire, PgPool, Postgres, Transaction};
-use chrono::{DateTime, Utc};
 use uuid::Uuid;
 
 use crate::{

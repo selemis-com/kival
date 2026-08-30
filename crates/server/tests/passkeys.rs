@@ -11,6 +11,7 @@ mod tests {
         response::Response,
     };
     use base64::{Engine as _, engine::general_purpose::URL_SAFE_NO_PAD};
+    use chrono::{DateTime, Utc};
     use ciborium::Value as CborValue;
     use eyre::Result;
     use kival_common::security;
@@ -22,7 +23,6 @@ mod tests {
         signature::{ECDSA_P256_SHA256_ASN1_SIGNING, EcdsaKeyPair, KeyPair},
     };
     use serde_json::{Value, json};
-    use chrono::{DateTime, Utc};
     use tokio::time::{Duration, timeout};
     use uuid::Uuid;
 

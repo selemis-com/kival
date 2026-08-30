@@ -2,8 +2,8 @@
 
 use std::{fmt, str::FromStr};
 
-use sqlx::{PgPool, Postgres, Transaction};
 use chrono::{DateTime, Utc};
+use sqlx::{PgPool, Postgres, Transaction};
 use uuid::Uuid;
 
 use crate::{KernelError, Result, parse_stored};

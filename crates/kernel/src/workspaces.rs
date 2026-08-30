@@ -1,7 +1,7 @@
 //! Workspace state bindings.
 
-use sqlx::{Acquire, PgPool, Postgres, Transaction};
 use chrono::{DateTime, Utc};
+use sqlx::{Acquire, PgPool, Postgres, Transaction};
 use uuid::Uuid;
 
 use crate::{ArchiveListStatus, ArchiveStatus, KernelError, MembershipRole, Result, parse_stored};

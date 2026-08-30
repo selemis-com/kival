@@ -1,7 +1,7 @@
 //! Group state bindings.
 
-use sqlx::{PgPool, Postgres, Transaction};
 use chrono::{DateTime, Utc};
+use sqlx::{PgPool, Postgres, Transaction};
 use uuid::Uuid;
 
 use crate::{ArchiveListStatus, ArchiveStatus, KernelError, Result, parse_stored};

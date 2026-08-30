@@ -9,6 +9,7 @@ use axum::{
     response::Response,
 };
 use base64::{Engine as _, engine::general_purpose::URL_SAFE_NO_PAD};
+use chrono::SecondsFormat;
 use kival_kernel::{
     EventKind, PasskeyRow, consume_ceremony, create_passkey, create_registration_ceremony,
     list_passkeys, lock_active_passkey_ids, lock_passkey, lock_registration_ceremony,
@@ -16,7 +17,6 @@ use kival_kernel::{
 };
 use serde::Deserialize;
 use serde_json::{Value, json};
-use chrono::SecondsFormat;
 use uuid::Uuid;
 
 use super::{
@@ -211,8 +211,7 @@ fn passkey_json(row: &PasskeyRow) -> ApiResult<Value> {
     let updated_at = row.updated_at.to_rfc3339_opts(SecondsFormat::AutoSi, true);
     let last_used_at =
         row.last_used_at.map(|value| value.to_rfc3339_opts(SecondsFormat::AutoSi, true));
-    let revoked_at =
-        row.revoked_at.map(|value| value.to_rfc3339_opts(SecondsFormat::AutoSi, true));
+    let revoked_at = row.revoked_at.map(|value| value.to_rfc3339_opts(SecondsFormat::AutoSi, true));
 
     Ok(json!({
         "id": row.id,

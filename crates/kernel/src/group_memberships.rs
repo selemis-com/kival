@@ -1,7 +1,7 @@
 //! Group membership state bindings.
 
-use sqlx::{Acquire, PgPool, Postgres, Transaction};
 use chrono::{DateTime, Utc};
+use sqlx::{Acquire, PgPool, Postgres, Transaction};
 use uuid::Uuid;
 
 use crate::{KernelError, MembershipRole, Result, parse_stored, users::ActiveUserIdentity};
