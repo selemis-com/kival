@@ -104,11 +104,11 @@ pub struct Cli {
     #[argx(subcommand)]
     pub command: Commands,
 
-    /// Data directory.
+    /// # Data directory
     #[argx(flatten)]
     pub datadir: DatadirArgs,
 
-    /// Logging.
+    /// # Logging
     #[argx(flatten)]
     pub logs: LogArgs,
 }
