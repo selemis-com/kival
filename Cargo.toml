@@ -199,7 +199,7 @@ inherits = "profiling"
 # Vendor
 argx = { version = "0.2.2", features = ["chrono", "url", "uuid", "toml"] }
 axum = { version = "0.8.9", default-features = false }
-base64 = "0.22.1"
+base64 = "0.23.1"
 bytes = "1.12.0"
 ciborium = "0.2.2"
 coset = "0.4.2"
