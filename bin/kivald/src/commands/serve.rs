@@ -15,7 +15,7 @@ use kival_kernel::{DatabasePoolSettings, open_pool_with_settings};
 use kival_metrics::{
     Hooks, VersionInfo, counter, describe_counter, describe_gauge, gauge, start_metrics_server,
 };
-use kival_server::{Server, ServerState, WebAuthnConfig};
+use kival_server::{Server, ServerSettings, ServerState, WebAuthnConfig};
 use kival_storage::BlobStore;
 use kival_tasks::DurableTasks;
 use kival_tracing::{error, info};
@@ -313,11 +313,17 @@ impl ServeCommand {
         }
 
         let db_pool_shutdown = db_pool.clone();
-        let server = Server::new(Arc::new(ServerState::with_webauthn(
+        let server_settings = ServerSettings {
+            api_key_authentication_attempts_per_minute: config
+                .api_key_authentication_attempts_per_minute,
+            ..ServerSettings::default()
+        };
+        let server = Server::new(Arc::new(ServerState::with_settings(
             db_pool,
             blob_store,
             durable_tasks,
             webauthn,
+            server_settings,
         )));
         let server_address = config.listen;
 

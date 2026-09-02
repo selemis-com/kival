@@ -35,7 +35,8 @@ pub struct ServerSettings {
     pub authentication_finish_requests_per_minute: u32,
     /// Authenticated requests accepted per user and minute.
     pub authenticated_user_requests_per_minute: u32,
-    /// Bearer-authentication attempts accepted per direct peer and minute.
+    /// Bearer-authentication attempts accepted per direct peer and minute. Zero disables this
+    /// pre-authentication limit.
     pub api_key_authentication_attempts_per_minute: u32,
     /// Requests accepted per API key and minute.
     pub api_key_requests_per_minute: u32,

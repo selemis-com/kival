@@ -57,6 +57,11 @@ pub struct ServerConfig {
     )]
     pub database_acquire_timeout_seconds: NonZeroU64,
 
+    /// Bearer-authentication attempts accepted per direct TCP peer and minute before API-key
+    /// authentication. Set to 0 only when a trusted edge applies an equivalent coarse limit.
+    #[argx(default = 1_200, env = "KIVAL_API_KEY_AUTHENTICATION_ATTEMPTS_PER_MINUTE")]
+    pub api_key_authentication_attempts_per_minute: u32,
+
     /// Maximum seconds to wait for graceful shutdown.
     #[argx(
         default = NonZeroU64::new(30).expect("non-zero default"),
