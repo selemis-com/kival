@@ -144,22 +144,29 @@ pub struct CliContext {
     pub datadir: PathBuf,
 }
 
-/// Runs the given future to completion or until a critical task panicked.
+/// Runs the given future to completion or until critical-task supervision terminates.
 ///
-/// Returns the error if a task panicked, or the given future returned an error.
+/// Returns the error if a critical task panics, the task manager stops unexpectedly, or the given
+/// future returns an error.
 async fn run_to_completion_or_panic<F, E>(
     task_manager_handle: JoinHandle<Result<(), PanickedTaskError>>,
     fut: F,
 ) -> Result<(), E>
 where
     F: Future<Output = Result<(), E>>,
-    E: Send + Sync + From<PanickedTaskError> + 'static,
+    E: Send + Sync + From<Error> + From<PanickedTaskError> + 'static,
 {
     let fut = pin!(fut);
     tokio::select! {
         task_manager_result = task_manager_handle => {
-            if let Ok(Err(panicked_error)) = task_manager_result {
-                return Err(panicked_error.into());
+            match task_manager_result {
+                Ok(Err(panicked_error)) => return Err(panicked_error.into()),
+                Ok(Ok(())) => {
+                    return Err(Error::other("critical task manager stopped unexpectedly").into());
+                }
+                Err(error) => {
+                    return Err(Error::other(format!("critical task manager failed: {error}")).into());
+                }
             }
         },
         res = fut => res?,
