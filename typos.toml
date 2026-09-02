@@ -1,0 +1,13 @@
+[files]
+extend-exclude = [
+    ".git",
+    "target",
+    "migrations",
+    "Cargo.toml",
+    "Cargo.lock",
+    "stateful.proptest-regressions",
+    "THIRD_PARTY_NOTICES.md"
+]
+
+[default.extend-words]
+cose = "cose"

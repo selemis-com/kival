@@ -1,0 +1,339 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+#     __ __ __            __
+#    / //_//_/_  ______ _/ /
+#   / ,<  / / | / / __ `/ /
+#  / /| |/ /| |/ / /_/ / /
+# /_/ |_/_/ |___/\__,_/_/
+#
+# Kival bootstrap installer.
+#
+# Installs a verified copy of kivalup, adds it to the user's PATH, and leaves
+# Kival installation and updates to kivalup itself.
+
+REPO="selemis-com/kival"
+
+# Empty in the repository copy. The release workflow replaces this default with
+# the exact release tag before publishing the installer asset.
+KIVAL_BOOTSTRAP_VERSION="${KIVAL_BOOTSTRAP_VERSION:-}"
+
+KIVAL_DIR="${KIVAL_DIR:-$HOME/.kival}"
+BIN_DIR="${KIVAL_BIN_DIR:-$KIVAL_DIR/bin}"
+SKIP_ATTESTATION_VERIFICATION="${KIVAL_SKIP_ATTESTATION_VERIFICATION:-0}"
+
+TMP_DIR=""
+STAGED_KIVALUP=""
+PROFILE=""
+
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+NC='\033[0m'
+
+info() {
+    printf '%binfo%b: %s\n' "$GREEN" "$NC" "$1" >&2
+}
+
+warn() {
+    printf '%bwarn%b: %s\n' "$YELLOW" "$NC" "$1" >&2
+}
+
+error() {
+    printf '%berror%b: %s\n' "$RED" "$NC" "$1" >&2
+    exit 1
+}
+
+check_cmd() {
+    command -v "$1" >/dev/null 2>&1
+}
+
+cleanup() {
+    [[ -z "$STAGED_KIVALUP" ]] || rm -f "$STAGED_KIVALUP" 2>/dev/null || true
+    [[ -z "$TMP_DIR" ]] || rm -rf "$TMP_DIR" 2>/dev/null || true
+}
+
+trap cleanup EXIT
+
+validate_path() {
+    local name="$1"
+    local value="$2"
+
+    [[ "$value" == /* ]] || error "$name must be an absolute path"
+
+    # These values are embedded in shell startup files. Reject characters whose
+    # interpretation differs between supported shells instead of guessing how
+    # the user intended them to be escaped.
+    case "$value" in
+        *$'\n'*|*$'\r'*|*:*|*'$'*|*'`'*|*'"'*|*'!'*|*\\*)
+            error "$name contains unsupported shell metacharacters"
+            ;;
+    esac
+}
+
+download() {
+    local url="$1"
+    local output="$2"
+
+    curl --disable \
+        --proto '=https' \
+        --proto-redir '=https' \
+        --connect-timeout 15 \
+        --max-time 300 \
+        -fL \
+        "$url" \
+        -o "$output"
+}
+
+normalize_version() {
+    local version="${1#v}"
+    local stable='^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$'
+    local release_candidate='^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)-rc([1-9][0-9]*)$'
+
+    if [[ ! "$version" =~ $stable && ! "$version" =~ $release_candidate ]]; then
+        error "invalid Kival release tag: $1"
+    fi
+
+    printf 'v%s\n' "$version"
+}
+
+resolve_latest_version() {
+    local final_url
+
+    if ! final_url="$(
+        curl --disable \
+            --proto '=https' \
+            --proto-redir '=https' \
+            --connect-timeout 15 \
+            --max-time 60 \
+            -fsSIL \
+            -o /dev/null \
+            -w '%{url_effective}' \
+            "https://github.com/${REPO}/releases/latest"
+    )"; then
+        error "failed to resolve the latest Kival release"
+    fi
+
+    normalize_version "${final_url##*/}"
+}
+
+resolve_bootstrap_version() {
+    if [[ -n "$KIVAL_BOOTSTRAP_VERSION" ]]; then
+        normalize_version "$KIVAL_BOOTSTRAP_VERSION"
+    else
+        resolve_latest_version
+    fi
+}
+
+compute_sha256() {
+    if check_cmd sha256sum; then
+        sha256sum "$1" | awk '{print $1}'
+    elif check_cmd shasum; then
+        shasum -a 256 "$1" | awk '{print $1}'
+    else
+        error "sha256sum or shasum not found"
+    fi
+}
+
+verify_checksum() {
+    local script_path="$1"
+    local checksum_path="$2"
+    local checksum_line
+
+    if [[ "$(sed '/^[[:space:]]*$/d' "$checksum_path" | wc -l | tr -d ' ')" -ne 1 ]]; then
+        error "kivalup checksum file must contain exactly one entry"
+    fi
+
+    checksum_line="$(sed -n '1p' "$checksum_path" | tr -d '\r')"
+
+    local expected_sha
+    local checksum_filename
+    local field_count
+    expected_sha="$(printf '%s\n' "$checksum_line" | awk '{print tolower($1)}')"
+    checksum_filename="$(printf '%s\n' "$checksum_line" | awk '{print $2}')"
+    field_count="$(printf '%s\n' "$checksum_line" | awk '{print NF}')"
+    checksum_filename="${checksum_filename#\*}"
+    checksum_filename="${checksum_filename#./}"
+
+    [[ "$field_count" -eq 2 ]] || error "kivalup checksum file is malformed"
+    [[ "$expected_sha" =~ ^[0-9a-f]{64}$ ]] || error "kivalup checksum file is malformed"
+    [[ "$checksum_filename" == "kivalup" ]] ||
+        error "kivalup checksum refers to an unexpected file: $checksum_filename"
+
+    local actual_sha
+    actual_sha="$(compute_sha256 "$script_path" | tr '[:upper:]' '[:lower:]')"
+    [[ "$actual_sha" == "$expected_sha" ]] || error "kivalup checksum verification failed"
+
+    bash -n "$script_path" || error "downloaded kivalup failed shell syntax validation"
+    info "Kivalup checksum verified"
+}
+
+github_attestation_available() {
+    [[ "$SKIP_ATTESTATION_VERIFICATION" -eq 0 ]] || return 1
+    check_cmd gh || return 1
+    gh auth status --active --hostname github.com >/dev/null 2>&1 || return 1
+
+    local help
+    help="$(gh attestation verify --help 2>/dev/null)" || return 1
+
+    local flag
+    for flag in \
+        --bundle \
+        --hostname \
+        --repo \
+        --predicate-type \
+        --signer-workflow \
+        --source-ref \
+        --deny-self-hosted-runners; do
+        [[ "$help" == *"$flag"* ]] || return 1
+    done
+}
+
+verify_attestation() {
+    local script_path="$1"
+    local pointer_path="$2"
+    local version="$3"
+
+    if [[ "$(sed '/^[[:space:]]*$/d' "$pointer_path" | wc -l | tr -d ' ')" -ne 1 ]]; then
+        error "kivalup attestation pointer must contain exactly one URL"
+    fi
+
+    local attestation_url
+    local prefix="https://github.com/${REPO}/attestations/"
+    attestation_url="$(sed -n '1p' "$pointer_path" | tr -d '\r')"
+
+    [[ "$attestation_url" == "$prefix"* ]] ||
+        error "kivalup attestation pointer refers to an unexpected repository"
+    [[ "${attestation_url#"$prefix"}" =~ ^[0-9]+$ ]] ||
+        error "kivalup attestation pointer contains an invalid ID"
+
+    local bundle_path="$TMP_DIR/kivalup.attestation.jsonl"
+    download "${attestation_url}/download" "$bundle_path"
+
+    gh attestation verify "$script_path" \
+        --bundle "$bundle_path" \
+        --hostname github.com \
+        --repo "$REPO" \
+        --predicate-type "https://slsa.dev/provenance/v1" \
+        --signer-workflow "github.com/${REPO}/.github/workflows/release.yml" \
+        --source-ref "refs/tags/${version}" \
+        --deny-self-hosted-runners >/dev/null ||
+        error "kivalup GitHub attestation verification failed"
+
+    info "Kivalup GitHub attestation verified"
+}
+
+install_kivalup() {
+    local source="$1"
+    local destination="$BIN_DIR/kivalup"
+
+    mkdir -p "$BIN_DIR"
+
+    if [[ -L "$destination" || ( -e "$destination" && ! -f "$destination" ) ]]; then
+        error "refusing to replace non-regular path at $destination"
+    fi
+
+    STAGED_KIVALUP="$(mktemp "$BIN_DIR/.kivalup.XXXXXX")" ||
+        error "failed to create a temporary install file in $BIN_DIR"
+
+    cp "$source" "$STAGED_KIVALUP"
+    chmod 0755 "$STAGED_KIVALUP"
+    mv "$STAGED_KIVALUP" "$destination"
+    STAGED_KIVALUP=""
+
+    info "Installed kivalup to $destination"
+}
+
+configure_shell() {
+    local shell_name
+    local path_line
+    shell_name="$(basename "${SHELL:-}")"
+
+    case "$shell_name" in
+        zsh)
+            PROFILE="${ZDOTDIR:-$HOME}/.zshenv"
+            path_line="export PATH=\"$BIN_DIR:\$PATH\""
+            ;;
+        bash)
+            PROFILE="$HOME/.bashrc"
+            path_line="export PATH=\"$BIN_DIR:\$PATH\""
+            ;;
+        fish)
+            PROFILE="${XDG_CONFIG_HOME:-$HOME/.config}/fish/config.fish"
+            path_line="fish_add_path -g \"$BIN_DIR\""
+            ;;
+        ash|dash|sh)
+            PROFILE="$HOME/.profile"
+            path_line="export PATH=\"$BIN_DIR:\$PATH\""
+            ;;
+        *)
+            warn "could not detect a supported shell; add $BIN_DIR to PATH manually"
+            return 0
+            ;;
+    esac
+
+    mkdir -p "$(dirname "$PROFILE")"
+    touch "$PROFILE"
+
+    if ! grep -qF "$path_line" "$PROFILE" 2>/dev/null; then
+        {
+            printf '\n# Added by Kival installer\n'
+            printf '%s\n' "$path_line"
+        } >> "$PROFILE"
+        info "Added kivalup to PATH in $PROFILE"
+    else
+        info "Kivalup is already configured in $PROFILE"
+    fi
+}
+
+main() {
+    [[ "$#" -eq 0 ]] || error "install does not accept arguments; run kivalup --help after bootstrap"
+
+    check_cmd curl || error "curl not found; install curl and try again"
+
+    case "$SKIP_ATTESTATION_VERIFICATION" in
+        0|1) ;;
+        *) error "KIVAL_SKIP_ATTESTATION_VERIFICATION must be 0 or 1" ;;
+    esac
+
+    validate_path "HOME" "$HOME"
+    validate_path "KIVAL_DIR" "$KIVAL_DIR"
+    validate_path "KIVAL_BIN_DIR" "$BIN_DIR"
+    [[ -z "${ZDOTDIR:-}" ]] || validate_path "ZDOTDIR" "$ZDOTDIR"
+    [[ -z "${XDG_CONFIG_HOME:-}" ]] || validate_path "XDG_CONFIG_HOME" "$XDG_CONFIG_HOME"
+
+    local version
+    local release_url
+    version="$(resolve_bootstrap_version)"
+    release_url="https://github.com/${REPO}/releases/download/${version}"
+
+    TMP_DIR="$(mktemp -d 2>/dev/null || mktemp -d -t kival-install)" ||
+        error "failed to create a temporary directory"
+
+    info "Downloading kivalup from Kival $version"
+    download "$release_url/kivalup" "$TMP_DIR/kivalup"
+    download "$release_url/kivalup.sha256" "$TMP_DIR/kivalup.sha256"
+    verify_checksum "$TMP_DIR/kivalup" "$TMP_DIR/kivalup.sha256"
+
+    if [[ "$SKIP_ATTESTATION_VERIFICATION" -eq 1 ]]; then
+        warn "GitHub attestation verification was explicitly skipped"
+    elif github_attestation_available; then
+        download "$release_url/kivalup.attestation.txt" "$TMP_DIR/kivalup.attestation.txt"
+        verify_attestation "$TMP_DIR/kivalup" "$TMP_DIR/kivalup.attestation.txt" "$version"
+    else
+        warn "GitHub attestation verification is unavailable; checksum verification succeeded"
+    fi
+
+    install_kivalup "$TMP_DIR/kivalup"
+    configure_shell
+
+    printf '\nKivalup is installed.\n'
+    if [[ -n "$PROFILE" ]]; then
+        printf 'Start a new terminal session so the PATH change takes effect.\n'
+        printf 'Then run kivalup to install Kival.\n'
+    else
+        printf 'Run %s/kivalup to install Kival.\n' "$BIN_DIR"
+    fi
+}
+
+main "$@"

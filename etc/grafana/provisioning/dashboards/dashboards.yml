@@ -1,0 +1,11 @@
+apiVersion: 1
+
+providers:
+  - name: Kival
+    orgId: 1
+    folder: Kival
+    type: file
+    disableDeletion: true
+    editable: false
+    options:
+      path: /var/lib/grafana/dashboards

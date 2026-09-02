@@ -1,0 +1,38 @@
+[package]
+name = "kival-tests"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[lints]
+workspace = true
+
+[dependencies]
+# Vendor
+axum.workspace = true
+base64.workspace = true
+eyre.workspace = true
+hex.workspace = true
+p256 = { version = "0.14", features = ["ecdsa"] }
+proptest.workspace = true
+proptest-state-machine.workspace = true
+reqwest = { workspace = true, features = ["cookies", "json", "rustls"] }
+serde = { workspace = true, features = ["derive"] }
+serde_json.workspace = true
+sha2.workspace = true
+sqlx.workspace = true
+tempfile.workspace = true
+thiserror.workspace = true
+tower = { workspace = true, features = ["util"] }
+url.workspace = true
+uuid = { workspace = true, features = ["serde", "v7"] }
+
+# Crates
+kival-common.workspace = true
+kival-kernel.workspace = true
+kival-sdk = { workspace = true, default-features = false }
+kival-server.workspace = true
+kival-storage.workspace = true
+kival-tasks.workspace = true

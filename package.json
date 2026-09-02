@@ -1,0 +1,24 @@
+{
+  "name": "kival",
+  "version": "0.1.0",
+  "description": "Self-hosted knowledge system for organizations.",
+  "type": "module",
+  "private": true,
+  "packageManager": "pnpm@11.20.0",
+  "devEngines": {
+    "packageManager": {
+      "name": "pnpm",
+      "version": "11.20.0",
+      "onFail": "error"
+    }
+  },
+  "scripts": {
+    "dev": "pnpm --dir app dev",
+    "build": "pnpm --dir app build",
+    "fmt": "pnpm --dir app fmt",
+    "fmt:check": "pnpm --dir app fmt:check",
+    "lint": "pnpm --dir app lint",
+    "lint:check": "pnpm --dir app lint:check",
+    "preview": "pnpm --dir app preview"
+  }
+}

@@ -1,0 +1,38 @@
+[package]
+name = "kival-tracing"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[lints]
+workspace = true
+
+[dependencies]
+# Vendor
+argx.workspace = true
+eyre.workspace = true
+tracing.workspace = true
+tracing-subscriber = { workspace = true, features = [
+    "env-filter",
+    "fmt",
+    "ansi",
+    "json",
+] }
+tracing-appender.workspace = true
+tracing-journald.workspace = true
+
+# Crates
+kival-common.workspace = true
+
+[dev-dependencies]
+# Vendor
+tempfile.workspace = true
+
+[features]
+min-error-logs = ["tracing/release_max_level_error"]
+min-warn-logs = ["tracing/release_max_level_warn"]
+min-info-logs = ["tracing/release_max_level_info"]
+min-debug-logs = ["tracing/release_max_level_debug"]
+min-trace-logs = ["tracing/release_max_level_trace"]

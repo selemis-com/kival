@@ -1,0 +1,324 @@
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset=".github/assets/logo-dark.svg">
+  <source media="(prefers-color-scheme: light)" srcset=".github/assets/logo-light.svg">
+  <img alt="Kival" src=".github/assets/logo-light.svg" width="100%" height="140px">
+</picture>
+
+<p align="center">
+  Self-hosted collaborative knowledge system for organizations
+</p>
+
+<br/>
+
+<p align="center">
+  <a href="https://www.npmjs.com/package/kival-sdk"><picture><source media="(prefers-color-scheme: dark)" srcset="https://img.shields.io/npm/v/kival-sdk?colorA=21262d&colorB=21262d&style=flat"><img src="https://img.shields.io/npm/v/kival-sdk?colorA=f6f8fa&colorB=f6f8fa&style=flat" alt="Version"></picture></a>
+  <a href="https://crates.io/crates/kival-sdk"><picture><source media="(prefers-color-scheme: dark)" srcset="https://img.shields.io/crates/v/kival-sdk?colorA=21262d&colorB=21262d&style=flat"><img src="https://img.shields.io/crates/v/kival-sdk?colorA=f6f8fa&colorB=f6f8fa&style=flat" alt="Version"></picture></a>
+  <a href="#license"><picture><source media="(prefers-color-scheme: dark)" srcset="https://img.shields.io/npm/l/kival-sdk?colorA=21262d&colorB=21262d&style=flat"><img src="https://img.shields.io/npm/l/kival-sdk?colorA=f6f8fa&colorB=f6f8fa&style=flat" alt="MIT OR Apache-2.0"></picture></a>
+</p>
+
+<p align="center">
+  <a href="#overview">Overview</a> ·
+  <a href="#setup">Setup</a> ·
+  <a href="#usage">Usage</a> ·
+  <a href="#sdks">SDKs</a> ·
+  <a href="#community">Community</a> ·
+  <a href="#contributing">Contributing</a>
+</p>
+
+## Overview
+
+Kival is Selemis's self-hosted collaborative knowledge system for organizations. It gives people a shared place to deliberately create, edit, discuss, connect, version, and govern durable knowledge.
+
+Organizations constantly produce messages, documents, decisions, and records, but the understanding that connects them is easily lost. Sources become detached from conclusions, decisions outlive their reasoning, and knowledge fragments across tools or leaves with the people who carried it.
+
+Kival keeps that context together. Knowledge remains connected to its history, relationships, discussions, and provenance so earlier work can still be understood, questioned, revised, and built upon.
+
+Applications and agents participate in the same body of knowledge through Kival's API, SDKs, and CLI. They do not require a separate memory layer: the knowledge remains shared with the people and systems around them, independent of any particular model, agent, or tool.
+
+* **Shared knowledge**: people, applications, and agents work against the same organizational knowledge rather than isolated copies of context.
+* **Continuity**: versions, relationships, discussions, and provenance preserve how knowledge developed, not only its latest state.
+* **Deliberate authorship**: knowledge is created and maintained as organizational work, with explicit access and governance.
+* **Self-hosted ownership**: the organization retains control over the knowledge and infrastructure on which its work depends.
+
+## Setup
+
+### Supported platforms
+
+Prebuilt Kival releases are available for:
+
+* Linux x86_64
+* Linux ARM64
+* macOS on Apple Silicon
+* Windows through WSL
+
+Native Windows and Intel Mac releases are not currently provided. Source builds on other platforms are outside the supported release matrix.
+
+### Install a release
+
+Install the version-bound `kivalup` installer from the latest stable GitHub release:
+
+```sh
+curl --proto '=https' --tlsv1.2 -fsSL \
+  https://github.com/selemis-com/kival/releases/latest/download/install | bash
+
+$HOME/.kival/bin/kivalup
+```
+
+The bootstrap installer verifies the downloaded `kivalup` checksum and, when the GitHub CLI is available, its build provenance.
+
+`kivalup` installs the matching `kival` and `kivald` binaries under `$HOME/.kival/bin`.
+
+To update later:
+
+```sh
+kivalup --update
+```
+
+### Build from source
+
+Kival requires Rust 1.97+, Node.js 26, pnpm 11, and Docker. PostgreSQL 18 runs locally through Docker Compose.
+
+Clone the repository:
+
+```sh
+git clone https://github.com/selemis-com/kival.git
+cd kival
+```
+
+Create the local environment and start PostgreSQL:
+
+```sh
+cp .env.template .env
+docker compose up -d postgres
+```
+
+Install the dependencies and Kival binaries:
+
+```sh
+pnpm install
+make install
+```
+
+Start Kival:
+
+```sh
+kivald serve
+```
+
+Bootstrap the first administrator:
+
+```sh
+kivald admin bootstrap \
+  --username admin \
+  --display-name "Admin"
+```
+
+The command prints a one-time enrollment link. Open it in your browser to register a passkey and complete the initial setup.
+
+Kival is now available at [`http://localhost:3000`](http://localhost:3000).
+
+### Create a workspace
+
+Create a workspace from the web application, or explore Kival using the built-in fictional ACME workspace:
+
+```sh
+kivald admin workspaces create --name "ACME" --demo acme
+```
+
+The demo includes connected documents, discussions, access boundaries, history, and shared agent skills for exploring Kival before adding your own knowledge.
+
+### Add users
+
+Create a user from the server:
+
+```sh
+kivald admin users create --username alice --display-name "Alice"
+```
+
+The command prints a one-time enrollment link. Send it to the user so they can register a passkey and complete their account setup.
+
+Once enrolled, add the user to a workspace and manage their access from the web application.
+
+Finally, create an API key in the web application for CLI, SDK, integration, or agent access.
+
+## Usage
+
+The web application provides an interactive browser interface authenticated with a passkey-backed user session.
+
+The `kival` CLI and SDKs use scoped API keys for terminal workflows, integrations, and agents.
+
+Authenticate the CLI:
+
+```sh
+export KIVAL_API_KEY=<API_KEY>
+```
+
+For a remote Kival instance, also set its URL:
+
+```sh
+export KIVAL_URL=https://kival.example
+```
+
+Check the current identity and available workspaces:
+
+```sh
+kival whoami
+kival workspaces list
+```
+
+### Create and edit knowledge
+
+Create an object:
+
+```sh
+kival objects create <WORKSPACE_ID> \
+  --title "Database migration" \
+  --body-file migration.md
+```
+
+Edit it using your local editor:
+
+```sh
+kival objects edit <WORKSPACE_ID> <OBJECT_ID>
+```
+
+Kival opens a Markdown document with editable YAML front matter:
+
+```md
+---
+title: "Database migration"
+metadata:
+  status: "proposed"
+  area: "infrastructure"
+  tags:
+    - "postgres"
+    - "migration"
+---
+```
+
+Saving commits all changed fields atomically as one new version. If nothing changed, no version is created.
+
+Previous versions remain available and can be compared:
+
+```sh
+kival objects diff <WORKSPACE_ID> <OBJECT_ID> --from -1
+```
+
+### Connect and explore
+
+Connect two objects:
+
+```sh
+kival objects edges create <WORKSPACE_ID> \
+  --source-object-id <SOURCE_OBJECT_ID> \
+  --target-object-id <TARGET_OBJECT_ID>
+```
+
+Follow the surrounding context:
+
+```sh
+kival objects backlinks <WORKSPACE_ID> <OBJECT_ID>
+kival objects graph <WORKSPACE_ID> <OBJECT_ID>
+```
+
+Search across a workspace:
+
+```sh
+kival search <WORKSPACE_ID> "database migration"
+```
+
+### Machine-readable interfaces
+
+Most CLI commands support JSON output:
+
+```sh
+kival objects get <WORKSPACE_ID> <OBJECT_ID> -O json
+```
+
+The CLI can also describe its commands and JSON Schema contracts:
+
+```sh
+kival schema
+kival schema objects create
+kival schema objects --full
+```
+
+## SDKs
+
+Kival provides official SDKs for Rust and TypeScript:
+
+* [Rust SDK](https://crates.io/crates/kival-sdk)
+* [TypeScript SDK](https://www.npmjs.com/package/kival-sdk)
+
+Both use scoped API keys and expose the same underlying system as the CLI.
+
+They are intended for applications, integrations, automation, and agents that need programmatic access to Kival.
+
+## Development
+
+Database-backed tests require `DATABASE_URL`. SQLx creates, migrates, and removes an isolated database for each test, so the configured PostgreSQL user must be able to create and drop databases.
+
+Run the test suite with:
+
+```sh
+make test
+```
+
+## Production Docker Compose
+
+A production-oriented, single-instance Compose stack is available under [`etc/`](etc/). It runs Kival with PostgreSQL and the included observability stack.
+
+```sh
+cd etc
+cp .env.template .env
+# Configure KIVAL_VERSION and KIVAL_CANONICAL_URL before continuing.
+docker compose --env-file .env pull
+docker compose --env-file .env up -d
+```
+
+`KIVAL_CANONICAL_URL` must be the final HTTPS origin users open in their browser. Passkeys are origin-bound, so configure the public hostname before enrolling users.
+
+Kival binds to `127.0.0.1:3000` and is intended to run behind an HTTPS reverse proxy. PostgreSQL, metrics, and the observability services remain private to the Compose network.
+
+Bootstrap the first administrator:
+
+```sh
+docker compose --env-file .env exec kival \
+  kivald --datadir /var/lib/kival admin bootstrap \
+  --username admin \
+  --display-name "Admin"
+```
+
+The provided deployment is intentionally single-instance. Attachments are stored on the persistent `kival-data` volume; back up PostgreSQL and that volume together.
+
+Additional deployment settings are documented in [`etc/.env.template`](etc/.env.template).
+
+## Sponsors
+
+Kival is developed and maintained by [Selemis](https://selemis.com).
+
+Sponsorship supports the continued development and long-term maintenance of Kival. Organizations interested in sponsoring the project can contact [hello@selemis.com](mailto:hello@selemis.com).
+
+## Community
+
+Join the conversation in [GitHub Discussions](https://github.com/selemis-com/kival/discussions) to ask questions, share ideas, and discuss how Kival is being used.
+
+## Contributing
+
+See the [Contributing Guide](CONTRIBUTING.md) for information on reporting bugs, proposing features, and contributing to Kival.
+
+At this time, we do **not accept pull requests or other code contributions from external contributors**.
+
+## Security Policy
+
+If you believe you have found a security vulnerability, please do not report it through GitHub Issues.
+
+See the [Security Policy](SECURITY.md) for reporting instructions.
+
+## License
+
+Licensed under either of [Apache License, Version 2.0](LICENSE-APACHE) or [MIT license](LICENSE-MIT) at your option.
+
+This software includes third-party components subject to separate license terms. See [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
+
+Unless you explicitly state otherwise, any contribution intentionally submitted for inclusion in this project by you, as defined in the Apache-2.0 license, shall be dual licensed as above, without any additional terms or conditions.
