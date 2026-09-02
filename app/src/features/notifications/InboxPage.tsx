@@ -1,6 +1,7 @@
 import { useCallback, useMemo, useState } from "react";
 import { useNavigate } from "react-router";
 import { kival } from "../../shared/api";
+import { formatTimestampOr } from "../../shared/format";
 import { usePaginatedResource } from "../../shared/hooks/usePaginatedResource";
 import { KivalSideBar } from "../../shared/navigation/KivalSideBar";
 import { TopBar } from "../../shared/navigation/TopBar";
@@ -32,25 +33,12 @@ type Props = {
 
 type InboxFilter = "all" | "unread";
 
-function formatTimestamp(value: string) {
-  const timestamp = new Date(value);
-
-  if (Number.isNaN(timestamp.getTime())) {
-    return "Unknown time";
-  }
-
-  return new Intl.DateTimeFormat(undefined, {
-    dateStyle: "medium",
-    timeStyle: "short",
-  }).format(timestamp);
-}
-
 function formatCompactTimestamp(value: string) {
   const timestamp = new Date(value);
   const elapsed = Date.now() - timestamp.getTime();
 
   if (Number.isNaN(timestamp.getTime()) || elapsed < 0) {
-    return formatTimestamp(value);
+    return formatTimestampOr(value, "Unknown time");
   }
 
   const minutes = Math.floor(elapsed / 60_000);
@@ -476,7 +464,7 @@ export function InboxPage({
                       <div style={styles.inboxItemActions}>
                         <time
                           dateTime={entry.updated_at}
-                          title={formatTimestamp(entry.updated_at)}
+                          title={formatTimestampOr(entry.updated_at, "Unknown time")}
                           style={styles.inboxItemTime}
                         >
                           {formatCompactTimestamp(entry.updated_at)}

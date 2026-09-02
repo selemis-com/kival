@@ -10,6 +10,7 @@ import {
 } from "../../shared/api";
 import { freshAuthenticate, passkeyActionError } from "../../shared/auth/freshAuthentication";
 import { registrationCredential, registrationRequestOptions } from "../../shared/auth/webauthn";
+import { formatTimestampOr } from "../../shared/format";
 import { KivalSideBar } from "../../shared/navigation/KivalSideBar";
 import { TopBar } from "../../shared/navigation/TopBar";
 import { styles } from "../../shared/styles/index";
@@ -37,20 +38,7 @@ type Props = {
 type RevokeTarget = { type: "passkey"; passkey: Passkey } | { type: "session"; session: Session };
 
 function formatTimestamp(value: string | null) {
-  if (!value) {
-    return "Never";
-  }
-
-  const timestamp = new Date(value);
-
-  if (Number.isNaN(timestamp.getTime())) {
-    return "Unknown";
-  }
-
-  return new Intl.DateTimeFormat(undefined, {
-    dateStyle: "medium",
-    timeStyle: "short",
-  }).format(timestamp);
+  return value ? formatTimestampOr(value, "Unknown") : "Never";
 }
 
 function deviceLabel(userAgent: string | null) {

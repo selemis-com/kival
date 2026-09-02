@@ -1,6 +1,7 @@
 import { KivalTransportError } from "kival-sdk";
 import { useEffect, useRef, useState } from "react";
 import { kival } from "../../shared/api";
+import { formatEventKind, formatTimestampOr } from "../../shared/format";
 import { submitFormOnEnter } from "../../shared/forms";
 import { styles } from "../../shared/styles/index";
 import type { Event, UpdateWorkspaceRequest, Workspace } from "../../shared/types";
@@ -13,26 +14,6 @@ type Props = {
   onSave: (input: UpdateWorkspaceRequest) => Promise<void>;
   onArchive: () => Promise<void>;
 };
-
-function formatTimestamp(value: string) {
-  const date = new Date(value);
-
-  if (Number.isNaN(date.getTime())) {
-    return "Unknown time";
-  }
-
-  return new Intl.DateTimeFormat(undefined, {
-    dateStyle: "medium",
-    timeStyle: "short",
-  }).format(date);
-}
-
-function formatEventKind(kind: string) {
-  return kind
-    .replace(/^workspace\./, "")
-    .replaceAll("_", " ")
-    .replace(/\b\w/g, (character) => character.toUpperCase());
-}
 
 export function WorkspaceSettings({ workspace, loading, onSave, onArchive }: Props) {
   const [name, setName] = useState(workspace.name);
@@ -260,11 +241,11 @@ export function WorkspaceSettings({ workspace, loading, onSave, onArchive }: Pro
               {events.map((event) => (
                 <div key={event.id} style={styles.objectActivityItem}>
                   <div style={styles.objectActivityMain}>
-                    <strong>{formatEventKind(event.event_kind)}</strong>
+                    <strong>{formatEventKind(event.event_kind, "workspace")}</strong>
                     <span style={styles.objectActivityMeta}>
                       {event.actor_username ?? (event.actor_user_id ? "Unknown user" : "System")}
                       {" · "}
-                      {formatTimestamp(event.created_at)}
+                      {formatTimestampOr(event.created_at, "Unknown time")}
                     </span>
                   </div>
                 </div>

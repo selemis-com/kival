@@ -1,6 +1,7 @@
 import { KivalTransportError } from "kival-sdk";
 import { useEffect, useRef, useState } from "react";
 import { kival } from "../../shared/api";
+import { formatEventKind, formatTimestamp } from "../../shared/format";
 import { styles } from "../../shared/styles/index";
 import type {
   CurrentObjectResponse,
@@ -37,20 +38,6 @@ type Props = {
   onUnarchive: () => Promise<void>;
   onAccessChanged: () => Promise<void>;
 };
-
-function formatVersionDate(value: string) {
-  return new Intl.DateTimeFormat(undefined, {
-    dateStyle: "medium",
-    timeStyle: "short",
-  }).format(new Date(value));
-}
-
-function formatEventKind(value: string) {
-  return value
-    .replaceAll(".", " ")
-    .replaceAll("_", " ")
-    .replace(/\b\w/g, (character) => character.toUpperCase());
-}
 
 function formatEventActor(event: Event, user: User) {
   if (!event.actor_user_id) {
@@ -702,7 +689,7 @@ export function ObjectView({
 
           {isCurrentVersion && (
             <span style={styles.objectUpdatedBy}>
-              Updated {formatVersionDate(object.updated_at)} by {updatedBy}
+              Updated {formatTimestamp(object.updated_at)} by {updatedBy}
             </span>
           )}
         </div>
@@ -1002,7 +989,7 @@ export function ObjectView({
                       <span>Version {version.version_number}</span>
 
                       <span style={styles.versionHistoryMeta}>
-                        {isCurrent ? "Current" : formatVersionDate(version.created_at)}
+                        {isCurrent ? "Current" : formatTimestamp(version.created_at)}
                       </span>
                     </button>
                   );
@@ -1049,7 +1036,7 @@ export function ObjectView({
                         <strong>{description.title}</strong>
 
                         <span style={styles.objectActivityMeta}>
-                          {formatEventActor(event, user)} · {formatVersionDate(event.created_at)}
+                          {formatEventActor(event, user)} · {formatTimestamp(event.created_at)}
                         </span>
 
                         {description.detail && (

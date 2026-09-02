@@ -19,6 +19,7 @@ import {
   resolveCommentThread,
   updateComment,
 } from "../../../shared/api";
+import { formatTimestamp } from "../../../shared/format";
 import { submitFormOnEnter } from "../../../shared/forms";
 import { KIVAL_REALTIME_EVENT } from "../../../shared/realtime";
 import { styles } from "../../../shared/styles";
@@ -62,13 +63,6 @@ type ComposerProps = {
 
 const USERNAME_CHARACTER = /[A-Za-z0-9._-]/;
 const MENTION_PATTERN = /(?:^|[^A-Za-z0-9._-])@([A-Za-z0-9](?:[A-Za-z0-9._-]*[A-Za-z0-9])?)/g;
-
-function formatCommentDate(value: string) {
-  return new Intl.DateTimeFormat(undefined, {
-    dateStyle: "medium",
-    timeStyle: "short",
-  }).format(new Date(value));
-}
 
 function errorMessage(error: unknown) {
   return error instanceof Error ? error.message : "Commentary action failed.";
@@ -495,7 +489,7 @@ function CommentItem({
           <span style={styles.commentaryMeta}>@{comment.author.username}</span>
         </div>
         <span style={styles.commentaryMeta}>
-          {formatCommentDate(comment.created_at)}
+          {formatTimestamp(comment.created_at)}
           {comment.edited_at ? " · edited" : ""}
         </span>
       </div>

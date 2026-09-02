@@ -1,5 +1,6 @@
 import { useCallback, useState } from "react";
 import { kival } from "../../shared/api";
+import { formatTimestampOr } from "../../shared/format";
 import { usePaginatedResource } from "../../shared/hooks/usePaginatedResource";
 import { KivalSideBar } from "../../shared/navigation/KivalSideBar";
 import { TopBar } from "../../shared/navigation/TopBar";
@@ -33,19 +34,7 @@ type Props = {
 };
 
 function formatTimestamp(value: string | null) {
-  if (!value) {
-    return "Never";
-  }
-
-  const timestamp = new Date(value);
-  if (Number.isNaN(timestamp.getTime())) {
-    return "Unknown";
-  }
-
-  return new Intl.DateTimeFormat(undefined, {
-    dateStyle: "medium",
-    timeStyle: "short",
-  }).format(timestamp);
+  return value ? formatTimestampOr(value, "Unknown") : "Never";
 }
 
 function userInitial(user: User) {

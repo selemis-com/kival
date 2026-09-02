@@ -1,3 +1,4 @@
+import { formatTimestamp } from "../../shared/format";
 import { styles } from "../../shared/styles/index";
 import type { ApiKey } from "../../shared/types";
 import { apiKeyScopeOptions } from "./model";
@@ -11,15 +12,8 @@ type Props = {
   onRevoke: (apiKey: ApiKey) => void;
 };
 
-function formatTimestamp(value: string | null) {
-  if (!value) {
-    return "Never";
-  }
-
-  return new Intl.DateTimeFormat(undefined, {
-    dateStyle: "medium",
-    timeStyle: "short",
-  }).format(new Date(value));
+function formatOptionalTimestamp(value: string | null) {
+  return value ? formatTimestamp(value) : "Never";
 }
 
 function keyStatus(apiKey: ApiKey) {
@@ -72,15 +66,15 @@ export function ApiKeyCards({ apiKeys, workspaceNames, onEdit, onRevoke }: Props
             <dl style={styles.apiKeyMetadata}>
               <div>
                 <dt>Created</dt>
-                <dd>{formatTimestamp(apiKey.created_at)}</dd>
+                <dd>{formatOptionalTimestamp(apiKey.created_at)}</dd>
               </div>
               <div>
                 <dt>Last used</dt>
-                <dd>{formatTimestamp(apiKey.last_used_at)}</dd>
+                <dd>{formatOptionalTimestamp(apiKey.last_used_at)}</dd>
               </div>
               <div>
                 <dt>Expires</dt>
-                <dd>{formatTimestamp(apiKey.expires_at)}</dd>
+                <dd>{formatOptionalTimestamp(apiKey.expires_at)}</dd>
               </div>
               <div>
                 <dt>Workspaces</dt>

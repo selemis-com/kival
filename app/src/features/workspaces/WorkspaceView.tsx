@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { matchPath, useBlocker, useLocation, useNavigate, useSearchParams } from "react-router";
+import { formatTimestamp } from "../../shared/format";
 import { SideBar } from "../../shared/navigation/SideBar";
 import { TopBar } from "../../shared/navigation/TopBar";
 import { comparePinOrder } from "../../shared/pins";
@@ -89,13 +90,6 @@ type Props = {
   onUpdateWorkspace: (input: UpdateWorkspaceRequest) => Promise<boolean>;
   onArchiveWorkspace: () => Promise<boolean>;
 };
-
-function formatRecentDate(value: string) {
-  return new Intl.DateTimeFormat(undefined, {
-    dateStyle: "medium",
-    timeStyle: "short",
-  }).format(new Date(value));
-}
 
 function hasCurrentVersion(value: ObjectResponse | null): value is CurrentObjectResponse {
   const metadata = value?.current_version?.metadata;
@@ -714,7 +708,7 @@ export function WorkspaceView({
                             <div style={styles.pinnedCardMain}>
                               <strong style={styles.workspaceName}>{object.title}</strong>
                               <span style={styles.objectMeta}>
-                                Updated {formatRecentDate(object.updated_at)}
+                                Updated {formatTimestamp(object.updated_at)}
                               </span>
                             </div>
                             <div style={styles.pinnedCardFooter}>
@@ -797,7 +791,7 @@ export function WorkspaceView({
                                 <strong>{object.title}</strong>
                               </span>
                               <span style={styles.objectMeta}>
-                                Updated {formatRecentDate(object.updated_at)}
+                                Updated {formatTimestamp(object.updated_at)}
                                 {object.updated_by_username && (
                                   <>
                                     {" by "}
@@ -909,7 +903,7 @@ export function WorkspaceView({
                             <strong>{object.title}</strong>
                           </span>
                           <span style={styles.objectMeta}>
-                            Updated {formatRecentDate(object.updated_at)}
+                            Updated {formatTimestamp(object.updated_at)}
                           </span>
                         </div>
                         <div style={styles.objectOverviewActions}>
@@ -998,7 +992,7 @@ export function WorkspaceView({
                             <strong>{object.title}</strong>
 
                             <span style={styles.objectMeta}>
-                              {formatRecentDate(object.updated_at)}
+                              {formatTimestamp(object.updated_at)}
                             </span>
                           </div>
                         </button>

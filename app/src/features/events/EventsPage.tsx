@@ -1,5 +1,6 @@
 import { useCallback, useMemo, useState } from "react";
 import { kival } from "../../shared/api";
+import { formatEventKind, formatTimestampOr } from "../../shared/format";
 import { usePaginatedResource } from "../../shared/hooks/usePaginatedResource";
 import { KivalSideBar } from "../../shared/navigation/KivalSideBar";
 import { TopBar } from "../../shared/navigation/TopBar";
@@ -35,26 +36,6 @@ type GlobalEventFilters = {
 };
 
 const emptyFilters: GlobalEventFilters = {};
-
-function formatTimestamp(value: string) {
-  const timestamp = new Date(value);
-
-  if (Number.isNaN(timestamp.getTime())) {
-    return "Unknown time";
-  }
-
-  return new Intl.DateTimeFormat(undefined, {
-    dateStyle: "medium",
-    timeStyle: "short",
-  }).format(timestamp);
-}
-
-function formatEventKind(kind: string) {
-  return kind
-    .replaceAll(".", " ")
-    .replaceAll("_", " ")
-    .replace(/\b\w/g, (character) => character.toUpperCase());
-}
 
 function shortId(value: string) {
   return `${value.slice(0, 8)}…`;
@@ -328,7 +309,7 @@ export function EventsPage({
                         <div style={styles.eventIdentity}>
                           <strong>{formatEventKind(event.event_kind)}</strong>
                           <span style={styles.eventMeta}>
-                            {actorLabel} · {formatTimestamp(event.created_at)}
+                            {actorLabel} · {formatTimestampOr(event.created_at, "Unknown time")}
                           </span>
                         </div>
                         <span style={styles.eventSequence}>#{event.sequence_number}</span>
