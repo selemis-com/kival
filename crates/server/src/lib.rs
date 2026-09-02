@@ -11,7 +11,7 @@ use kival_storage::BlobStore;
 use kival_tasks::DurableTasks;
 use kival_tracing::{error, info};
 use sqlx::PgPool;
-use tokio::net::TcpListener;
+use tokio::{net::TcpListener, task::JoinError};
 use tokio_util::sync::CancellationToken;
 
 /// Root namespace reserved for Kival HTTP APIs.
@@ -174,7 +174,8 @@ impl Server {
     /// # Errors
     ///
     /// Returns an error if the TCP listener cannot bind, notification projection cannot be
-    /// initialized or continue running, or the HTTP server fails while serving requests.
+    /// initialized or continue running, a required background subsystem terminates unexpectedly,
+    /// or the HTTP server fails while serving requests.
     pub async fn run(self, bind_addr: SocketAddr) -> Result<()> {
         self.run_with_graceful_shutdown(bind_addr, std::future::pending()).await
     }
@@ -184,7 +185,8 @@ impl Server {
     /// # Errors
     ///
     /// Returns an error if the TCP listener cannot bind, notification projection cannot be
-    /// initialized or continue running, or the HTTP server fails while serving requests.
+    /// initialized or continue running, a required background subsystem terminates unexpectedly,
+    /// or the HTTP server fails while serving requests.
     ///
     /// # Panics
     ///
@@ -236,14 +238,14 @@ impl Server {
             shutdown_cancellation.cancel();
         });
 
-        let durable_maintenance = tokio::spawn(run_durable_maintenance(
+        let mut durable_maintenance = tokio::spawn(run_durable_maintenance(
             self.state.durable_tasks().steda().clone(),
             self.state.durable_tasks().queue().clone(),
             self.state.db().clone(),
         ));
-        let notification_retention =
+        let mut notification_retention =
             tokio::spawn(api::run_notification_retention(self.state.db().clone()));
-        let realtime_listener = tokio::spawn(api::run_realtime_listener(
+        let mut realtime_listener = tokio::spawn(api::run_realtime_listener(
             self.state.db().clone(),
             self.state.realtime().clone(),
         ));
@@ -259,34 +261,70 @@ impl Server {
         let mut worker =
             Box::pin(notification_worker.run_until(cancellation.clone().cancelled_owned()));
 
-        let result = tokio::select! {
-            server_result = &mut serve => {
-                cancellation.cancel();
-                let worker_result = worker.await;
-                match server_result {
-                    Ok(()) => worker_result.map_err(|error| {
-                        std::io::Error::other(format!("notification worker failed: {error}"))
-                    }),
-                    Err(error) => {
-                        if let Err(worker_error) = worker_result {
-                            error!(
-                                target: "kival::server::durable_tasks",
-                                error = ?worker_error,
-                                "notification worker also failed while the HTTP server was stopping",
-                            );
-                        }
-                        Err(error)
+        let result = {
+            let background_failure = async {
+                tokio::select! {
+                    result = &mut durable_maintenance => {
+                        background_task_failure("durable maintenance", result)
+                    }
+                    result = &mut notification_retention => {
+                        background_task_failure("notification retention", result)
+                    }
+                    result = &mut realtime_listener => {
+                        background_task_failure("realtime listener", result)
                     }
                 }
-            }
-            worker_result = &mut worker => {
-                cancellation.cancel();
-                let server_result = serve.await;
-                match worker_result {
-                    Ok(()) => server_result,
-                    Err(error) => Err(std::io::Error::other(format!(
-                        "notification worker failed: {error}"
-                    ))),
+            };
+            tokio::pin!(background_failure);
+
+            tokio::select! {
+                server_result = &mut serve => {
+                    cancellation.cancel();
+                    let worker_result = worker.await;
+                    match server_result {
+                        Ok(()) => worker_result.map_err(|error| {
+                            std::io::Error::other(format!("notification worker failed: {error}"))
+                        }),
+                        Err(error) => {
+                            if let Err(worker_error) = worker_result {
+                                error!(
+                                    target: "kival::server::durable_tasks",
+                                    error = ?worker_error,
+                                    "notification worker also failed while the HTTP server was stopping",
+                                );
+                            }
+                            Err(error)
+                        }
+                    }
+                }
+                worker_result = &mut worker => {
+                    cancellation.cancel();
+                    let server_result = serve.await;
+                    match worker_result {
+                        Ok(()) => server_result,
+                        Err(error) => Err(std::io::Error::other(format!(
+                            "notification worker failed: {error}"
+                        ))),
+                    }
+                }
+                background_error = &mut background_failure => {
+                    cancellation.cancel();
+                    let (server_result, worker_result) = tokio::join!(&mut serve, &mut worker);
+                    if let Err(server_error) = server_result {
+                        error!(
+                            target: "kival::server",
+                            error = ?server_error,
+                            "HTTP server also failed while a background subsystem was stopping",
+                        );
+                    }
+                    if let Err(worker_error) = worker_result {
+                        error!(
+                            target: "kival::server::durable_tasks",
+                            error = ?worker_error,
+                            "notification worker also failed while a background subsystem was stopping",
+                        );
+                    }
+                    Err(background_error)
                 }
             }
         };
@@ -301,6 +339,17 @@ impl Server {
         let _ = realtime_listener.await;
 
         result
+    }
+}
+
+/// Converts unexpected completion of a required background subsystem into a server error.
+fn background_task_failure(
+    name: &'static str,
+    result: std::result::Result<(), JoinError>,
+) -> std::io::Error {
+    match result {
+        Ok(()) => std::io::Error::other(format!("{name} stopped unexpectedly")),
+        Err(error) => std::io::Error::other(format!("{name} task failed: {error}")),
     }
 }
 
