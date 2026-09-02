@@ -1157,6 +1157,9 @@ jobs:
           ARG TARGETPLATFORM
           COPY --chmod=0755 ${TARGETPLATFORM}/kival ${TARGETPLATFORM}/kivald /usr/local/bin/
           COPY --chmod=0644 ${TARGETPLATFORM}/LICENSE-APACHE ${TARGETPLATFORM}/LICENSE-MIT ${TARGETPLATFORM}/THIRD_PARTY_NOTICES.md /usr/share/doc/kival/
+          RUN install -d -m 0750 -o 10001 -g 10001 /var/lib/kival /var/log/kival
+          ENV HOME=/var/lib/kival
+          USER 10001:10001
           ENTRYPOINT ["/usr/local/bin/kivald"]
           CMD ["serve"]
           DOCKERFILE
