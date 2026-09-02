@@ -28,6 +28,9 @@ use tokio::{
 
 use crate::shutdown::{GracefulShutdown, GracefulShutdownGuard, Shutdown, Signal, signal};
 
+/// Maximum interval between graceful-shutdown completion checks.
+const GRACEFUL_SHUTDOWN_POLL_INTERVAL: Duration = Duration::from_millis(1);
+
 /// Ensures task runtime metric descriptions are emitted once.
 static DESCRIBE_TASK_METRICS: Once = Once::new();
 
@@ -281,7 +284,7 @@ impl Runtime {
                 warn!("Graceful shutdown timed out");
                 return false;
             }
-            thread::yield_now();
+            thread::sleep(GRACEFUL_SHUTDOWN_POLL_INTERVAL);
         }
         info!("Gracefully shut down");
         true
