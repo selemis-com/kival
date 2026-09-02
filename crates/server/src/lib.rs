@@ -198,12 +198,6 @@ impl Server {
     ) -> Result<()> {
         let listener = TcpListener::bind(bind_addr).await?;
 
-        info!(
-            target: "kival::server",
-            "Kival available at: {}",
-            self.state.webauthn().origin()
-        );
-
         let api_version_prefix = API_PREFIX
             .strip_prefix(API_ROOT)
             .expect("API_PREFIX must remain inside the /api namespace");
@@ -260,6 +254,12 @@ impl Server {
         );
         let mut worker =
             Box::pin(notification_worker.run_until(cancellation.clone().cancelled_owned()));
+
+        info!(
+            target: "kival::server",
+            "Kival available at: {}",
+            self.state.webauthn().origin()
+        );
 
         let result = {
             let background_failure = async {
