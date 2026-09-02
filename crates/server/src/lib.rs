@@ -298,10 +298,23 @@ impl Server {
                     }
                 }
                 worker_result = &mut worker => {
+                    let shutdown_requested = cancellation.is_cancelled();
                     cancellation.cancel();
                     let server_result = serve.await;
                     match worker_result {
-                        Ok(()) => server_result,
+                        Ok(()) if shutdown_requested => server_result,
+                        Ok(()) => {
+                            if let Err(server_error) = server_result {
+                                error!(
+                                    target: "kival::server",
+                                    error = ?server_error,
+                                    "HTTP server also failed while the notification worker was stopping",
+                                );
+                            }
+                            Err(std::io::Error::other(
+                                "notification worker stopped unexpectedly",
+                            ))
+                        }
                         Err(error) => Err(std::io::Error::other(format!(
                             "notification worker failed: {error}"
                         ))),
