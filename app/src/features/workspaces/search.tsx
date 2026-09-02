@@ -37,10 +37,25 @@ type HighlightedSearchTextProps = {
   matchedTerms?: string[];
 };
 
+function lowercasePreservesOffsets(value: string) {
+  return Array.from(value).every((symbol) => {
+    const lowercase = symbol.toLowerCase();
+    return Array.from(lowercase).length === 1 && lowercase.length === symbol.length;
+  });
+}
+
 export function HighlightedSearchText({ value, query, matchedTerms }: HighlightedSearchTextProps) {
   const normalizedQuery = query.trim();
 
   if (!normalizedQuery) {
+    return value;
+  }
+
+  if (
+    !lowercasePreservesOffsets(value) ||
+    !lowercasePreservesOffsets(normalizedQuery) ||
+    (matchedTerms ?? []).some((term) => !lowercasePreservesOffsets(term))
+  ) {
     return value;
   }
 

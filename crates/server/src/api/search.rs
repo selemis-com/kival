@@ -161,6 +161,17 @@ impl SearchRowExt for SearchDocumentRow {
     }
 }
 
+/// Returns whether Unicode lowercasing preserves UTF-8 byte offsets.
+fn lowercase_preserves_offsets(value: &str) -> bool {
+    value.chars().all(|character| {
+        let mut lowercase = character.to_lowercase();
+        matches!(
+            (lowercase.next(), lowercase.next()),
+            (Some(lowercase), None) if lowercase.len_utf8() == character.len_utf8()
+        )
+    })
+}
+
 /// Builds a compact context snippet around the first literal search-term occurrence.
 fn snippet(
     text: &str,
@@ -174,9 +185,11 @@ fn snippet(
     }
 
     if !case_sensitive
-        && (!text.is_ascii()
-            || !search_text.is_ascii()
-            || matched_terms.iter().any(|term| !term.is_ascii()))
+        && (!lowercase_preserves_offsets(text)
+            || !lowercase_preserves_offsets(search_text)
+            || matched_terms
+                .iter()
+                .any(|term| !lowercase_preserves_offsets(term)))
     {
         return truncate_on_char_boundary(text, context.saturating_mul(2));
     }
@@ -222,4 +235,23 @@ fn truncate_on_char_boundary(text: &str, max_chars: usize) -> String {
         if let Some((idx, _)) = text.char_indices().nth(max_chars) { idx } else { text.len() };
     let suffix = if end < text.len() { "..." } else { "" };
     format!("{}{suffix}", text[..end].replace('\n', " "))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{lowercase_preserves_offsets, snippet};
+
+    #[test]
+    fn case_insensitive_snippet_supports_accented_text() {
+        let text = "José wrote the introduction. The deployment failed in Zürich.";
+        let result = snippet(text, "DEPLOYMENT", &[], false, 4);
+
+        assert!(result.contains("deployment"));
+    }
+
+    #[test]
+    fn lowercase_offset_check_accepts_common_accents_and_rejects_expansion() {
+        assert!(lowercase_preserves_offsets("José naïve Zürich 🙂"));
+        assert!(!lowercase_preserves_offsets("İstanbul"));
+    }
 }
