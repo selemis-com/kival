@@ -3,17 +3,14 @@
 use std::{
     env,
     error::Error,
-    path::MAIN_SEPARATOR,
+    path::{MAIN_SEPARATOR, Path},
     process::Command,
     time::{SystemTime, UNIX_EPOCH},
 };
 
 fn main() -> Result<(), Box<dyn Error>> {
-    // Re-run if git state changes.
-    println!("cargo:rerun-if-changed=build.rs");
-    println!("cargo:rerun-if-changed=.git/HEAD");
-    println!("cargo:rerun-if-changed=.git/index");
-    println!("cargo:rerun-if-changed=.git/refs/tags");
+    // Re-run if Git metadata used by the embedded version changes.
+    rerun_if_git_metadata_changes()?;
     println!("cargo:rerun-if-env-changed=KIVAL_RELEASE_VERSION");
 
     let sha = git(&["rev-parse", "HEAD"])?;
@@ -114,6 +111,20 @@ fn release_version(pkg_version: &str) -> Result<String, Box<dyn Error>> {
     }
 
     Ok(version)
+}
+
+/// Registers existing Git metadata paths that affect embedded version information.
+fn rerun_if_git_metadata_changes() -> Result<(), Box<dyn Error>> {
+    println!("cargo:rerun-if-changed=build.rs");
+
+    for git_path in ["HEAD", "index", "refs", "packed-refs"] {
+        let path = git(&["rev-parse", "--git-path", git_path])?;
+        if Path::new(&path).try_exists()? {
+            println!("cargo:rerun-if-changed={path}");
+        }
+    }
+
+    Ok(())
 }
 
 /// Run `git` with the given args and return trimmed stdout.
