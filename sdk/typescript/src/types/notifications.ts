@@ -44,6 +44,8 @@ export type InboxEntry = {
   actor_user_id: UUID | null;
   /** Latest actor username. */
   actor_username: string | null;
+  /** Latest actor display name. */
+  actor_display_name: string | null;
   /** Stable notification presentation type. */
   notification_type: string;
   /** Reason the entry was generated. */

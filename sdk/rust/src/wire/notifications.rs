@@ -70,6 +70,9 @@ pub struct InboxEntry {
     /// Latest actor username, when available and currently visible.
     pub actor_username: Option<String>,
 
+    /// Latest actor display name, when available and currently visible.
+    pub actor_display_name: Option<String>,
+
     /// Stable notification presentation type.
     pub notification_type: String,
 

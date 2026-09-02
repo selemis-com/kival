@@ -63,6 +63,7 @@ fn inbox_into_wire(row: InboxEntryRow) -> InboxEntry {
         latest_event_id: row.latest_event_id,
         actor_user_id: row.actor_user_id,
         actor_username: row.actor_username,
+        actor_display_name: row.actor_display_name,
         notification_type: row.notification_type,
         reason: row.reason,
         event_count: row.event_count,

@@ -51,6 +51,8 @@ pub struct InboxEntryRow {
     pub actor_user_id: Option<Uuid>,
     /// Username responsible for the latest event, when attributable.
     pub actor_username: Option<String>,
+    /// Display name responsible for the latest event, when attributable.
+    pub actor_display_name: Option<String>,
     /// Notification type.
     pub notification_type: String,
     /// Reason the notification was emitted.
@@ -159,6 +161,7 @@ pub async fn list_inbox_entries(
             inbox.latest_event_id,
             inbox.actor_user_id,
             actor.username AS actor_username,
+            actor.display_name AS actor_display_name,
             inbox.notification_type,
             inbox.reason,
             inbox.event_count,
@@ -270,6 +273,7 @@ pub async fn update_inbox_entry_read_state(
             updated.latest_event_id,
             updated.actor_user_id,
             actor.username AS actor_username,
+            actor.display_name AS actor_display_name,
             updated.notification_type,
             updated.reason,
             updated.event_count,

@@ -213,6 +213,12 @@ mod tests {
             .expect("object activity notification");
         assert_eq!(activity.actor_user_id, Some(editor.id));
         assert_eq!(activity.actor_username.as_deref(), Some(editor.username.as_str()));
+        let editor_display_name =
+            sqlx::query_scalar::<_, String>("SELECT display_name FROM kival.users WHERE id = $1")
+                .bind(editor.id)
+                .fetch_one(&r.pool)
+                .await?;
+        assert_eq!(activity.actor_display_name.as_deref(), Some(editor_display_name.as_str()));
 
         Ok(())
     }

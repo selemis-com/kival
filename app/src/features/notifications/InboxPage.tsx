@@ -125,7 +125,7 @@ function ReadStateIcon({ unread }: { unread: boolean }) {
 }
 
 function notificationCopy(entry: InboxEntry) {
-  const actor = entry.actor_username ?? "Someone";
+  const actor = entry.actor_display_name ?? entry.actor_username ?? "Someone";
   const count = entry.event_count;
   const objectTitle = entry.object_title ?? "an object";
 
