@@ -1,6 +1,6 @@
 //! Entrypoint for `kival`.
 
-use std::{ffi::OsString, path::Path};
+use std::{ffi::OsString, fmt, path::Path};
 
 use argx::{Defaults, Environment, Parser, Subcommand, Toml};
 use eyre::Result;
@@ -26,7 +26,7 @@ pub mod commands;
 pub mod utils;
 
 /// Configuration used by the Kival CLI client.
-#[derive(Debug, Clone, serde::Serialize, argx::Config)]
+#[derive(Clone, argx::Config)]
 #[argx(prefix = "KIVAL")]
 pub struct ClientConfig {
     /// Kival server root URL.
@@ -36,6 +36,15 @@ pub struct ClientConfig {
     /// Default API key used when no explicit credential is supplied.
     #[argx(default)]
     pub api_key: Option<String>,
+}
+
+impl fmt::Debug for ClientConfig {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("ClientConfig")
+            .field("url", &self.url)
+            .field("api_key", &self.api_key.as_ref().map(|_| "<redacted>"))
+            .finish()
+    }
 }
 
 impl ClientConfig {
@@ -135,7 +144,7 @@ pub enum Commands {
 ///  / /| |/ /| |/ / /_/ / /
 /// /_/ |_/_/ |___/\__,_/_/
 /// ```
-#[derive(Debug, Parser)]
+#[derive(Parser)]
 #[argx(name = "kival", version = SHORT_VERSION, long_version = LONG_VERSION, schema)]
 pub struct Cli {
     /// The command to run.
@@ -163,6 +172,19 @@ pub struct Cli {
     /// Nested fields use dot-separated paths.
     #[argx(short = 'F', long, global, delimited)]
     pub fields: Vec<String>,
+}
+
+impl fmt::Debug for Cli {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("Cli")
+            .field("command", &self.command)
+            .field("datadir", &self.datadir)
+            .field("api_key", &self.api_key.as_ref().map(|_| "<redacted>"))
+            .field("url", &self.url)
+            .field("output", &self.output)
+            .field("fields", &self.fields)
+            .finish()
+    }
 }
 
 impl Cli {
@@ -327,6 +349,18 @@ fn main() {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn client_config_debug_redacts_api_key() {
+        let config = ClientConfig {
+            url: Url::parse("https://kival.example.com").unwrap(),
+            api_key: Some("kvl_super_secret".to_owned()),
+        };
+
+        let rendered = format!("{config:?}");
+        assert!(rendered.contains("<redacted>"));
+        assert!(!rendered.contains("kvl_super_secret"));
+    }
 
     #[test]
     fn raw_output_scan_detects_json_forms() {

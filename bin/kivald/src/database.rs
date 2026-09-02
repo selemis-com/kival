@@ -10,7 +10,7 @@ use crate::DEFAULT_DOTENV_FILENAME;
 
 /// Database configuration kept separate from the regular Kival config because the connection URL
 /// commonly contains credentials.
-#[derive(Debug, argx::Config)]
+#[derive(argx::Config)]
 struct DatabaseConfig {
     /// PostgreSQL connection URL.
     #[argx(env = "DATABASE_URL")]

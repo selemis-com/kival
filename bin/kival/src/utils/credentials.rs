@@ -10,7 +10,6 @@ use url::Url;
 use crate::utils::{config::load_client_config, error::CliFailure};
 
 /// Top-level command-line credential overrides.
-#[derive(Debug)]
 struct CommandOverrides {
     /// Explicit API key, when supplied.
     api_key: Option<String>,
