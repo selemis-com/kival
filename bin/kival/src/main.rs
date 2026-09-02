@@ -46,7 +46,7 @@ impl ClientConfig {
     /// Returns an error when a configured source cannot be read or resolved.
     pub fn load(path: &Path) -> Result<Self> {
         let loader = Self::loader().layer(Defaults);
-        if path.exists() {
+        if path.try_exists()? {
             Ok(loader.layer(Environment).layer(Toml::new(path)).layer(Environment).resolve()?)
         } else {
             Ok(loader.layer(Environment).resolve()?)
