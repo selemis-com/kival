@@ -11,7 +11,7 @@ use axum::{
         State,
         ws::{CloseFrame, Message, WebSocket, WebSocketUpgrade},
     },
-    http::{HeaderMap, header::ORIGIN},
+    http::{HeaderMap, StatusCode, header::ORIGIN},
     response::Response,
 };
 use futures_util::{SinkExt as _, StreamExt as _};
@@ -40,6 +40,10 @@ use crate::{
 
 /// Per-recipient realtime fan-out capacity.
 const RECIPIENT_CAPACITY: usize = 256;
+/// Maximum active realtime connections retained for one user in this process.
+const MAX_CONNECTIONS_PER_USER: usize = 8;
+/// Maximum accepted WebSocket application message and frame size.
+const MAX_CLIENT_MESSAGE_SIZE: usize = 16 * 1024;
 /// Heartbeat interval for active WebSocket connections.
 const HEARTBEAT_INTERVAL: Duration = Duration::from_secs(30);
 /// Maximum time allowed for one client write.
@@ -121,20 +125,23 @@ impl RealtimeHub {
     }
 
     /// Subscribes one active connection only to invalidations for its user.
-    fn subscribe(&self, user_id: Uuid) -> RealtimeSubscription {
+    ///
+    /// Returns `None` when the user already holds the per-process connection limit.
+    fn subscribe(&self, user_id: Uuid) -> Option<RealtimeSubscription> {
         let receiver = {
             let mut recipients =
                 self.recipients.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
-            recipients
-                .entry(user_id)
-                .or_insert_with(|| {
-                    let (sender, _) = broadcast::channel(RECIPIENT_CAPACITY);
-                    sender
-                })
-                .subscribe()
+            let sender = recipients.entry(user_id).or_insert_with(|| {
+                let (sender, _) = broadcast::channel(RECIPIENT_CAPACITY);
+                sender
+            });
+            if sender.receiver_count() >= MAX_CONNECTIONS_PER_USER {
+                return None;
+            }
+            sender.subscribe()
         };
 
-        RealtimeSubscription { hub: self.clone(), user_id, receiver: Some(receiver) }
+        Some(RealtimeSubscription { hub: self.clone(), user_id, receiver: Some(receiver) })
     }
 
     /// Publishes one database invalidation only to local connections for its recipient.
@@ -226,9 +233,18 @@ pub(crate) async fn handle_realtime(
     // Subscribe before completing the upgrade so the browser's native `open`
     // event is a safe HTTP-resynchronization boundary. Invalidations committed
     // while the principal is revalidated remain buffered in this subscription.
-    let subscription = state.realtime().subscribe(principal.user_id());
+    let subscription = state.realtime().subscribe(principal.user_id()).ok_or_else(|| {
+        ApiError::new(
+            StatusCode::TOO_MANY_REQUESTS,
+            "realtime.connection_limit",
+            "too many active realtime connections",
+        )
+    })?;
 
-    Ok(websocket.on_upgrade(move |socket| handle_socket(socket, state, principal, subscription)))
+    Ok(websocket
+        .max_message_size(MAX_CLIENT_MESSAGE_SIZE)
+        .max_frame_size(MAX_CLIENT_MESSAGE_SIZE)
+        .on_upgrade(move |socket| handle_socket(socket, state, principal, subscription)))
 }
 
 /// Requires a configured same-origin WebSocket handshake.
@@ -431,7 +447,13 @@ async fn handle_socket(
                     break;
                 }
             }
-            SocketEvent::Incoming(Some(Ok(_))) => {}
+            SocketEvent::Incoming(Some(Ok(Message::Text(_) | Message::Binary(_)))) => {
+                counter!("realtime.connections_closed_total", "reason" => "client_message")
+                    .increment(1);
+                close_unsupported_client_message(&mut sender).await;
+                break;
+            }
+            SocketEvent::Incoming(Some(Ok(Message::Ping(_) | Message::Pong(_)))) => {}
             SocketEvent::Incoming(Some(Err(error))) => {
                 trace!(
                     target: "kival::server::realtime",
@@ -489,6 +511,20 @@ async fn close_inactive_principal(
         Message::Close(Some(CloseFrame {
             code: POLICY_VIOLATION,
             reason: "realtime credentials are no longer valid".into(),
+        })),
+    )
+    .await;
+}
+
+/// Closes one connection that attempted to send unsupported application data.
+async fn close_unsupported_client_message(
+    sender: &mut futures_util::stream::SplitSink<WebSocket, Message>,
+) {
+    let _ = send_message(
+        sender,
+        Message::Close(Some(CloseFrame {
+            code: POLICY_VIOLATION,
+            reason: "realtime client messages are not supported".into(),
         })),
     )
     .await;
@@ -744,8 +780,8 @@ mod tests {
         let hub = RealtimeHub::new();
         let recipient = Uuid::now_v7();
         let unrelated = Uuid::now_v7();
-        let mut recipient_subscription = hub.subscribe(recipient);
-        let mut unrelated_subscription = hub.subscribe(unrelated);
+        let mut recipient_subscription = hub.subscribe(recipient).unwrap();
+        let mut unrelated_subscription = hub.subscribe(unrelated).unwrap();
 
         hub.publish(RealtimeEnvelope {
             recipient_user_id: recipient,
@@ -767,8 +803,8 @@ mod tests {
         let hub = RealtimeHub::new();
         let quiet_user = Uuid::now_v7();
         let noisy_user = Uuid::now_v7();
-        let mut quiet_subscription = hub.subscribe(quiet_user);
-        let _noisy_subscription = hub.subscribe(noisy_user);
+        let mut quiet_subscription = hub.subscribe(quiet_user).unwrap();
+        let _noisy_subscription = hub.subscribe(noisy_user).unwrap();
 
         for _ in 0..=RECIPIENT_CAPACITY {
             hub.publish(RealtimeEnvelope {
@@ -791,8 +827,8 @@ mod tests {
     fn removes_recipient_channel_after_the_final_connection_disconnects() {
         let hub = RealtimeHub::new();
         let user_id = Uuid::now_v7();
-        let first = hub.subscribe(user_id);
-        let second = hub.subscribe(user_id);
+        let first = hub.subscribe(user_id).unwrap();
+        let second = hub.subscribe(user_id).unwrap();
 
         drop(first);
         assert!(
@@ -809,6 +845,19 @@ mod tests {
                 .unwrap_or_else(std::sync::PoisonError::into_inner)
                 .contains_key(&user_id)
         );
+    }
+
+    #[test]
+    fn bounds_active_connections_per_user() {
+        let hub = RealtimeHub::new();
+        let user_id = Uuid::now_v7();
+        let subscriptions = (0..MAX_CONNECTIONS_PER_USER)
+            .map(|_| hub.subscribe(user_id).expect("connection below limit"))
+            .collect::<Vec<_>>();
+
+        assert!(hub.subscribe(user_id).is_none());
+        drop(subscriptions);
+        assert!(hub.subscribe(user_id).is_some());
     }
 
     /// Creates a session-backed realtime principal with a controlled lifecycle.
@@ -926,8 +975,8 @@ mod tests {
         let hub = RealtimeHub::new();
         let first_user = Uuid::now_v7();
         let second_user = Uuid::now_v7();
-        let mut first = hub.subscribe(first_user);
-        let mut second = hub.subscribe(second_user);
+        let mut first = hub.subscribe(first_user).unwrap();
+        let mut second = hub.subscribe(second_user).unwrap();
 
         assert_eq!(hub.force_resync(), 2);
         assert_eq!(
