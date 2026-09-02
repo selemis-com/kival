@@ -254,57 +254,37 @@ pub(crate) fn decode_search(
 
 /// Builds a paginated response for ranked workspace search results.
 pub(crate) fn search_page<T>(
-    mut items: Vec<T>,
+    items: Vec<T>,
     limit: i64,
     kind: &str,
     scope: Uuid,
     cursor_of: impl Fn(&T) -> (f32, Uuid, i64, Uuid),
 ) -> ApiResult<ListResponse<T>> {
-    let has_next = items.len() > limit as usize;
-    if has_next {
-        items.truncate(limit as usize);
-    }
-
-    let next_cursor = if has_next {
-        let (rank, object_id, version_number, version_id) =
-            cursor_of(items.last().ok_or_else(|| ApiError::internal("empty pagination page"))?);
-        Some(encode(&Cursor::Search {
+    page(items, limit, |item| {
+        let (rank, object_id, version_number, version_id) = cursor_of(item);
+        encode(&Cursor::Search {
             kind: kind.to_owned(),
             scope,
             rank_bits: rank.to_bits(),
             object_id,
             version_number,
             version_id,
-        })?)
-    } else {
-        None
-    };
-
-    Ok(ListResponse { items, next_cursor })
+        })
+    })
 }
 
 /// Builds a paginated response for created-at ordered items.
 pub(crate) fn created_at_page<T>(
-    mut items: Vec<T>,
+    items: Vec<T>,
     limit: i64,
     kind: &str,
     scope: Option<Uuid>,
     cursor_of: impl Fn(&T) -> (DateTime<Utc>, Uuid),
 ) -> ApiResult<ListResponse<T>> {
-    let has_next = items.len() > limit as usize;
-    if has_next {
-        items.truncate(limit as usize);
-    }
-
-    let next_cursor = if has_next {
-        let (created_at, id) =
-            cursor_of(items.last().ok_or_else(|| ApiError::internal("empty pagination page"))?);
-        Some(encode(&Cursor::CreatedAt { kind: kind.to_owned(), scope, created_at, id })?)
-    } else {
-        None
-    };
-
-    Ok(ListResponse { items, next_cursor })
+    page(items, limit, |item| {
+        let (created_at, id) = cursor_of(item);
+        encode(&Cursor::CreatedAt { kind: kind.to_owned(), scope, created_at, id })
+    })
 }
 
 /// Builds a paginated response for updated-at ordered items.
@@ -313,59 +293,49 @@ pub(crate) fn created_at_page<T>(
 ///
 /// Returns an API error if a continuation cursor cannot be encoded.
 pub(crate) fn updated_at_page<T>(
-    mut items: Vec<T>,
+    items: Vec<T>,
     limit: i64,
     kind: &str,
     scope: Option<Uuid>,
     cursor_of: impl Fn(&T) -> (DateTime<Utc>, Uuid),
 ) -> ApiResult<ListResponse<T>> {
-    let has_next = items.len() > limit as usize;
-    if has_next {
-        items.truncate(limit as usize);
-    }
-
-    let next_cursor = if has_next {
-        let (updated_at, id) =
-            cursor_of(items.last().ok_or_else(|| ApiError::internal("empty pagination page"))?);
-        Some(encode(&Cursor::UpdatedAt { kind: kind.to_owned(), scope, updated_at, id })?)
-    } else {
-        None
-    };
-
-    Ok(ListResponse { items, next_cursor })
+    page(items, limit, |item| {
+        let (updated_at, id) = cursor_of(item);
+        encode(&Cursor::UpdatedAt { kind: kind.to_owned(), scope, updated_at, id })
+    })
 }
 
 /// Builds a paginated response for descending sequence-ordered items.
 pub(crate) fn sequence_page<T>(
-    mut items: Vec<T>,
+    items: Vec<T>,
     limit: i64,
     kind: &str,
     scope: Option<Uuid>,
     cursor_of: impl Fn(&T) -> i64,
 ) -> ApiResult<ListResponse<T>> {
-    let has_next = items.len() > limit as usize;
-    if has_next {
-        items.truncate(limit as usize);
-    }
-
-    let next_cursor = if has_next {
-        let sequence_number =
-            cursor_of(items.last().ok_or_else(|| ApiError::internal("empty pagination page"))?);
-        Some(encode(&Cursor::Sequence { kind: kind.to_owned(), scope, sequence_number })?)
-    } else {
-        None
-    };
-
-    Ok(ListResponse { items, next_cursor })
+    page(items, limit, |item| {
+        encode(&Cursor::Sequence { kind: kind.to_owned(), scope, sequence_number: cursor_of(item) })
+    })
 }
 
 /// Builds a paginated response for version ordered items.
 pub(crate) fn version_page<T>(
-    mut items: Vec<T>,
+    items: Vec<T>,
     limit: i64,
     kind: &'static str,
     scope: Uuid,
     cursor_of: impl Fn(&T) -> i64,
+) -> ApiResult<ListResponse<T>> {
+    page(items, limit, |item| {
+        encode(&Cursor::Version { kind: kind.to_owned(), scope, version_number: cursor_of(item) })
+    })
+}
+
+/// Builds a paginated response and encodes the next cursor from the page boundary.
+fn page<T>(
+    mut items: Vec<T>,
+    limit: i64,
+    encode_cursor: impl FnOnce(&T) -> ApiResult<String>,
 ) -> ApiResult<ListResponse<T>> {
     let has_next = items.len() > limit as usize;
     if has_next {
@@ -373,9 +343,9 @@ pub(crate) fn version_page<T>(
     }
 
     let next_cursor = if has_next {
-        let version_number =
-            cursor_of(items.last().ok_or_else(|| ApiError::internal("empty pagination page"))?);
-        Some(encode(&Cursor::Version { kind: kind.to_owned(), scope, version_number })?)
+        Some(encode_cursor(
+            items.last().ok_or_else(|| ApiError::internal("empty pagination page"))?,
+        )?)
     } else {
         None
     };
