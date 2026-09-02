@@ -57,6 +57,16 @@ pub struct ServerConfig {
     )]
     pub database_acquire_timeout_seconds: NonZeroU64,
 
+    /// Passkey ceremony starts accepted per direct TCP peer and minute. Set to 0 only when a
+    /// trusted edge applies an equivalent coarse limit.
+    #[argx(default = 30, env = "KIVAL_PASSKEY_START_REQUESTS_PER_MINUTE")]
+    pub passkey_start_requests_per_minute: u32,
+
+    /// Passkey ceremony finishes accepted per direct TCP peer and minute. Set to 0 only when a
+    /// trusted edge applies an equivalent coarse limit.
+    #[argx(default = 15, env = "KIVAL_PASSKEY_FINISH_REQUESTS_PER_MINUTE")]
+    pub passkey_finish_requests_per_minute: u32,
+
     /// Bearer-authentication attempts accepted per direct TCP peer and minute before API-key
     /// authentication. Set to 0 only when a trusted edge applies an equivalent coarse limit.
     #[argx(default = 1_200, env = "KIVAL_API_KEY_AUTHENTICATION_ATTEMPTS_PER_MINUTE")]

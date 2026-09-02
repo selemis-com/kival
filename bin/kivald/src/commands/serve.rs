@@ -314,6 +314,8 @@ impl ServeCommand {
 
         let db_pool_shutdown = db_pool.clone();
         let server_settings = ServerSettings {
+            authentication_start_requests_per_minute: config.passkey_start_requests_per_minute,
+            authentication_finish_requests_per_minute: config.passkey_finish_requests_per_minute,
             api_key_authentication_attempts_per_minute: config
                 .api_key_authentication_attempts_per_minute,
             ..ServerSettings::default()
