@@ -16,7 +16,6 @@ env:
   CARGO_TERM_COLOR: always
   CARGO_BUILD_WARNINGS: deny
   RUST_BACKTRACE: full
-  FEATURES: min-debug-logs
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.head_ref || github.ref }}
@@ -122,14 +121,72 @@ jobs:
           tool: cargo-nextest
 
       - name: Run unit tests
-        run: |
-          set -euo pipefail
-          cargo nextest run \
-            --workspace \
-            -E 'not binary(stateful)' \
-            --no-fail-fast \
-            --features "$FEATURES" \
-            --locked
+        run: make test-unit
+
+  test-stateful:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+    services:
+      postgres:
+        image: postgres:18
+        env:
+          POSTGRES_DB: kival_test
+          POSTGRES_PASSWORD: kival
+          POSTGRES_USER: kival
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U kival -d kival_test"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 20
+    env:
+      DATABASE_URL: postgres://kival:kival@localhost:5432/kival_test
+      RUSTC_WRAPPER: "sccache"
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6.0.10
+        with:
+          version: 11.20.0
+          run_install: false
+
+      - name: Set up Node
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version-file: "app/.nvmrc"
+          cache: "pnpm"
+          cache-dependency-path: pnpm-lock.yaml
+
+      - name: Install frontend dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Install stable Rust toolchain
+        uses: dtolnay/rust-toolchain@6c977a6ca4077a0ceb28ffbe03f59d46e9ac8772 # master
+        with:
+          toolchain: stable
+
+      - name: Install sccache
+        uses: mozilla-actions/sccache-action@fc920bf0ec8de6ee65d409111f7ec508035751ba # v0.0.11
+
+      - name: Restore Rust cache
+        uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+        with:
+          cache-on-failure: true
+
+      - name: Install cargo-nextest
+        uses: taiki-e/install-action@b6ff580856c41316412a0b9b60540fbc6f8c82cc # v2.86.7
+        with:
+          tool: cargo-nextest
+
+      - name: Run stateful tests
+        run: make test-stateful
 
   test-doc:
     runs-on: ubuntu-latest
@@ -174,14 +231,7 @@ jobs:
           cache-on-failure: true
 
       - name: Run documentation tests
-        run: |
-          set -euo pipefail
-          cargo test \
-            --doc \
-            --workspace \
-            --features "$FEATURES" \
-            --locked \
-            --no-fail-fast
+        run: make test-doc
 
   lint-clippy:
     runs-on: ubuntu-latest
@@ -227,14 +277,7 @@ jobs:
           cache-on-failure: true
 
       - name: Run Clippy
-        run: |
-          set -euo pipefail
-          cargo +nightly clippy \
-            --workspace \
-            --all-targets \
-            --all-features \
-            --locked \
-            --keep-going
+        run: make lint-clippy
 
   lint-fmt:
     runs-on: ubuntu-latest
@@ -289,9 +332,7 @@ jobs:
           tool: cargo-deny
 
       - name: Run cargo-deny checks
-        run: |
-          set -euo pipefail
-          cargo deny --locked --all-features check all
+        run: make deny
 
   compliance-about:
     runs-on: ubuntu-latest
@@ -326,6 +367,7 @@ jobs:
     needs:
       - test-app
       - test-unit
+      - test-stateful
       - test-doc
       - lint-clippy
       - lint-fmt
