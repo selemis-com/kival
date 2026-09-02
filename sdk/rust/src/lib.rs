@@ -17,8 +17,8 @@ pub mod wire;
 pub use client::{
     ApiError, ApiErrorKind, BaseUrlError, BoxTransport, BoxTransportFuture, ClientBuilder,
     ClientError, DefaultTransport, HttpTransport, KivalClient, MapTransportError,
-    ObjectVersionIdentifier, ProviderBuilder, ResponseTransport, RootProvider, Transport,
-    TransportError, TransportErrorKind, UrlError,
+    ObjectVersionIdentifier, ResponseTransport, Transport, TransportError, TransportErrorKind,
+    UrlError,
 };
 pub use wire::{
     API_PREFIX, ApiErrorBody, ApiErrorResponse, ApiKey, ApiKeyListResponse, ApiKeyResponse,

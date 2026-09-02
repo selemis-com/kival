@@ -66,12 +66,6 @@ pub struct ClientBuilder<L = Identity> {
     layer: L,
 }
 
-/// Compatibility alias for the original Alloy-inspired builder name.
-pub type ProviderBuilder<L = Identity> = ClientBuilder<L>;
-
-/// Compatibility alias for the original Alloy-inspired root-client name.
-pub type RootProvider<S = DefaultTransport> = KivalClient<S>;
-
 impl Default for ClientBuilder {
     fn default() -> Self {
         Self { timeout: Duration::from_secs(30), http: None, api_key: None, layer: Identity::new() }
