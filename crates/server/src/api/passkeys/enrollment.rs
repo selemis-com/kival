@@ -42,7 +42,7 @@ use crate::{
 const ENROLLMENT_CODE_PREFIX: &str = "kvl_enroll_";
 
 /// Username and one-time code used to start administrator-authorized enrollment.
-#[derive(Debug, Deserialize)]
+#[derive(Deserialize)]
 pub(crate) struct EnrollmentOptionsRequest {
     /// Username to which the administrator bound the code.
     username: String,
@@ -51,7 +51,7 @@ pub(crate) struct EnrollmentOptionsRequest {
 }
 
 /// Browser registration response authorized by a username-bound enrollment code.
-#[derive(Debug, Deserialize)]
+#[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub(crate) struct FinishEnrollmentRequest {
     /// Username to which the administrator bound the code.

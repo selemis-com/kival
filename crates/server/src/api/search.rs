@@ -187,9 +187,7 @@ fn snippet(
     if !case_sensitive
         && (!lowercase_preserves_offsets(text)
             || !lowercase_preserves_offsets(search_text)
-            || matched_terms
-                .iter()
-                .any(|term| !lowercase_preserves_offsets(term)))
+            || matched_terms.iter().any(|term| !lowercase_preserves_offsets(term)))
     {
         return truncate_on_char_boundary(text, context.saturating_mul(2));
     }

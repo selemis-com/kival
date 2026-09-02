@@ -28,7 +28,6 @@ pub(crate) struct AdminRecoverCommand {
 }
 
 /// One-time enrollment capability returned after a committed operator action.
-#[derive(Debug)]
 pub(super) struct IssuedEnrollmentCode {
     /// Stable code record identifier.
     pub id: Uuid,
