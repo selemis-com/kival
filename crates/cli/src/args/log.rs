@@ -47,8 +47,8 @@ pub struct LogArgs {
     #[argx(long = "log.file.max-size", global, default = DefaultLogArgs::get_global().log_file_max_size)]
     pub log_file_max_size: u64,
 
-    /// The maximum amount of log files that will be stored. If set to 0, background file logging
-    /// is disabled.
+    /// The maximum number of rotated log files to retain in addition to the active file. If set
+    /// to 0, background file logging is disabled.
     #[argx(long = "log.file.max-files", global, default = 5)]
     pub log_file_max_files: usize,
 
