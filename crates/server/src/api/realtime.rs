@@ -131,14 +131,20 @@ impl RealtimeHub {
         let receiver = {
             let mut recipients =
                 self.recipients.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
+
             let sender = recipients.entry(user_id).or_insert_with(|| {
                 let (sender, _) = broadcast::channel(RECIPIENT_CAPACITY);
                 sender
             });
+
             if sender.receiver_count() >= MAX_CONNECTIONS_PER_USER {
                 return None;
             }
-            sender.subscribe()
+
+            let receiver = sender.subscribe();
+            drop(recipients);
+
+            receiver
         };
 
         Some(RealtimeSubscription { hub: self.clone(), user_id, receiver: Some(receiver) })

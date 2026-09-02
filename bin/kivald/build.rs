@@ -36,7 +36,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     // Build timestamp (RFC3339, UTC, nanosecond precision).
     // Honors `SOURCE_DATE_EPOCH` for reproducible builds.
     println!("cargo:rerun-if-env-changed=SOURCE_DATE_EPOCH");
-    let build_timestamp = build_timestamp();
+    let build_timestamp = build_timestamp()?;
     println!("cargo:rustc-env=KIVAL_BUILD_TIMESTAMP={build_timestamp}");
 
     // Comma-joined list of enabled cargo features (lower-cased).
@@ -145,31 +145,37 @@ fn git(args: &[&str]) -> Result<String, Box<dyn Error>> {
 /// Collect cargo features from `CARGO_FEATURE_*` env vars.
 ///
 /// Cargo sets one such variable per enabled feature, with the name
-/// uppercased and dashes replaced by underscores. We lowercase them and
-/// join with commas. Order matches `env::vars()` iteration order.
+/// uppercased and dashes replaced by underscores. We lowercase and sort
+/// them before joining so embedded build metadata is stable.
 fn cargo_features() -> String {
-    let features: Vec<String> = env::vars()
+    let mut features: Vec<String> = env::vars()
         .filter_map(|(k, _)| k.strip_prefix("CARGO_FEATURE_").map(str::to_lowercase))
         .collect();
+    features.sort_unstable();
     features.join(",")
 }
 
 /// Current time as RFC3339 UTC with nanosecond precision, e.g.
 /// `2026-05-10T18:06:49.583231000Z`.
 ///
-/// Honors `SOURCE_DATE_EPOCH` (Unix seconds, no sub-second component) for
-/// reproducible builds.
-fn build_timestamp() -> String {
-    let (secs, nanos) =
-        env::var("SOURCE_DATE_EPOCH").ok().and_then(|s| s.parse::<u64>().ok()).map_or_else(
-            || {
-                let now = SystemTime::now()
-                    .duration_since(UNIX_EPOCH)
-                    .expect("system clock before UNIX epoch");
-                (now.as_secs(), now.subsec_nanos())
-            },
-            |s| (s, 0_u32),
-        );
+/// Honors `SOURCE_DATE_EPOCH` (Unix seconds, no sub-second component) when
+/// supplied and rejects malformed values instead of silently using wall time.
+fn build_timestamp() -> Result<String, Box<dyn Error>> {
+    let (secs, nanos) = match env::var("SOURCE_DATE_EPOCH") {
+        Ok(value) => (
+            value
+                .parse::<u64>()
+                .map_err(|error| format!("invalid SOURCE_DATE_EPOCH {value:?}: {error}"))?,
+            0_u32,
+        ),
+        Err(env::VarError::NotPresent) => {
+            let now = SystemTime::now()
+                .duration_since(UNIX_EPOCH)
+                .expect("system clock before UNIX epoch");
+            (now.as_secs(), now.subsec_nanos())
+        }
+        Err(error) => return Err(format!("could not read SOURCE_DATE_EPOCH: {error}").into()),
+    };
 
     let days = (secs / 86_400) as i64;
     let tod = secs % 86_400;
@@ -178,7 +184,7 @@ fn build_timestamp() -> String {
     let sec = tod % 60;
 
     let (year, month, day) = days_to_ymd(days);
-    format!("{year:04}-{month:02}-{day:02}T{hour:02}:{min:02}:{sec:02}.{nanos:09}Z")
+    Ok(format!("{year:04}-{month:02}-{day:02}T{hour:02}:{min:02}:{sec:02}.{nanos:09}Z"))
 }
 
 /// Convert days since the Unix epoch (1970-01-01) to `(year, month, day)`
