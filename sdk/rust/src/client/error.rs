@@ -29,8 +29,8 @@ pub enum ClientError {
     #[error("API key required")]
     ApiKeyRequired,
 
-    /// The configured API key is empty or contains only whitespace.
-    #[error("API key must not be empty")]
+    /// The configured API key is empty or starts or ends with whitespace.
+    #[error("API key must not be empty or start or end with whitespace")]
     InvalidApiKey,
 }
 

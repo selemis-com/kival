@@ -263,6 +263,21 @@ fn bearer_header_is_sensitive_and_public_requests_omit_it() {
 }
 
 #[tokio::test]
+async fn authenticated_operations_reject_whitespace_padded_api_keys_before_transport() {
+    for api_key in ["", " leading", "trailing ", "\nsecret"] {
+        let raw = StubTransport::json(r#"{"user":{}}"#);
+        let requests = raw.requests();
+        let client = ClientBuilder::new()
+            .with_api_key(api_key)
+            .connect_with_transport(root_url(), raw)
+            .unwrap_or_else(|error| panic!("client construction failed: {error}"));
+
+        assert!(matches!(client.whoami().await, Err(ClientError::InvalidApiKey)));
+        assert!(lock(&requests).is_empty());
+    }
+}
+
+#[tokio::test]
 async fn authenticated_operations_fail_before_transport_without_an_api_key() {
     let raw = StubTransport::json(r#"{"user":{}}"#);
     let requests = raw.requests();

@@ -262,7 +262,7 @@ where
         url: Url,
     ) -> Result<RequestBuilder, ClientError> {
         let api_key = self.api_key.as_ref().ok_or(ClientError::ApiKeyRequired)?;
-        if api_key.0.trim().is_empty() {
+        if api_key.0.is_empty() || api_key.0.trim() != api_key.0 {
             return Err(ClientError::InvalidApiKey);
         }
         Ok(self.http.request(method.clone(), url).bearer_auth(&api_key.0))

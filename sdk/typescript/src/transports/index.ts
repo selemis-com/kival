@@ -68,8 +68,8 @@ export function http(options: HttpTransportOptions): KivalTransport {
   const apiKey = options.apiKey;
   const timeout = options.timeout ?? DEFAULT_TIMEOUT;
 
-  if (typeof apiKey !== "string" || apiKey.trim() === "") {
-    throw new TypeError("apiKey must not be empty");
+  if (typeof apiKey !== "string" || apiKey === "" || apiKey.trim() !== apiKey) {
+    throw new TypeError("apiKey must not be empty or start or end with whitespace");
   }
 
   if (!Number.isFinite(timeout) || timeout <= 0) {
