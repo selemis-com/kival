@@ -5,7 +5,7 @@ permissions: {}
 on:
   push:
     tags:
-      - "v*.*.*"
+      - "v[0-9]+.[0-9]+.[0-9]+"
 
 defaults:
   run:
@@ -41,7 +41,6 @@ jobs:
       contents: read
     outputs:
       image: ${{ steps.configuration.outputs.image }}
-      prerelease: ${{ steps.release.outputs.prerelease }}
       sha: ${{ steps.source.outputs.sha }}
       source_date_epoch: ${{ steps.source.outputs.source_date_epoch }}
       tag: ${{ steps.release.outputs.tag }}
@@ -108,22 +107,14 @@ jobs:
         run: |
           set -euo pipefail
 
-          stable_pattern='^v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$'
-          rc_pattern='^v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)-rc([1-9][0-9]*)$'
+          release_pattern='^v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$'
 
-          if [[ "$TAG" =~ $stable_pattern ]]; then
-            prerelease=false
-          elif [[ "$TAG" =~ $rc_pattern ]]; then
-            prerelease=true
-          else
-            echo "::error::Release tag must be vX.Y.Z or vX.Y.Z-rcN without leading zeroes."
+          if [[ ! "$TAG" =~ $release_pattern ]]; then
+            echo "::error::Release tag must be vX.Y.Z without leading zeroes."
             exit 1
           fi
 
-          {
-            printf 'tag=%s\n' "$TAG"
-            printf 'prerelease=%s\n' "$prerelease"
-          } >> "$GITHUB_OUTPUT"
+          printf 'tag=%s\n' "$TAG" >> "$GITHUB_OUTPUT"
 
       - name: Bind release to event commit
         id: source
@@ -169,7 +160,6 @@ jobs:
 
       - name: Verify versions match tag
         env:
-          PRERELEASE: ${{ steps.release.outputs.prerelease }}
           TAG: ${{ steps.release.outputs.tag }}
         run: |
           set -euo pipefail
@@ -203,21 +193,15 @@ jobs:
             exit 1
           fi
 
-          if [[ "$PRERELEASE" == "true" ]]; then
-            expected_version="${tag_version%%-rc*}"
-          else
-            expected_version="$tag_version"
-          fi
-
           while IFS=$'\t' read -r package version; do
-            if [[ "$version" != "$expected_version" ]]; then
+            if [[ "$version" != "$tag_version" ]]; then
               echo "::error::Tag $TAG does not match $package version $version."
               exit 1
             fi
           done <<< "$cargo_versions"
 
           npm_version="$(jq -r '.version' sdk/typescript/package.json)"
-          if [[ "$npm_version" != "$expected_version" ]]; then
+          if [[ "$npm_version" != "$tag_version" ]]; then
             echo "::error::Tag $TAG does not match TypeScript SDK version $npm_version."
             exit 1
           fi
@@ -277,8 +261,6 @@ jobs:
       - name: Build release binaries
         run: |
           set -euo pipefail
-
-          export KIVAL_RELEASE_VERSION="${TAG#v}"
 
           cargo build \
             --workspace \
@@ -693,30 +675,22 @@ jobs:
       TAG: ${{ needs.prepare.outputs.tag }}
 
     steps:
-      - name: Skip registry publishing for release candidates
-        if: needs.prepare.outputs.prerelease == 'true'
-        run: echo "SDK packages are published only for stable releases."
-
       - name: Checkout release commit
-        if: needs.prepare.outputs.prerelease == 'false'
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
           ref: ${{ needs.prepare.outputs.sha }}
 
       - name: Install stable Rust toolchain
-        if: needs.prepare.outputs.prerelease == 'false'
         uses: dtolnay/rust-toolchain@6c977a6ca4077a0ceb28ffbe03f59d46e9ac8772 # master
         with:
           toolchain: stable
 
       - name: Authenticate with crates.io
-        if: needs.prepare.outputs.prerelease == 'false'
         id: crates-io-auth
         uses: rust-lang/crates-io-auth-action@c6f97d42243bad5fab37ca0427f495c86d5b1a18 # v1.0.5
 
       - name: Publish Rust packages in dependency order
-        if: needs.prepare.outputs.prerelease == 'false'
         env:
           CARGO_REGISTRY_TOKEN: ${{ steps.crates-io-auth.outputs.token }}
         run: |
@@ -770,14 +744,12 @@ jobs:
           publish_crate kival-sdk
 
       - name: Set up pnpm
-        if: needs.prepare.outputs.prerelease == 'false'
         uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6.0.10
         with:
           version: 11.20.0
           run_install: false
 
       - name: Set up Node
-        if: needs.prepare.outputs.prerelease == 'false'
         uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version-file: "app/.nvmrc"
@@ -786,11 +758,9 @@ jobs:
           registry-url: "https://registry.npmjs.org"
 
       - name: Install TypeScript dependencies
-        if: needs.prepare.outputs.prerelease == 'false'
         run: pnpm install --frozen-lockfile
 
       - name: Publish TypeScript SDK
-        if: needs.prepare.outputs.prerelease == 'false'
         run: |
           set -euo pipefail
 
@@ -1000,7 +970,6 @@ jobs:
 
       - name: Create or replace draft release assets
         env:
-          EXPECTED_PRERELEASE: ${{ needs.prepare.outputs.prerelease }}
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
         run: |
@@ -1012,10 +981,6 @@ jobs:
             --generate-notes
             --title "Kival $TAG"
           )
-
-          if [[ "$EXPECTED_PRERELEASE" == "true" ]]; then
-            flags+=(--prerelease --latest=false)
-          fi
 
           if release_state="$(
             gh release view "$TAG" \
@@ -1030,8 +995,8 @@ jobs:
               exit 1
             fi
 
-            if [[ "$is_prerelease" != "$EXPECTED_PRERELEASE" ]]; then
-              echo "::error::Draft release $TAG has prerelease=$is_prerelease; expected $EXPECTED_PRERELEASE."
+            if [[ "$is_prerelease" != "false" ]]; then
+              echo "::error::Draft release $TAG is marked as a prerelease."
               exit 1
             fi
 
@@ -1405,7 +1370,6 @@ jobs:
     permissions:
       contents: write
     env:
-      EXPECTED_PRERELEASE: ${{ needs.prepare.outputs.prerelease }}
       TAG: ${{ needs.prepare.outputs.tag }}
 
     steps:
@@ -1428,8 +1392,8 @@ jobs:
             exit 1
           fi
 
-          if [[ "$is_prerelease" != "$EXPECTED_PRERELEASE" ]]; then
-            echo "::error::Draft release $TAG has prerelease=$is_prerelease; expected $EXPECTED_PRERELEASE."
+          if [[ "$is_prerelease" != "false" ]]; then
+            echo "::error::Draft release $TAG is marked as a prerelease."
             exit 1
           fi
 
@@ -1442,7 +1406,7 @@ jobs:
           )"
           read -r is_draft is_prerelease <<< "$published_state"
 
-          if [[ "$is_draft" != "false" || "$is_prerelease" != "$EXPECTED_PRERELEASE" ]]; then
+          if [[ "$is_draft" != "false" || "$is_prerelease" != "false" ]]; then
             echo "::error::Release $TAG was not published with the expected state."
             exit 1
           fi

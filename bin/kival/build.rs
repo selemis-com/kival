@@ -11,7 +11,6 @@ use std::{
 fn main() -> Result<(), Box<dyn Error>> {
     // Re-run if Git metadata used by the embedded version changes.
     rerun_if_git_metadata_changes()?;
-    println!("cargo:rerun-if-env-changed=KIVAL_RELEASE_VERSION");
 
     let sha = git(&["rev-parse", "HEAD"])?;
     let sha_short = &sha[0..7];
@@ -38,11 +37,8 @@ fn main() -> Result<(), Box<dyn Error>> {
     // Comma-joined list of enabled cargo features (lower-cased).
     let features = cargo_features();
 
-    // Set formatted version strings. Release builds may override the displayed
-    // version with the exact stable or release-candidate tag while retaining
-    // Cargo's stable package version for dependency resolution.
-    let pkg_version = env!("CARGO_PKG_VERSION");
-    let release_version = release_version(pkg_version)?;
+    // Set formatted version strings from the Cargo package version.
+    let release_version = env!("CARGO_PKG_VERSION");
     println!("cargo:rustc-env=KIVAL_RELEASE_VERSION={release_version}");
 
     // The short version information for Kival.
@@ -75,42 +71,6 @@ fn main() -> Result<(), Box<dyn Error>> {
     println!("cargo:rustc-env=KIVAL_LONG_VERSION_4=Build Profile: {profile}");
 
     Ok(())
-}
-
-/// Resolve the user-visible binary version.
-///
-/// Normal builds use the Cargo package version. The release workflow may set
-/// `KIVAL_RELEASE_VERSION` to the same stable version or an `-rcN` version with
-/// the same stable base. Rejecting every other override prevents a malformed
-/// workflow environment from producing mislabeled binaries.
-fn release_version(pkg_version: &str) -> Result<String, Box<dyn Error>> {
-    let Ok(version) = env::var("KIVAL_RELEASE_VERSION") else {
-        return Ok(pkg_version.to_owned());
-    };
-
-    if version == pkg_version {
-        return Ok(version);
-    }
-
-    let rc_prefix = format!("{pkg_version}-rc");
-    let Some(rc_number) = version.strip_prefix(&rc_prefix) else {
-        return Err(format!(
-            "KIVAL_RELEASE_VERSION must be {pkg_version} or {pkg_version}-rcN, got {version}"
-        )
-        .into());
-    };
-
-    if rc_number.is_empty()
-        || rc_number.starts_with('0')
-        || !rc_number.bytes().all(|byte| byte.is_ascii_digit())
-    {
-        return Err(format!(
-            "KIVAL_RELEASE_VERSION must be {pkg_version} or {pkg_version}-rcN, got {version}"
-        )
-        .into());
-    }
-
-    Ok(version)
 }
 
 /// Registers existing Git metadata paths that affect embedded version information.

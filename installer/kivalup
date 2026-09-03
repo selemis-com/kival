@@ -122,11 +122,10 @@ start_operation() {
 
 normalize_version() {
     local version="${1#v}"
-    local stable='^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$'
-    local rc='^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)-rc([1-9][0-9]*)$'
+    local release_pattern='^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$'
 
-    [[ "$version" =~ $stable || "$version" =~ $rc ]] ||
-        error "Invalid Kival version: $1. Expected v0.1.0 or v0.1.0-rc1."
+    [[ "$version" =~ $release_pattern ]] ||
+        error "Invalid Kival version: $1. Expected v0.1.0."
 
     printf 'v%s\n' "$version"
 }
@@ -444,19 +443,18 @@ current_kival_version() {
     output="${output#kival }"
     output="${output%%[[:space:]]*}"
 
-    [[ "$output" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-rc[1-9][0-9]*)?$ ]] || return 0
+    [[ "$output" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || return 0
     printf 'v%s\n' "$output"
 }
 
 latest_is_newer() {
     local latest="${1#v}"
     local installed="${2#v}"
-    local installed_core="${installed%%-*}"
     local l_major l_minor l_patch
     local i_major i_minor i_patch
 
     IFS=. read -r l_major l_minor l_patch <<< "$latest"
-    IFS=. read -r i_major i_minor i_patch <<< "$installed_core"
+    IFS=. read -r i_major i_minor i_patch <<< "$installed"
 
     ((l_major > i_major)) && return 0
     ((l_major < i_major)) && return 1
@@ -465,7 +463,7 @@ latest_is_newer() {
     ((l_patch > i_patch)) && return 0
     ((l_patch < i_patch)) && return 1
 
-    [[ "$installed" != "$installed_core" ]]
+    return 1
 }
 
 warn_if_new_release_available() {
@@ -541,8 +539,8 @@ USAGE:
     kivalup [OPTIONS]
 
 OPTIONS:
-    -i, --install <VERSION>   Install a specific stable or RC version.
-    -u, --update              Install the latest stable Kival release and kivalup.
+    -i, --install <VERSION>   Install a specific Kival release.
+    -u, --update              Install the latest Kival release and kivalup.
     -S, --skip-attestation-verification
                               Require SHA-256 verification only.
     -v, --version             Print the Kival release for this kivalup.
@@ -551,7 +549,6 @@ OPTIONS:
 EXAMPLES:
     kivalup
     kivalup --install v0.1.0
-    kivalup --install v0.1.0-rc1
     kivalup --update
 EOF
 }
