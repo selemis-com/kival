@@ -206,13 +206,19 @@ deny: ## Perform a `cargo deny` check.
 about: ## Generate the `THIRD_PARTY_NOTICES.md` file.
 	cargo about generate -c .github/about.toml -o THIRD_PARTY_NOTICES.md .github/about.hbs --locked
 
-.PHONY: check
-check: ## Check all crates and targets.
-	cargo hack check --locked --feature-powerset --depth 1
+.PHONY: check-msrv
+check-msrv: ## Check published Rust crates against their minimum supported Rust version.
+	cargo check \
+		--package kival-types \
+		--package kival-sdk \
+		--all-targets \
+		--all-features \
+		--locked
 
 .PHONY: pr
 pr: ## Run all checks and tests, including stateful fuzz tests.
 	$(MAKE) deny && \
+	$(MAKE) check-msrv && \
 	$(MAKE) lint && \
 	$(MAKE) test && \
 	$(MAKE) test-stateful && \

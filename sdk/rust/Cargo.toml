@@ -2,9 +2,10 @@
 name = "kival-sdk"
 version.workspace = true
 edition.workspace = true
-rust-version.workspace = true
-license = "MIT OR Apache-2.0"
-description = "Rust SDK for Kival"
+rust-version = "1.95"
+license.workspace = true
+publish = true
+description = "Rust SDK for Kival."
 repository = "https://github.com/selemis-com/kival"
 homepage = "https://selemis.com"
 documentation = "https://docs.rs/kival-sdk"
@@ -35,5 +36,6 @@ uuid.workspace = true
 kival-types = { workspace = true, features = ["wire"] }
 
 [dev-dependencies]
+# Vendor
 http.workspace = true
 tokio = { workspace = true, features = ["macros", "rt-multi-thread", "time"] }
