@@ -1,5 +1,6 @@
 import type { ArchiveListStatus, ArchiveStatus, FlatMetadata, Timestamp, UUID } from "./common.js";
 import type { ObjectRole } from "./graph.js";
+import type { MembershipRole } from "./groups.js";
 import type { ListParams } from "./pagination.js";
 
 /** Object resource. */
@@ -33,9 +34,9 @@ export type ObjectListItem = ObjectResource & {
   /** Display name of the user that created the current object version. */
   updated_by_display_name?: string;
   /** Updater's active workspace role. */
-  updated_by_workspace_role?: string;
+  updated_by_workspace_role?: MembershipRole;
   /** Updater's effective access role for this object. */
-  updated_by_object_role?: string;
+  updated_by_object_role?: ObjectRole;
   /** Number of visible active object connections. */
   connection_count: number;
   /** Number of unresolved, unexpired commentary threads. */
@@ -84,9 +85,9 @@ export type ObjectVersion = {
   /** Display name of the user that created this version. */
   created_by_display_name?: string;
   /** Creator's current effective workspace role. */
-  created_by_workspace_role?: string;
+  created_by_workspace_role?: MembershipRole;
   /** Creator's current effective access role for this object. */
-  created_by_object_role?: string;
+  created_by_object_role?: ObjectRole;
   /** Creation timestamp. */
   created_at: Timestamp;
 };

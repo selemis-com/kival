@@ -1,5 +1,8 @@
 import type { ArchiveListStatus, ArchiveStatus, FlatMetadata, UUID } from "./common.js";
 
+/** Search document category. */
+export type SearchCategory = "title" | "body" | "metadata";
+
 /** Search match kind. */
 export type SearchMatchKind = "text" | "literal" | "exact";
 
@@ -70,7 +73,7 @@ export type SearchHit = {
   /** Flat metadata from the matched immutable version. */
   metadata: FlatMetadata;
   /** Search category in which the match occurred. */
-  matched_category: string;
+  matched_category: SearchCategory;
   /** Match kind. */
   match_kind: SearchMatchKind;
   /** Term coverage for plain multi-term `auto` searches. */
