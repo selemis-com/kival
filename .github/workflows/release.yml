@@ -285,7 +285,7 @@ jobs:
             file "$out_dir/$binary"
             du -h "$out_dir/$binary"
 
-            version_output="$("$out_dir/$binary" --version)"
+            version_output="$("$out_dir/$binary" -V)"
             printf '%s\n' "$version_output"
 
             reported_version="${version_output#"$binary "}"

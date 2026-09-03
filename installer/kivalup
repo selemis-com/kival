@@ -330,7 +330,7 @@ verify_binary() {
     local expected="$3"
     local output
 
-    output="$("$path" --version 2>&1)" || error "$name failed to launch."
+    output="$("$path" -V 2>&1)" || error "$name failed to launch."
 
     local reported="${output#"$name "}"
     reported="${reported%%[[:space:]]*}"
@@ -438,7 +438,7 @@ current_kival_version() {
     [[ -x "$binary" && ! -L "$binary" ]] || return 0
 
     local output
-    output="$("$binary" --version 2>/dev/null)" || return 0
+    output="$("$binary" -V 2>/dev/null)" || return 0
     output="${output%%$'\n'*}"
     output="${output#kival }"
     output="${output%%[[:space:]]*}"
