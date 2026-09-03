@@ -146,6 +146,11 @@ jobs:
             exit 1
           fi
 
+          if ! git merge-base --is-ancestor "$EXPECTED_SHA" refs/remotes/origin/master; then
+            echo "::error::Release commit $EXPECTED_SHA is not reachable from origin/master."
+            exit 1
+          fi
+
           source_date_epoch="$(git show -s --format=%ct "$EXPECTED_SHA")"
           if [[ ! "$source_date_epoch" =~ ^[0-9]+$ ]]; then
             echo "::error::Could not determine the release commit timestamp."
