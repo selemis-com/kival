@@ -7183,7 +7183,7 @@ Apache License 2.0
 - [base64ct]( https://github.com/RustCrypto/formats ) 1.8.3
 - [block-buffer]( https://github.com/RustCrypto/utils ) 0.10.4
 - [block-buffer]( https://github.com/RustCrypto/utils ) 0.12.0
-- [chacha20]( https://github.com/RustCrypto/stream-ciphers ) 0.10.0
+- [chacha20]( https://github.com/RustCrypto/stream-ciphers ) 0.10.2
 - [const-oid]( https://github.com/RustCrypto/formats ) 0.10.2
 - [cpubits]( https://github.com/RustCrypto/utils ) 0.1.1
 - [cpufeatures]( https://github.com/RustCrypto/utils ) 0.2.17
