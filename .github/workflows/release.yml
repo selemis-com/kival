@@ -1052,7 +1052,7 @@ jobs:
             --verify-tag
             --draft
             --generate-notes
-            --title "Kival $TAG"
+            --title "$TAG"
           )
 
           if release_state="$(
