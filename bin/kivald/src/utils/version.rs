@@ -3,7 +3,7 @@
 /// Short version string for Kival, set by `build.rs`.
 pub const SHORT_VERSION: &str = env!("KIVAL_SHORT_VERSION");
 
-/// The exact stable or release-candidate version represented by this binary.
+/// The exact release version represented by this binary.
 pub const KIVAL_RELEASE_VERSION: &str = env!("KIVAL_RELEASE_VERSION");
 
 /// The full SHA of the latest commit.
