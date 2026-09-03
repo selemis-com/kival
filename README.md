@@ -27,17 +27,16 @@
 
 ## Overview
 
-Kival is Selemis's self-hosted collaborative knowledge system for organizations. It gives people a shared place to deliberately create, edit, discuss, connect, version, and govern durable knowledge.
+Kival is Selemis's self-hosted collaborative knowledge system for organizations.
 
-Organizations constantly produce messages, documents, decisions, and records, but the understanding that connects them is easily lost. Sources become detached from conclusions, decisions outlive their reasoning, and knowledge fragments across tools or leaves with the people who carried it.
+Organizations constantly produce messages, documents, decisions, and records, yet the understanding that connects them is easily lost. Sources become detached from conclusions, decisions outlive their reasoning, and knowledge fragments across tools or leaves with the people who carried it.
 
-Kival keeps that context together. Knowledge remains connected to its history, relationships, discussions, and provenance so earlier work can still be understood, questioned, revised, and built upon.
+Kival gives people and agents a shared place to deliberately create, edit, discuss, connect, version, and govern knowledge. History, relationships, discussions, authorship, and provenance remain connected as that knowledge develops, preserving the context needed to understand how something came to be and build on it over time.
 
-Applications and agents participate in the same body of knowledge through Kival's API, SDKs, and CLI. They do not require a separate memory layer: the knowledge remains shared with the people and systems around them, independent of any particular model, agent, or tool.
-
-* **Shared knowledge**: people, applications, and agents work against the same organizational knowledge rather than isolated copies of context.
-* **Continuity**: versions, relationships, discussions, and provenance preserve how knowledge developed, not only its latest state.
-* **Deliberate authorship**: knowledge is created and maintained as organizational work, with explicit access and governance.
+* **Shared knowledge**: people and agents work against the same organizational knowledge rather than maintaining separate copies of context.
+* **Continuity**: history, relationships, discussions, and provenance remain connected as knowledge develops, preserving how it came to be rather than only its latest state.
+* **Deliberate authorship**: knowledge is explicitly created and maintained as organizational work, with clear authorship, access, and governance.
+* **Durable context**: knowledge remains understandable even as the people, agents, models, applications, and tools around it change.
 * **Self-hosted ownership**: the organization retains control over the knowledge and infrastructure on which its work depends.
 
 ## Setup
