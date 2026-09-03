@@ -664,6 +664,7 @@ jobs:
   publish-sdks:
     name: Publish SDK packages
     runs-on: ubuntu-24.04
+    environment: release
     needs:
       - prepare
       - image
@@ -699,27 +700,50 @@ jobs:
           version="${TAG#v}"
           user_agent="kival-release-workflow/$TAG"
 
-          crate_exists() {
+          crate_status() {
             local crate="$1"
-            curl \
-              --fail \
-              --silent \
-              --show-error \
-              --user-agent "$user_agent" \
-              "https://crates.io/api/v1/crates/$crate/$version" \
-              >/dev/null 2>&1
+            local status
+
+            if ! status="$(
+              curl \
+                --silent \
+                --show-error \
+                --output /dev/null \
+                --write-out '%{http_code}' \
+                --user-agent "$user_agent" \
+                "https://crates.io/api/v1/crates/$crate/$version"
+            )"; then
+              echo "::error::Failed to query crates.io for $crate $version." >&2
+              return 1
+            fi
+
+            printf '%s\n' "$status"
           }
 
           wait_for_crate() {
             local crate="$1"
             local attempt
+            local status
 
             for attempt in {1..30}; do
-              if crate_exists "$crate"; then
-                echo "$crate $version is available from crates.io."
-                return
+              if status="$(crate_status "$crate")"; then
+                case "$status" in
+                  200)
+                    echo "$crate $version is available from crates.io."
+                    return
+                    ;;
+                  404|429|5??)
+                    ;;
+                  *)
+                    echo "::error::Unexpected crates.io HTTP status $status for $crate $version."
+                    exit 1
+                    ;;
+                esac
               fi
-              sleep 10
+
+              if (( attempt < 30 )); then
+                sleep 10
+              fi
             done
 
             echo "::error::$crate $version did not become available from crates.io."
@@ -728,12 +752,22 @@ jobs:
 
           publish_crate() {
             local crate="$1"
+            local status
 
-            if crate_exists "$crate"; then
-              echo "$crate $version is already published; skipping."
-            else
-              cargo publish --locked --package "$crate"
-            fi
+            status="$(crate_status "$crate")" || exit 1
+            case "$status" in
+              200)
+                echo "$crate $version is already published; skipping."
+                ;;
+              404)
+                cargo publish --locked --package "$crate"
+                ;;
+              *)
+                echo "::error::Unexpected crates.io HTTP status $status for $crate $version."
+                exit 1
+                ;;
+            esac
+
             wait_for_crate "$crate"
           }
 
@@ -783,18 +817,57 @@ jobs:
             npm publish --dry-run --access public "$package_archive"
           )
 
-          if curl --fail --silent --show-error "$package_url" >/dev/null 2>&1; then
-            echo "kival-sdk $version is already published to npm; skipping."
-          else
-            (
-              cd "$RUNNER_TEMP"
-              npm publish --access public "$package_archive"
-            )
-          fi
+          npm_status() {
+            local status
 
-          published_version="$(npm view "kival-sdk@$version" version)"
+            if ! status="$(
+              curl \
+                --silent \
+                --show-error \
+                --output /dev/null \
+                --write-out '%{http_code}' \
+                "$package_url"
+            )"; then
+              echo "::error::Failed to query npm for kival-sdk $version." >&2
+              return 1
+            fi
+
+            printf '%s\n' "$status"
+          }
+
+          status="$(npm_status)" || exit 1
+          case "$status" in
+            200)
+              echo "kival-sdk $version is already published to npm; skipping."
+              ;;
+            404)
+              (
+                cd "$RUNNER_TEMP"
+                npm publish --access public "$package_archive"
+              )
+              ;;
+            *)
+              echo "::error::Unexpected npm HTTP status $status for kival-sdk $version."
+              exit 1
+              ;;
+          esac
+
+          published_version=""
+          for attempt in {1..30}; do
+            if published_version="$(npm view "kival-sdk@$version" version 2>/dev/null)" && \
+              [[ "$published_version" == "$version" ]]; then
+              echo "kival-sdk $version is available from npm."
+              break
+            fi
+
+            published_version=""
+            if (( attempt < 30 )); then
+              sleep 10
+            fi
+          done
+
           if [[ "$published_version" != "$version" ]]; then
-            echo "::error::npm returned kival-sdk version $published_version; expected $version."
+            echo "::error::kival-sdk $version did not become available from npm."
             exit 1
           fi
 
