@@ -684,8 +684,7 @@ jobs:
     runs-on: ubuntu-24.04
     needs:
       - prepare
-      - attest
-      - attest-installer
+      - image
     timeout-minutes: 20
     permissions:
       contents: read
@@ -837,7 +836,6 @@ jobs:
       - prepare
       - attest
       - attest-installer
-      - publish-sdks
     timeout-minutes: 15
     permissions:
       actions: read
@@ -1394,3 +1392,58 @@ jobs:
           path: release-image-digest.txt
           if-no-files-found: error
           retention-days: 90
+
+  finalize:
+    name: Publish GitHub release
+    runs-on: ubuntu-24.04
+    needs:
+      - prepare
+      - image
+      - publish-sdks
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    env:
+      EXPECTED_PRERELEASE: ${{ needs.prepare.outputs.prerelease }}
+      TAG: ${{ needs.prepare.outputs.tag }}
+
+    steps:
+      - name: Publish verified release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+
+          release_state="$(
+            gh release view "$TAG" \
+              --json isDraft,isPrerelease \
+              --jq '[.isDraft, .isPrerelease] | @tsv'
+          )"
+          read -r is_draft is_prerelease <<< "$release_state"
+
+          if [[ "$is_draft" != "true" ]]; then
+            echo "::error::Release $TAG is not a draft."
+            exit 1
+          fi
+
+          if [[ "$is_prerelease" != "$EXPECTED_PRERELEASE" ]]; then
+            echo "::error::Draft release $TAG has prerelease=$is_prerelease; expected $EXPECTED_PRERELEASE."
+            exit 1
+          fi
+
+          gh release edit "$TAG" --draft=false
+
+          published_state="$(
+            gh release view "$TAG" \
+              --json isDraft,isPrerelease \
+              --jq '[.isDraft, .isPrerelease] | @tsv'
+          )"
+          read -r is_draft is_prerelease <<< "$published_state"
+
+          if [[ "$is_draft" != "false" || "$is_prerelease" != "$EXPECTED_PRERELEASE" ]]; then
+            echo "::error::Release $TAG was not published with the expected state."
+            exit 1
+          fi
+
+          echo "Published GitHub release $TAG."
