@@ -2,7 +2,7 @@
 
 use std::{
     fs::{self, File, ReadDir},
-    io::{self},
+    io,
     path::{Path, PathBuf},
 };
 

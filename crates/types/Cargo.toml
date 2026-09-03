@@ -9,7 +9,6 @@ description = "Canonical Rust types for Kival."
 repository = "https://github.com/selemis-com/kival"
 homepage = "https://selemis.com"
 documentation = "https://docs.rs/kival-types"
-readme = "README.md"
 keywords = ["kival", "knowledge", "types"]
 categories = ["data-structures"]
 

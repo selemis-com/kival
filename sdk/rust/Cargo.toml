@@ -9,7 +9,6 @@ description = "Rust SDK for Kival."
 repository = "https://github.com/selemis-com/kival"
 homepage = "https://selemis.com"
 documentation = "https://docs.rs/kival-sdk"
-readme = "README.md"
 keywords = ["kival", "sdk", "knowledge", "tower"]
 categories = ["api-bindings", "web-programming::http-client"]
 
