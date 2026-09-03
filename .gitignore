@@ -86,6 +86,3 @@ scripts/
 
 # References
 references/
-
-# Production Compose environment
-/etc/.env

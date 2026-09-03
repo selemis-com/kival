@@ -264,35 +264,6 @@ Run the test suite with:
 make test
 ```
 
-## Production Docker Compose
-
-A production-oriented, single-instance Compose stack is available under [`etc/`](etc/). It runs Kival with PostgreSQL and the included observability stack.
-
-```sh
-cd etc
-cp .env.template .env
-# Configure KIVAL_VERSION and KIVAL_CANONICAL_URL before continuing.
-docker compose --env-file .env pull
-docker compose --env-file .env up -d
-```
-
-`KIVAL_CANONICAL_URL` must be the final HTTPS origin users open in their browser. Passkeys are origin-bound, so configure the public hostname before enrolling users.
-
-Kival binds to `127.0.0.1:3000` and is intended to run behind an HTTPS reverse proxy. PostgreSQL, metrics, and the observability services remain private to the Compose network.
-
-Bootstrap the first administrator:
-
-```sh
-docker compose --env-file .env exec kival \
-  kivald --datadir /var/lib/kival admin bootstrap \
-  --username admin \
-  --display-name "Admin"
-```
-
-The provided deployment is intentionally single-instance. Attachments are stored on the persistent `kival-data` volume; back up PostgreSQL and that volume together.
-
-Additional deployment settings are documented in [`etc/.env.template`](etc/.env.template).
-
 ## Sponsors
 
 Kival is developed and maintained by [Selemis](https://selemis.com).
