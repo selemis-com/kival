@@ -1184,6 +1184,7 @@ jobs:
             type=raw,value=${{ needs.prepare.outputs.tag }}
           labels: |
             org.opencontainers.image.title=Kival
+            org.opencontainers.image.source=https://github.com/${{ github.repository }}
             org.opencontainers.image.revision=${{ needs.prepare.outputs.sha }}
             org.opencontainers.image.version=${{ needs.prepare.outputs.tag }}
             com.selemis.kival.binary-set-digest=${{ steps.context.outputs.binary_set_digest }}
