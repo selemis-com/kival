@@ -853,8 +853,10 @@ jobs:
 
           published_version=""
           for attempt in {1..30}; do
-            if published_version="$(npm view "kival-sdk@$version" version 2>/dev/null)" && \
-              [[ "$published_version" == "$version" ]]; then
+            if published_version="$(
+              cd "$RUNNER_TEMP"
+              npm view "kival-sdk@$version" version 2>/dev/null
+            )" && [[ "$published_version" == "$version" ]]; then
               echo "kival-sdk $version is available from npm."
               break
             fi
@@ -869,7 +871,6 @@ jobs:
             echo "::error::kival-sdk $version did not become available from npm."
             exit 1
           fi
-
 
   publish:
     name: Create draft release
