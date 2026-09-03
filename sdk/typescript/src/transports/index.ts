@@ -21,6 +21,8 @@ export type KivalRequestAuth = "apiKey" | "none";
 export type KivalRequestInit = RequestInit & {
   /** Authentication policy. Defaults to API-key authentication. */
   auth?: KivalRequestAuth;
+  /** Required by Fetch implementations for streaming request bodies. */
+  duplex?: "half";
 };
 
 /** Options for the default Fetch API transport. */

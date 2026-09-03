@@ -193,6 +193,9 @@ export function uploadObjectAttachment(
           method: "POST",
           ...(params.media_type ? { headers: { "content-type": params.media_type } } : {}),
           body,
+          ...(typeof ReadableStream !== "undefined" && body instanceof ReadableStream
+            ? { duplex: "half" as const }
+            : {}),
         },
         signal,
       ),

@@ -452,9 +452,8 @@ const attachment = await client.uploadObjectAttachment({
 });
 ```
 
-Streaming request bodies are runtime-specific. This convenience action cannot supply additional
-request options such as Node’s `duplex: "half"`, so do not pass a request stream in runtimes that
-require such options.
+For `ReadableStream` request bodies, the SDK supplies `duplex: "half"` automatically for Fetch
+implementations such as Node.js that require it for streaming uploads.
 
 `getObjectAttachmentContent` fetches content and buffers the body as a `Uint8Array`.
 `getObjectAttachmentContentResponse` returns the authenticated Fetch API `Response` for streaming
