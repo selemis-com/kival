@@ -277,11 +277,7 @@ jobs:
 
           out_dir="target/$TARGET/$RUST_PROFILE"
           expected_version="${TAG#v}"
-          mapfile -t binaries < <(
-            jq -r '.[]' <<< "$RELEASE_BINARIES_JSON"
-          )
-
-          for binary in "${binaries[@]}"; do
+          while IFS= read -r binary; do
             file "$out_dir/$binary"
             du -h "$out_dir/$binary"
 
@@ -295,7 +291,7 @@ jobs:
               echo "::error::$binary reports version $reported_version; expected $expected_version."
               exit 1
             fi
-          done
+          done < <(jq -r '.[]' <<< "$RELEASE_BINARIES_JSON")
 
       - name: Archive release binaries
         id: archive
@@ -303,12 +299,15 @@ jobs:
           set -euo pipefail
 
           out_dir="target/$TARGET/$RUST_PROFILE"
-          mapfile -t binaries < <(
-            jq -r '.[]' <<< "$RELEASE_BINARIES_JSON"
-          )
-          mapfile -t documents < <(
-            jq -r '.[]' <<< "$RELEASE_DOCUMENTS_JSON"
-          )
+          binaries=()
+          while IFS= read -r binary; do
+            binaries+=("$binary")
+          done < <(jq -r '.[]' <<< "$RELEASE_BINARIES_JSON")
+
+          documents=()
+          while IFS= read -r document; do
+            documents+=("$document")
+          done < <(jq -r '.[]' <<< "$RELEASE_DOCUMENTS_JSON")
 
           mkdir -p dist
           tar -czf "dist/$ARCHIVE" \
