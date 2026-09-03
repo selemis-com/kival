@@ -1216,16 +1216,21 @@ jobs:
       - name: Extract Docker metadata
         id: meta
         uses: docker/metadata-action@dc802804100637a589fabce1cb79ff13a1411302 # v6.2.0
+        env:
+          DOCKER_METADATA_ANNOTATIONS_LEVELS: index
         with:
           images: ${{ needs.prepare.outputs.image }}
           tags: |
             type=raw,value=${{ needs.prepare.outputs.tag }}
           labels: |
             org.opencontainers.image.title=Kival
+            org.opencontainers.image.description=Self-hosted collaborative knowledge system for organizations.
             org.opencontainers.image.source=https://github.com/${{ github.repository }}
             org.opencontainers.image.revision=${{ needs.prepare.outputs.sha }}
             org.opencontainers.image.version=${{ needs.prepare.outputs.tag }}
             com.selemis.kival.binary-set-digest=${{ steps.context.outputs.binary_set_digest }}
+          annotations: |
+            org.opencontainers.image.description=Self-hosted collaborative knowledge system for organizations.
 
       - name: Check for an already staged exact image
         id: existing
@@ -1263,6 +1268,7 @@ jobs:
           context: image-context
           file: image-context/Dockerfile
           labels: ${{ steps.meta.outputs.labels }}
+          annotations: ${{ steps.meta.outputs.annotations }}
           platforms: ${{ steps.context.outputs.platforms }}
           outputs: type=image,name=${{ needs.prepare.outputs.image }},push-by-digest=true,name-canonical=true,push=true
           no-cache: true
@@ -1485,3 +1491,80 @@ jobs:
           fi
 
           echo "Published GitHub release $TAG."
+
+  latest-image:
+    name: Update latest GHCR tag
+    runs-on: ubuntu-24.04
+    needs:
+      - prepare
+      - image
+      - finalize
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      packages: write
+    env:
+      DIGEST: ${{ needs.image.outputs.digest }}
+      IMAGE: ${{ needs.prepare.outputs.image }}
+      TAG: ${{ needs.prepare.outputs.tag }}
+
+    steps:
+      - name: Confirm release is still latest
+        id: release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+
+          latest_tag="$(gh api "repos/$GH_REPO/releases/latest" --jq '.tag_name')"
+          if [[ "$latest_tag" != "$TAG" ]]; then
+            echo "Release $TAG is no longer latest; leaving the latest image tag unchanged."
+            printf 'update=false\n' >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          printf 'update=true\n' >> "$GITHUB_OUTPUT"
+
+      - name: Log in to GHCR
+        if: steps.release.outputs.update == 'true'
+        uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ github.token }}
+
+      - name: Set up Docker Buildx
+        if: steps.release.outputs.update == 'true'
+        uses: docker/setup-buildx-action@37fe631027851001ddb9b187196cc803df7f5f0e # v4.3.0
+
+      - name: Update latest image tag
+        if: steps.release.outputs.update == 'true'
+        run: |
+          set -euo pipefail
+
+          exact_digest="$(
+            docker buildx imagetools inspect "$IMAGE:$TAG" \
+              --format '{{json .Manifest.Digest}}' |
+              tr -d '"'
+          )"
+          if [[ "$exact_digest" != "$DIGEST" ]]; then
+            echo "::error::Exact tag $TAG resolves to $exact_digest; expected $DIGEST."
+            exit 1
+          fi
+
+          docker buildx imagetools create \
+            --tag "$IMAGE:latest" \
+            "$IMAGE@$DIGEST"
+
+          latest_digest="$(
+            docker buildx imagetools inspect "$IMAGE:latest" \
+              --format '{{json .Manifest.Digest}}' |
+              tr -d '"'
+          )"
+          if [[ "$latest_digest" != "$DIGEST" ]]; then
+            echo "::error::Latest tag resolves to $latest_digest; expected $DIGEST."
+            exit 1
+          fi
+
+          echo "Updated $IMAGE:latest to $TAG at $DIGEST."
