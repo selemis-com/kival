@@ -41,37 +41,28 @@ Kival gives people and agents a shared place to deliberately create, edit, discu
 
 ## Setup
 
-### Supported platforms
+### Installation
 
-Prebuilt Kival releases are available for:
-
-* Linux x86_64
-* Linux ARM64
-* macOS on Apple Silicon
-* Windows through WSL
-
-Native Windows and Intel Mac releases are not currently provided. Source builds on other platforms are outside the supported release matrix.
-
-### Install a release
-
-Install the version-bound `kivalup` installer from the latest stable GitHub release:
+Install `kivalup` from the latest stable release:
 
 ```sh
 curl --proto '=https' --tlsv1.2 -fsSL \
   https://github.com/selemis-com/kival/releases/latest/download/install | bash
-
-$HOME/.kival/bin/kivalup
 ```
 
-The bootstrap installer verifies the downloaded `kivalup` checksum and, when the GitHub CLI is available, its build provenance.
-
-`kivalup` installs the matching `kival` and `kivald` binaries under `$HOME/.kival/bin`.
-
-To update later:
+Then run:
 
 ```sh
-kivalup --update
+kivalup
 ```
+
+If your shell has not picked up the updated `PATH` yet, use `$HOME/.kival/bin/kivalup` or start a new shell.
+
+### Supported platforms
+
+Prebuilt releases are available for Linux x86_64 and ARM64, macOS on Apple Silicon, and Windows through WSL.
+
+Native Windows and Intel Mac releases are not currently provided.
 
 ### Quick start
 
