@@ -9,7 +9,10 @@ function EnrollmentRoute({ code, username }: { code: string | null; username: st
   return <PasskeyEnrollmentPage code={code} initialUsername={username} />;
 }
 
-export function createKivalRouter(enrollmentCode: string | null, enrollmentUsername: string | null) {
+export function createKivalRouter(
+  enrollmentCode: string | null,
+  enrollmentUsername: string | null,
+) {
   return createBrowserRouter([
     {
       path: "/auth/enroll",
