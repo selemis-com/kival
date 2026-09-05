@@ -80,7 +80,7 @@ download() {
         --proto-redir '=https' \
         --connect-timeout 15 \
         --max-time 300 \
-        -fL \
+        -#fL \
         "$url" \
         -o "$output"
 }
