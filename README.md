@@ -58,6 +58,8 @@ kivalup
 
 If your shell has not picked up the updated `PATH` yet, use `$HOME/.kival/bin/kivalup` or start a new shell.
 
+To build and run Kival from source, see the [development setup](CONTRIBUTING.md#development-setup).
+
 ### Supported platforms
 
 Prebuilt releases are available for Linux x86_64 and ARM64, macOS on Apple Silicon, and Windows through WSL.
