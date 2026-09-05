@@ -41,6 +41,25 @@ impl std::fmt::Display for ObjectVersionIdentifier {
     }
 }
 
+impl std::str::FromStr for ObjectVersionIdentifier {
+    type Err = &'static str;
+
+    fn from_str(value: &str) -> Result<Self, Self::Err> {
+        if let Ok(version_id) = value.parse::<Uuid>() {
+            return Ok(Self::Id(version_id));
+        }
+
+        let version_number = value
+            .parse::<i64>()
+            .map_err(|_| "expected a version UUID or positive version number")?;
+        if version_number < 1 {
+            return Err("expected a version UUID or positive version number");
+        }
+
+        Ok(Self::Number(version_number))
+    }
+}
+
 impl<S> KivalClient<S>
 where
     S: Transport,
@@ -449,5 +468,20 @@ where
         let response = self.send_json::<ObjectVersionWikilinksResponse>(request).await?;
 
         Ok(response.items)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn object_version_identifier_parses_uuid_and_positive_number() {
+        let version_id = Uuid::from_u128(1);
+        assert_eq!(version_id.to_string().parse(), Ok(ObjectVersionIdentifier::Id(version_id)));
+        assert_eq!("3".parse(), Ok(ObjectVersionIdentifier::Number(3)));
+        assert!("0".parse::<ObjectVersionIdentifier>().is_err());
+        assert!("-1".parse::<ObjectVersionIdentifier>().is_err());
+        assert!("latest".parse::<ObjectVersionIdentifier>().is_err());
     }
 }

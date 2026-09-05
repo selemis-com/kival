@@ -5,7 +5,7 @@ use eyre::Result;
 use kival_cli::runner::CliContext;
 use kival_sdk::{
     ArchiveStatus, KivalClient, ListResponse, ObjectResponse, ObjectRole, ObjectVersion,
-    ObjectVersionWikilinksResponse, UpdateObjectRequest,
+    ObjectVersionIdentifier, ObjectVersionWikilinksResponse, UpdateObjectRequest,
 };
 use serde::Serialize;
 use serde_json::json;
@@ -366,8 +366,8 @@ pub struct ObjectVersionsGetCommand {
     /// Object target.
     #[argx(flatten)]
     pub target: ObjectTargetArgs,
-    /// Version ID.
-    pub version_id: Uuid,
+    /// Version UUID or positive version number.
+    pub version_id: ObjectVersionIdentifier,
 }
 
 /// Arguments for `kival objects versions wikilinks`.
@@ -376,8 +376,8 @@ pub struct ObjectVersionsWikilinksCommand {
     /// Object target.
     #[argx(flatten)]
     pub target: ObjectTargetArgs,
-    /// Version ID.
-    pub version_id: Uuid,
+    /// Version UUID or positive version number.
+    pub version_id: ObjectVersionIdentifier,
 }
 
 #[argx(handler = run)]
