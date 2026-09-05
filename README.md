@@ -148,15 +148,15 @@ Agents can use the same CLI and access model to inspect existing knowledge, foll
 
 **Trace a decision and its supporting context**
 
-> Use the kival binary to explore the ACME workspace. Find an important decision, explain what was decided and why, trace the supporting knowledge that led to it, and include links to the relevant Kival objects.
+> Use the Kival CLI to explore the ACME workspace. Find an important decision, explain what was decided and why, trace the supporting knowledge that led to it, and include links to the relevant Kival objects.
 
 **Synthesize project state into new knowledge**
 
-> Use the kival binary to inspect Project Relay and RFC 024. Create a new object titled "Project Relay rollout review" summarizing the current rollout state, remaining risks, and next decision point, then link it to the relevant existing Kival objects. Show me what you created and include links to the objects you used.
+> Use the Kival CLI to inspect Project Relay and RFC 024. Create a new object titled "Project Relay rollout review" summarizing the current rollout state, remaining risks, and next decision point, then link it to the relevant existing Kival objects. Show me what you created and include links to the objects you used.
 
 **Turn operational history into follow-up knowledge**
 
-> Use the kival binary to find a recent ACME incident and its related runbook. Create a short follow-up object with the key operational lesson and recommended next action, link it to both the incident and runbook, and include links to the resulting Kival objects.
+> Use the Kival CLI to find a recent ACME incident and its related runbook. Create a short follow-up object with the key operational lesson and recommended next action, link it to both the incident and runbook, and include links to the resulting Kival objects.
 
 ## Resources
 
