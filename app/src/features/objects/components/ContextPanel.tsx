@@ -53,6 +53,7 @@ export function ContextPanel({
   const incoming = context.backlinks.incoming_edges;
   const outgoing = context.edges.items.filter((edge) => edge.source_object_id === objectId);
   const objectsById = new Map(objects.map((object) => [object.id, object]));
+  const graphNodesById = new Map(context.graph.nodes.map((node) => [node.id, node]));
   const availableTargets = objects.filter((object) => object.id !== objectId);
   const normalizedTargetQuery = targetQuery.trim().toLowerCase();
   const filteredTargets = availableTargets
@@ -236,7 +237,8 @@ export function ContextPanel({
 
           <div style={styles.connectionList}>
             {outgoing.map((edge) => {
-              const target = objectsById.get(edge.target_object_id);
+              const target =
+                graphNodesById.get(edge.target_object_id) ?? objectsById.get(edge.target_object_id);
 
               return (
                 <div key={edge.id} style={styles.connectionRow}>
