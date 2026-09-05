@@ -290,8 +290,6 @@ preflight_dependencies() {
     if ! check_cmd sha256sum && ! check_cmd shasum; then
         error "sha256sum or shasum not found. Please install one of them."
     fi
-
-    configure_attestation_verification
 }
 
 detect_target() {
@@ -517,6 +515,8 @@ install_kival() {
         fi
         return 0
     fi
+
+    configure_attestation_verification
 
     local base="kival-${tag}-${target}"
     local archive_name="${base}.tar.gz"
