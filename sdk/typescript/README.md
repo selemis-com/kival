@@ -1,6 +1,6 @@
 # Kival SDK
 
-`kival-sdk` is the public TypeScript SDK for Kival. It provides Kival’s serializable wire types and a typed HTTP client built on the standard [Fetch API](https://developer.mozilla.org/en-US/docs/Web/API/Fetch_API).
+`kival-sdk` is the official TypeScript SDK for Kival, a self-hosted collaborative knowledge system for organizations. It provides typed API access for applications, integrations, automation, and agents through Kival’s serializable wire types and a typed HTTP client built on the standard [Fetch API](https://developer.mozilla.org/en-US/docs/Web/API/Fetch_API).
 
 The client classifies API, response-decoding, and transport failures before actions return.
 Applications can therefore handle status codes, stable Kival error codes, malformed responses, and
