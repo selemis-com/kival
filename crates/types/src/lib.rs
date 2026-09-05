@@ -563,11 +563,39 @@ impl EventOrder {
     }
 }
 
+impl std::str::FromStr for EventOrder {
+    type Err = &'static str;
+
+    fn from_str(value: &str) -> Result<Self, Self::Err> {
+        match value {
+            "asc" => Ok(Self::Asc),
+            "desc" => Ok(Self::Desc),
+            _ => Err("expected `asc` or `desc`"),
+        }
+    }
+}
+
+impl std::fmt::Display for EventOrder {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        formatter.write_str(self.as_str())
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::{
-        ApiKeyScope, ArchiveStatus, MembershipRole, ObjectRole, SearchMatchKind, UserStatus,
+        ApiKeyScope, ArchiveStatus, EventOrder, MembershipRole, ObjectRole, SearchMatchKind,
+        UserStatus,
     };
+
+    #[test]
+    fn event_order_names_round_trip() {
+        for (value, order) in [("asc", EventOrder::Asc), ("desc", EventOrder::Desc)] {
+            assert_eq!(value.parse(), Ok(order));
+            assert_eq!(order.to_string(), value);
+        }
+        assert!("newest".parse::<EventOrder>().is_err());
+    }
 
     #[test]
     fn api_key_scope_names_round_trip() {

@@ -251,10 +251,10 @@ pub enum ObjectsSubcommand {
     Attachments(ObjectAttachmentsCommand),
     /// Manage object grants.
     Grants(ObjectGrantsCommand),
-    /// List events for an object in ascending global sequence order.
+    /// List events for an object.
     ///
-    /// `--after-sequence` is exclusive. When multiple filters are supplied, every filter must
-    /// match.
+    /// Sequence bounds are exclusive. Events are returned in ascending order by default. When
+    /// multiple filters are supplied, every filter must match.
     #[argx(
         metadata({
             "readOnly": true,

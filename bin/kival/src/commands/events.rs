@@ -3,11 +3,11 @@
 use argx::{Args, Subcommand, argx};
 use eyre::Result;
 use kival_cli::runner::CliContext;
-use kival_sdk::{Event, ListResponse};
+use kival_sdk::{Event, EventListParams, EventOrder, ListResponse};
 use uuid::Uuid;
 
 use crate::utils::{
-    args::{DEFAULT_LIST_LIMIT, event_params},
+    args::DEFAULT_LIST_LIMIT,
     credentials::authenticated_client,
     error::{CommandError, command_error_codes, erase_command_error},
     output::{
@@ -49,7 +49,7 @@ pub struct EventsCommand {
 pub enum EventsSubcommand {
     /// List events visible to the current user.
     ///
-    /// Events are returned in ascending global sequence order. `--after-sequence` is exclusive.
+    /// Sequence bounds are exclusive. Events are returned in ascending order by default.
     /// When multiple filters are supplied, every filter must match.
     #[argx(
         metadata({
@@ -72,6 +72,14 @@ pub struct EventsListCommand {
     /// Return events with a global sequence number strictly greater than SEQUENCE.
     #[argx(long)]
     pub after_sequence: Option<i64>,
+
+    /// Return events with a global sequence number strictly less than SEQUENCE.
+    #[argx(long)]
+    pub before_sequence: Option<i64>,
+
+    /// Event sequence ordering.
+    #[argx(long, default = EventOrder::Asc)]
+    pub order: EventOrder,
 
     /// Filter by event kind.
     #[argx(long)]
@@ -122,16 +130,17 @@ impl EventsListCommand {
         ctx: CliContext,
         output: OutputMode,
     ) -> std::result::Result<ListResponse<Event>, EventsListError> {
-        let after_sequence = Some(self.after_sequence.unwrap_or(0));
-        let params = event_params(
-            self.limit,
-            after_sequence,
-            self.event_kind,
-            self.actor_user_id,
-            self.target_user_id,
-            self.object_id,
-            self.group_id,
-        );
+        let params = EventListParams {
+            limit: self.limit,
+            after_sequence: self.after_sequence,
+            before_sequence: self.before_sequence,
+            order: self.order,
+            event_kind: self.event_kind,
+            actor_user_id: self.actor_user_id,
+            target_user_id: self.target_user_id,
+            object_id: self.object_id,
+            group_id: self.group_id,
+        };
         let client = authenticated_client(&ctx)?;
         let response = client.list_events(&params).await?;
 
