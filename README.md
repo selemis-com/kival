@@ -125,12 +125,6 @@ Then configure the local CLI:
 export KIVAL_API_KEY=<API_KEY>
 ```
 
-For a remote Kival instance, also set its URL:
-
-```sh
-export KIVAL_URL=https://kival.example
-```
-
 Verify the CLI is authenticated and can access the workspace:
 
 ```sh
