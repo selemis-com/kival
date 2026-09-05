@@ -110,6 +110,9 @@ Create a workspace from the web application, or explore Kival using the built-in
 kivald admin workspaces create --name "ACME" --demo acme
 ```
 
+> [!IMPORTANT]
+> The ACME workspace is intended for exploration and evaluation only. Do not use it as the basis for a production workspace or build real organizational knowledge on top of it.
+
 The demo includes connected documents, discussions, access boundaries, history, and shared agent skills for exploring Kival before adding your own knowledge.
 
 ### Configure CLI access
