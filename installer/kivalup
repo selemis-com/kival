@@ -510,7 +510,11 @@ install_kival() {
     fi
 
     if release_is_installed "$tag"; then
-        info "Kival $tag is already installed."
+        if [[ "$refresh_kivalup" -eq 1 ]]; then
+            info "Kival $tag is already up to date."
+        else
+            info "Kival $tag is already installed."
+        fi
         return 0
     fi
 
