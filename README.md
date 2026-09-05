@@ -112,6 +112,9 @@ kivald admin workspaces create --name "ACME" --demo acme
 
 The demo includes connected documents, discussions, access boundaries, history, and shared agent skills for exploring Kival before adding your own knowledge.
 
+> [!IMPORTANT]
+> The ACME workspace is intended for exploration and evaluation only. Do not use it as the basis for a production workspace or build real organizational knowledge on top of it.
+
 ### Configure CLI access
 
 From the web application, [create an API key](http://localhost:3000/settings/api-keys) for the administrator and allow it access to the workspace.
@@ -120,12 +123,6 @@ Then configure the local CLI:
 
 ```sh
 export KIVAL_API_KEY=<API_KEY>
-```
-
-For a remote Kival instance, also set its URL:
-
-```sh
-export KIVAL_URL=https://kival.example
 ```
 
 Verify the CLI is authenticated and can access the workspace:
