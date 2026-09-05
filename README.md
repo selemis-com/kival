@@ -75,34 +75,37 @@ kivalup --update
 
 ### Quick start
 
-Start a temporary PostgreSQL instance:
+Start PostgreSQL in the background with persistent local storage:
 
 ```sh
-docker run --rm \
+docker run -d \
   --name kival-postgres \
   -e POSTGRES_USER=kival \
   -e POSTGRES_PASSWORD=kival \
   -e POSTGRES_DB=kival \
   -p 5432:5432 \
+  -v kival-postgres-data:/var/lib/postgresql \
   postgres:18
 ```
 
-In another terminal, point Kival at the database and start the server:
+Point Kival at the database and start the server:
 
 ```sh
 export DATABASE_URL=postgres://kival:kival@localhost:5432/kival
 kivald serve
 ```
 
-Bootstrap the first administrator:
+In another terminal, bootstrap the first global administrator:
 
 ```sh
+export DATABASE_URL=postgres://kival:kival@localhost:5432/kival
+
 kivald admin bootstrap \
   --username admin \
   --display-name "Admin"
 ```
 
-The command prints a one-time enrollment link. Open it in your browser to register a passkey and complete the initial setup.
+The command prints a one-time enrollment link. Open it in your browser to register a passkey and complete the initial administrator setup.
 
 Kival is now available at [`http://localhost:3000`](http://localhost:3000).
 
@@ -116,19 +119,62 @@ kivald admin workspaces create --name "ACME" --demo acme
 
 The demo includes connected documents, discussions, access boundaries, history, and shared agent skills for exploring Kival before adding your own knowledge.
 
-### Add users
+### Configure CLI access
 
-Create a user from the server:
+From the web application, [create an API key](http://localhost:3000/settings/api-keys) for the administrator and allow it access to the workspace.
+
+Then configure the local CLI:
 
 ```sh
-kivald admin users create --username new-user --display-name "New User"
+export KIVAL_API_KEY=<API_KEY>
+```
+
+For a remote Kival instance, also set its URL:
+
+```sh
+export KIVAL_URL=https://kival.example
+```
+
+Verify the CLI is authenticated and can access the workspace:
+
+```sh
+kival whoami
+kival workspaces list
+```
+
+Give your agent a prompt like:
+
+> Use the kival binary to explore the ACME workspace. Find an important decision, explain what was decided and why, and trace the supporting knowledge that led to it.
+
+### Add users
+
+Once the initial administrator and workspace are configured, create additional users as needed:
+
+```sh
+kivald admin users create \
+  --username victor \
+  --display-name "Victor"
 ```
 
 The command prints a one-time enrollment link. Send it to the user so they can register a passkey and complete their account setup.
 
 Once enrolled, add the user to a workspace and manage their access from the web application.
 
-Finally, create an API key in the web application for CLI, SDK, integration, or agent access.
+### Managing the local database
+
+To stop the local PostgreSQL instance:
+
+```sh
+docker stop kival-postgres
+```
+
+To start it again later:
+
+```sh
+docker start kival-postgres
+```
+
+The database is stored in the `kival-postgres-data` Docker volume, so stopping or removing the container does not remove your Kival data.
 
 ## Development
 
