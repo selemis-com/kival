@@ -142,9 +142,15 @@ kival whoami
 kival workspaces list
 ```
 
+### Explore with an agent
+
 Give your agent a prompt like:
 
-> Use the kival binary to explore the ACME workspace. Find an important decision, explain what was decided and why, and trace the supporting knowledge that led to it.
+> Use the kival binary to explore the ACME workspace. Find an important decision, explain what was decided and why, trace the supporting knowledge that led to it, and include links to the relevant Kival objects.
+
+> Use the kival binary to inspect Project Relay and RFC 024. Create a new object titled "Project Relay rollout review" summarizing the current rollout state, remaining risks, and next decision point, then link it to the relevant existing Kival objects. Show me what you created and include links to the objects you used.
+
+> Use the kival binary to find a recent ACME incident and its related runbook. Create a short follow-up object with the key operational lesson and recommended next action, link it to both the incident and runbook, and include links to the resulting Kival objects.
 
 ### Add users
 

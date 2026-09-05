@@ -506,3 +506,15 @@ fn assert_query(requests: &Requests, expected: &[(&str, &str)]) {
 
 /// Compile-time assertion for the public transport trait.
 fn assert_transport<S: Transport>(_client: &KivalClient<S>) {}
+
+#[test]
+fn object_url_uses_client_server_root() {
+    let client = KivalClient::connect("https://kival.example").unwrap();
+    let workspace_id = Uuid::parse_str("01900000-0000-7000-8000-000000000001").unwrap();
+    let object_id = Uuid::parse_str("01900000-0000-7000-8000-000000000002").unwrap();
+
+    assert_eq!(
+        client.object_url(workspace_id, object_id).as_str(),
+        "https://kival.example/w/01900000-0000-7000-8000-000000000001/objects/01900000-0000-7000-8000-000000000002"
+    );
+}

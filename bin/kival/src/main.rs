@@ -30,7 +30,7 @@ pub mod utils;
 #[argx(prefix = "KIVAL")]
 pub struct ClientConfig {
     /// Kival server root URL.
-    #[argx(default = Url::parse("http://127.0.0.1:3000").expect("default client URL must be valid"))]
+    #[argx(default = Url::parse("http://localhost:3000").expect("default client URL must be valid"))]
     pub url: Url,
 
     /// Default API key used when no explicit credential is supplied.

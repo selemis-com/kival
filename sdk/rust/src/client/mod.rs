@@ -227,7 +227,7 @@ impl<L> ClientBuilder<L> {
 /// Kival HTTP client for API-key-authenticated operations and public status endpoints.
 #[derive(Debug, Clone)]
 pub struct KivalClient<S = DefaultTransport> {
-    /// Server root URL, for example `http://127.0.0.1:3000`.
+    /// Server root URL, for example `http://localhost:3000`.
     base_url: Url,
 
     /// Shared Reqwest client used to construct HTTP requests.
@@ -243,7 +243,7 @@ pub struct KivalClient<S = DefaultTransport> {
 impl KivalClient {
     /// Creates a new unauthenticated Kival client.
     ///
-    /// `base_url` must be an HTTP or HTTPS origin root, for example `http://127.0.0.1:3000`.
+    /// `base_url` must be an HTTP or HTTPS origin root, for example `http://localhost:3000`.
     ///
     /// # Errors
     ///
@@ -286,6 +286,17 @@ impl<S> KivalClient<S> {
     #[must_use]
     pub const fn base_url(&self) -> &Url {
         &self.base_url
+    }
+
+    /// Returns the canonical browser URL for an object.
+    ///
+    /// The URL is derived from the server root configured for this client, so links point at the
+    /// same Kival instance as API requests.
+    #[must_use]
+    pub fn object_url(&self, workspace_id: uuid::Uuid, object_id: uuid::Uuid) -> Url {
+        let mut url = self.base_url.clone();
+        url.set_path(&format!("/w/{workspace_id}/objects/{object_id}"));
+        url
     }
 
     /// Returns the client's transport stack.
