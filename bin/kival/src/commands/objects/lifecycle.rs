@@ -10,7 +10,7 @@ use kival_sdk::{
     ObjectResponse, ObjectRole, ObjectVersion, UpdateObjectRequest,
 };
 use serde::{Deserialize, Serialize};
-use serde_json::{Map, Value, json};
+use serde_json::{Map, Value};
 use uuid::Uuid;
 
 use super::{
@@ -27,10 +27,10 @@ use crate::utils::{
     },
     credentials::authenticated_client,
     editor::edit_document,
-    error::FailureCode,
+    error::{ErrorDetails, FailureCode, RecoveryPathErrorDetails, VersionConflictErrorDetails},
     input::{
-        StructuredInputArgs, deserialize_optional_non_null, read_json_input,
-        reject_conflicting_input,
+        StructuredInputArgs, at_least_one_input_field, deserialize_optional_non_null,
+        read_json_input, reject_conflicting_input,
     },
     output::{OutputMode, print_empty_list, print_output, quote_human_string},
 };
@@ -696,8 +696,8 @@ fn local_edit_error(message: &str, path: &Path) -> ObjectError {
     ObjectError::common(
         FailureCode::InvalidArgument,
         format!("{message} Edited object remains at `{}`.", path.display()),
-        Some(json!({
-            "recovery_path": path.display().to_string(),
+        Some(ErrorDetails::RecoveryPath(RecoveryPathErrorDetails {
+            recovery_path: path.display().to_string(),
         })),
     )
 }
@@ -707,8 +707,8 @@ fn edit_recovery_error(body: &ObjectError, path: &Path) -> ObjectError {
     ObjectError {
         code: body.code,
         message: format!("{} Edited object remains at `{}`.", body.message, path.display()),
-        details: Some(json!({
-            "recovery_path": path.display().to_string(),
+        details: Some(ErrorDetails::RecoveryPath(RecoveryPathErrorDetails {
+            recovery_path: path.display().to_string(),
         })),
     }
 }
@@ -849,9 +849,9 @@ impl ObjectsUpdateCommand {
                 return Err(ObjectError::common(
                     FailureCode::VersionConflict,
                     "Object changed since the expected version.",
-                    Some(json!({
-                        "expected_current_version_id": input.expected_current_version_id,
-                        "actual_current_version_id": version.id,
+                    Some(ErrorDetails::VersionConflict(VersionConflictErrorDetails {
+                        expected_current_version_id: input.expected_current_version_id,
+                        actual_current_version_id: version.id,
                     })),
                 )
                 .into());
@@ -905,9 +905,9 @@ impl ObjectsUpdateCommand {
                 validate_flat_metadata(metadata)?;
             }
             if input.title.is_none() && input.body.is_none() && input.metadata.is_none() {
-                return Err(ObjectError::input_invalid_value(
-                    "at least one input field must be provided".into(),
-                )
+                return Err(ObjectError::input_invalid_value(at_least_one_input_field(&[
+                    "title", "body", "metadata",
+                ]))
                 .into());
             }
             return Ok(input);
@@ -1025,6 +1025,7 @@ mod tests {
 
     use chrono::{DateTime, Utc};
     use kival_sdk::ObjectResource;
+    use serde_json::json;
 
     use super::*;
 
@@ -1259,7 +1260,9 @@ mod tests {
         assert!(error.message.contains("/tmp/kival-recovery.md"));
         assert_eq!(
             error.details,
-            Some(serde_json::json!({ "recovery_path": "/tmp/kival-recovery.md" }))
+            Some(ErrorDetails::RecoveryPath(RecoveryPathErrorDetails {
+                recovery_path: "/tmp/kival-recovery.md".to_owned(),
+            }))
         );
     }
 

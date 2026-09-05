@@ -3,7 +3,7 @@
 use std::collections::BTreeMap;
 
 use eyre::Result;
-use serde_json::{Map, Value, json};
+use serde_json::{Map, Value};
 
 use crate::utils::error::CliFailure;
 
@@ -216,14 +216,9 @@ fn unknown_field_error(schema: &Value, field: &str) -> eyre::Report {
     let available = schema
         .get("properties")
         .and_then(Value::as_object)
-        .map(|properties| properties.keys().cloned().map(Value::String).collect::<Vec<_>>());
+        .map(|properties| properties.keys().cloned().collect::<Vec<_>>());
 
-    let details = available.map_or_else(
-        || json!({ "field": field }),
-        |available| json!({ "field": field, "available": available }),
-    );
-
-    CliFailure::invalid_field(format!("Unknown output field `{field}`."), details).into()
+    CliFailure::invalid_field(format!("Unknown output field `{field}`."), field, available).into()
 }
 
 #[cfg(test)]
@@ -315,6 +310,14 @@ mod tests {
         .unwrap_err();
         let body = CliFailure::from_report(&error);
         assert_eq!(body.code, FailureCode::InvalidField);
-        assert_eq!(body.details.as_ref().unwrap()["field"], "items.nope");
+        assert_eq!(
+            body.details,
+            Some(crate::utils::error::ErrorDetails::Field(
+                crate::utils::error::FieldErrorDetails {
+                    field: "items.nope".to_owned(),
+                    available: Some(vec!["id".to_owned(), "title".to_owned()]),
+                },
+            )),
+        );
     }
 }

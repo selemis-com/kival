@@ -10,9 +10,11 @@ use std::{
 use argx::Args;
 use eyre::Result;
 use serde::{Deserialize, Deserializer, de::DeserializeOwned};
-use serde_json::{Map, Value, error::Category, json};
+use serde_json::error::Category;
 
-use crate::utils::error::CliFailure;
+use crate::utils::error::{
+    CliFailure, ErrorDetails, InputConstraint, InputConstraintErrorDetails, JsonErrorDetails,
+};
 
 /// File or standard-input source selected by a path-bearing CLI option.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -121,7 +123,7 @@ pub fn reject_conflicting_input(input: &Option<InputPath>, fields: &[(&str, bool
 
     let conflicts = fields
         .iter()
-        .filter_map(|(field, present)| present.then_some(Value::String((*field).to_owned())))
+        .filter_map(|(field, present)| present.then_some((*field).to_owned()))
         .collect::<Vec<_>>();
 
     if conflicts.is_empty() {
@@ -161,22 +163,13 @@ where
     T::deserialize(deserializer).map(Some)
 }
 
-/// Builds stable details for an invalid structured input value.
-#[must_use]
-pub fn invalid_value_details(details: impl IntoIterator<Item = (&'static str, Value)>) -> Value {
-    Value::Object(details.into_iter().map(|(key, value)| (key.to_owned(), value)).collect())
-}
-
 /// Builds stable details for an at-least-one input constraint.
 #[must_use]
-pub fn at_least_one_input_field(fields: &[&str]) -> Value {
-    invalid_value_details([
-        ("constraint", Value::String("at_least_one".to_owned())),
-        (
-            "fields",
-            Value::Array(fields.iter().map(|field| Value::String((*field).to_owned())).collect()),
-        ),
-    ])
+pub(crate) fn at_least_one_input_field(fields: &[&str]) -> ErrorDetails {
+    ErrorDetails::InputConstraint(InputConstraintErrorDetails {
+        constraint: InputConstraint::AtLeastOne,
+        fields: fields.iter().map(|field| (*field).to_owned()).collect(),
+    })
 }
 
 /// Decodes JSON and maps syntax/data/read failures to stable input error codes.
@@ -202,20 +195,16 @@ fn map_json_error(
     let details = error_details(error, field_path);
     match error.classify() {
         Category::Io => CliFailure::input_read_failed(path),
-        Category::Data => CliFailure::input_invalid_value(details),
+        Category::Data => CliFailure::input_invalid_value(ErrorDetails::Json(details)),
         Category::Syntax | Category::Eof => CliFailure::input_invalid_json(details),
     }
 }
 
 /// Builds stable JSON error details for a `serde_json` error and optional path.
-fn error_details(error: &serde_json::Error, field_path: String) -> Value {
-    let mut details = Map::new();
-    details.insert("line".to_owned(), json!(error.line()));
-    details.insert("column".to_owned(), json!(error.column()));
-    if error.classify() == Category::Data && !field_path.is_empty() && field_path != "." {
-        details.insert("path".to_owned(), Value::String(field_path));
-    }
-    Value::Object(details)
+fn error_details(error: &serde_json::Error, field_path: String) -> JsonErrorDetails {
+    let path = (error.classify() == Category::Data && !field_path.is_empty() && field_path != ".")
+        .then_some(field_path);
+    JsonErrorDetails { line: error.line(), column: error.column(), path }
 }
 
 #[cfg(test)]
@@ -225,7 +214,7 @@ mod tests {
     use serde::Deserialize;
 
     use super::*;
-    use crate::utils::error::FailureCode;
+    use crate::utils::error::{ConflictingFieldsErrorDetails, FailureCode};
 
     #[derive(Debug, Deserialize, PartialEq, Eq)]
     #[serde(deny_unknown_fields)]
@@ -404,7 +393,13 @@ mod tests {
             .unwrap();
 
         assert_eq!(error.code, FailureCode::InputInvalidValue);
-        assert_eq!(error.details.unwrap()["path"], "properties.status");
+        assert!(matches!(
+            error.details,
+            Some(ErrorDetails::Json(JsonErrorDetails {
+                path: Some(path),
+                ..
+            })) if path == "properties.status"
+        ));
         let _ = fs::remove_file(path);
     }
 
@@ -419,7 +414,13 @@ mod tests {
             .unwrap();
 
         assert_eq!(error.code, FailureCode::InputInvalidValue);
-        assert_eq!(error.details.unwrap()["path"], "properties.extra");
+        assert!(matches!(
+            error.details,
+            Some(ErrorDetails::Json(JsonErrorDetails {
+                path: Some(path),
+                ..
+            })) if path == "properties.extra"
+        ));
         let _ = fs::remove_file(path);
     }
 
@@ -437,8 +438,13 @@ mod tests {
     fn at_least_one_input_field_reports_constraint_details() {
         let details = at_least_one_input_field(&["name", "description"]);
 
-        assert_eq!(details["constraint"], "at_least_one");
-        assert_eq!(details["fields"], serde_json::json!(["name", "description"]));
+        assert_eq!(
+            details,
+            ErrorDetails::InputConstraint(InputConstraintErrorDetails {
+                constraint: InputConstraint::AtLeastOne,
+                fields: vec!["name".to_owned(), "description".to_owned()],
+            })
+        );
     }
 
     #[test]
@@ -452,7 +458,12 @@ mod tests {
         .unwrap();
 
         assert_eq!(error.code, FailureCode::InputConflictingSources);
-        assert_eq!(error.details.unwrap()["fields"], serde_json::json!(["title"]));
+        assert_eq!(
+            error.details,
+            Some(ErrorDetails::ConflictingFields(ConflictingFieldsErrorDetails {
+                fields: vec!["title".to_owned()],
+            }))
+        );
     }
 
     fn temp_input_path(name: &str) -> PathBuf {

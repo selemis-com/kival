@@ -1,12 +1,13 @@
 //! Stable machine-readable CLI error support.
 
-use std::path::Path;
+use std::{error::Error as StdError, path::Path};
 
 use argx::argx;
 use eyre::Report;
-use kival_sdk::{ApiErrorKind, ClientError};
+use kival_sdk::{ApiErrorKind, ClientError, TransportError, TransportErrorKind};
 use serde::Serialize;
 use serde_json::Value;
+use uuid::Uuid;
 
 use crate::utils::output::print_json;
 
@@ -20,7 +21,146 @@ pub(crate) struct CliFailure {
     pub(crate) message: String,
     /// Optional structured details.
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub(crate) details: Option<Value>,
+    pub(crate) details: Option<ErrorDetails>,
+}
+
+/// Structured machine-readable details attached to CLI failures.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[serde(untagged)]
+#[argx(schema)]
+pub(crate) enum ErrorDetails {
+    /// Transport diagnostics for a failed request.
+    Transport(TransportErrorDetails),
+    /// Output field-selection diagnostics.
+    Field(FieldErrorDetails),
+    /// A path associated with an input or recovery failure.
+    Path(PathErrorDetails),
+    /// Structured JSON decoding diagnostics.
+    Json(JsonErrorDetails),
+    /// Conflicting structured-input fields.
+    ConflictingFields(ConflictingFieldsErrorDetails),
+    /// Structured-input constraint diagnostics.
+    InputConstraint(InputConstraintErrorDetails),
+    /// Recovery path retained after a local edit failure.
+    RecoveryPath(RecoveryPathErrorDetails),
+    /// Optimistic-concurrency diagnostics.
+    VersionConflict(VersionConflictErrorDetails),
+    /// Relative-version selector diagnostics.
+    VersionSelector(VersionSelectorErrorDetails),
+}
+
+/// Transport diagnostics preserved from the SDK error chain.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[argx(schema)]
+pub(crate) struct TransportErrorDetails {
+    /// Stable transport failure category.
+    pub(crate) transport_kind: TransportKind,
+    /// Full retained transport cause chain.
+    pub(crate) cause: String,
+}
+
+/// Stable transport failure categories exposed in structured CLI output.
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Serialize)]
+#[argx(schema)]
+pub(crate) enum TransportKind {
+    /// Establishing the connection failed.
+    #[serde(rename = "connect")]
+    Connect,
+    /// The request exceeded its timeout.
+    #[serde(rename = "timeout")]
+    Timeout,
+    /// Another transport failure occurred.
+    #[serde(rename = "other")]
+    Other,
+}
+
+/// Details for field-selection and projection failures.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[argx(schema)]
+pub(crate) struct FieldErrorDetails {
+    /// Field that caused the failure.
+    pub(crate) field: String,
+    /// Available fields when known.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub(crate) available: Option<Vec<String>>,
+}
+
+/// Details carrying one relevant filesystem or field path.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[argx(schema)]
+pub(crate) struct PathErrorDetails {
+    /// Path associated with the failure.
+    pub(crate) path: String,
+}
+
+/// Details for structured JSON syntax or value failures.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[argx(schema)]
+pub(crate) struct JsonErrorDetails {
+    /// One-based source line.
+    pub(crate) line: usize,
+    /// One-based source column.
+    pub(crate) column: usize,
+    /// Structured field path when the error is associated with one.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub(crate) path: Option<String>,
+}
+
+/// Details for mutually exclusive input sources.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[argx(schema)]
+pub(crate) struct ConflictingFieldsErrorDetails {
+    /// Fields supplied alongside `--input`.
+    pub(crate) fields: Vec<String>,
+}
+
+/// Details for structured-input constraints.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[argx(schema)]
+pub(crate) struct InputConstraintErrorDetails {
+    /// Stable constraint name.
+    pub(crate) constraint: InputConstraint,
+    /// Fields participating in the constraint.
+    pub(crate) fields: Vec<String>,
+}
+
+/// Stable structured-input constraints exposed by the CLI.
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Serialize)]
+#[argx(schema)]
+pub(crate) enum InputConstraint {
+    /// At least one of the listed fields must be supplied.
+    #[serde(rename = "at_least_one")]
+    AtLeastOne,
+}
+
+/// Details retaining an edited document after a recoverable local failure.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[argx(schema)]
+pub(crate) struct RecoveryPathErrorDetails {
+    /// Path containing the recoverable edited document.
+    pub(crate) recovery_path: String,
+}
+
+/// Details for optimistic-concurrency failures.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[argx(schema)]
+pub(crate) struct VersionConflictErrorDetails {
+    /// Version expected by the caller.
+    pub(crate) expected_current_version_id: Uuid,
+    /// Version observed when the operation was validated.
+    pub(crate) actual_current_version_id: Uuid,
+}
+
+/// Details for out-of-range relative version selectors.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[argx(schema)]
+pub(crate) struct VersionSelectorErrorDetails {
+    /// Selector supplied by the caller.
+    pub(crate) selector: String,
+    /// Number of available object versions.
+    pub(crate) version_count: i64,
+    /// Oldest valid relative offset.
+    pub(crate) oldest_offset: i64,
 }
 
 impl CliFailure {
@@ -32,21 +172,34 @@ impl CliFailure {
 
     /// Builds an invalid output field error.
     #[must_use]
-    pub(crate) fn invalid_field(message: impl Into<String>, details: Value) -> Self {
-        Self { code: FailureCode::InvalidField, message: message.into(), details: Some(details) }
+    pub(crate) fn invalid_field(
+        message: impl Into<String>,
+        field: impl Into<String>,
+        available: Option<Vec<String>>,
+    ) -> Self {
+        Self {
+            code: FailureCode::InvalidField,
+            message: message.into(),
+            details: Some(ErrorDetails::Field(FieldErrorDetails {
+                field: field.into(),
+                available,
+            })),
+        }
     }
 
     /// Builds an invalid output projection error.
     #[must_use]
     pub(crate) fn invalid_projection(message: impl Into<String>, field: Option<String>) -> Self {
-        let details = field.map(|field| serde_json::json!({ "field": field }));
+        let details =
+            field.map(|field| ErrorDetails::Field(FieldErrorDetails { field, available: None }));
         Self { code: FailureCode::InvalidProjection, message: message.into(), details }
     }
 
     /// Builds an input read failure.
     #[must_use]
     pub(crate) fn input_read_failed(path: Option<&Path>) -> Self {
-        let details = path.map(|path| serde_json::json!({ "path": path.display().to_string() }));
+        let details = path
+            .map(|path| ErrorDetails::Path(PathErrorDetails { path: path.display().to_string() }));
         Self {
             code: FailureCode::InputReadFailed,
             message: "Could not read input.".to_owned(),
@@ -56,17 +209,17 @@ impl CliFailure {
 
     /// Builds an invalid structured JSON syntax error.
     #[must_use]
-    pub(crate) fn input_invalid_json(details: Value) -> Self {
+    pub(crate) fn input_invalid_json(details: JsonErrorDetails) -> Self {
         Self {
             code: FailureCode::InputInvalidJson,
             message: "The structured input is not valid JSON.".to_owned(),
-            details: Some(details),
+            details: Some(ErrorDetails::Json(details)),
         }
     }
 
     /// Builds an invalid structured input value error.
     #[must_use]
-    pub(crate) fn input_invalid_value(details: Value) -> Self {
+    pub(crate) fn input_invalid_value(details: ErrorDetails) -> Self {
         Self {
             code: FailureCode::InputInvalidValue,
             message: "The structured input does not match the command schema.".to_owned(),
@@ -76,8 +229,12 @@ impl CliFailure {
 
     /// Builds a conflicting input source error.
     #[must_use]
-    pub(crate) fn input_conflicting_sources(conflicts: &[Value]) -> Self {
-        let details = (!conflicts.is_empty()).then(|| serde_json::json!({ "fields": conflicts }));
+    pub(crate) fn input_conflicting_sources(conflicts: &[String]) -> Self {
+        let details = (!conflicts.is_empty()).then(|| {
+            ErrorDetails::ConflictingFields(ConflictingFieldsErrorDetails {
+                fields: conflicts.to_vec(),
+            })
+        });
         Self {
             code: FailureCode::InputConflictingSources,
             message: "`--input` cannot be combined with command payload options.".to_owned(),
@@ -110,15 +267,13 @@ impl CliFailure {
                 };
                 Self { code, message, details: None }
             }
-            ClientError::Transport(error) if error.is_connect() || error.is_timeout() => Self {
-                code: FailureCode::ServerUnavailable,
-                message: "Kival server is unavailable.".to_owned(),
-                details: None,
-            },
-            ClientError::Transport(_) => Self {
+            ClientError::Transport(error) if error.is_connect() || error.is_timeout() => {
+                transport_failure(error)
+            }
+            ClientError::Transport(error) => Self {
                 code: FailureCode::RequestFailed,
-                message: "Request failed.".to_owned(),
-                details: None,
+                message: transport_message("Request failed", error),
+                details: Some(ErrorDetails::Transport(transport_details(error))),
             },
             ClientError::Url(_) | ClientError::BaseUrl(_) => Self {
                 code: FailureCode::InvalidArgument,
@@ -145,6 +300,57 @@ impl CliFailure {
         }
         Self::internal()
     }
+}
+
+/// Builds a CLI failure that preserves the SDK transport error chain.
+fn transport_failure(error: &TransportError) -> CliFailure {
+    let prefix = if error.is_connect() {
+        "Could not connect to the Kival server"
+    } else {
+        "The request to the Kival server timed out"
+    };
+
+    CliFailure {
+        code: FailureCode::ServerUnavailable,
+        message: transport_message(prefix, error),
+        details: Some(ErrorDetails::Transport(transport_details(error))),
+    }
+}
+
+/// Formats a transport error without discarding its underlying cause chain.
+fn transport_message(prefix: &str, error: &TransportError) -> String {
+    let cause = error.source().map(error_chain_message).unwrap_or_else(|| error.to_string());
+    format!("{prefix}: {cause}")
+}
+
+/// Returns structured transport diagnostics for machine-readable output.
+fn transport_details(error: &TransportError) -> TransportErrorDetails {
+    let cause = error.source().map(error_chain_message).unwrap_or_else(|| error.to_string());
+    TransportErrorDetails { transport_kind: transport_kind(error.kind()), cause }
+}
+
+/// Returns a stable textual name for an SDK transport error category.
+const fn transport_kind(kind: TransportErrorKind) -> TransportKind {
+    match kind {
+        TransportErrorKind::Connect => TransportKind::Connect,
+        TransportErrorKind::Timeout => TransportKind::Timeout,
+        _ => TransportKind::Other,
+    }
+}
+
+/// Joins an error and all of its sources so terminal transport causes survive rendering.
+fn error_chain_message(error: &(dyn StdError + 'static)) -> String {
+    let mut message = error.to_string();
+    let mut source = error.source();
+    while let Some(error) = source {
+        let next = error.to_string();
+        if !message.ends_with(&next) {
+            message.push_str(": ");
+            message.push_str(&next);
+        }
+        source = error.source();
+    }
+    message
 }
 
 impl std::fmt::Display for CliFailure {
@@ -198,7 +404,8 @@ pub(crate) enum FailureCode {
     /// A pagination cursor is invalid.
     #[serde(rename = "invalid.cursor")]
     InvalidCursor,
-    /// The server is unavailable.
+    /// The client could not connect to or receive a timely response from the configured Kival
+    /// server. This does not establish that the server itself is unavailable.
     #[serde(rename = "server.unavailable")]
     ServerUnavailable,
     /// The server rate limit was exceeded.
@@ -252,7 +459,7 @@ pub(crate) struct CommandError<C> {
     pub(crate) message: String,
     /// Optional structured details.
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub(crate) details: Option<Value>,
+    pub(crate) details: Option<ErrorDetails>,
 }
 
 impl<C> CommandError<C>
@@ -277,7 +484,7 @@ where
 
     /// Builds an invalid structured input value failure when supported by this contract.
     #[must_use]
-    pub(crate) fn input_invalid_value(details: Value) -> Self {
+    pub(crate) fn input_invalid_value(details: ErrorDetails) -> Self {
         Self::from_failure(CliFailure::input_invalid_value(details))
     }
 
@@ -494,6 +701,52 @@ mod tests {
                 "code": "invalid.argument",
                 "message": "description must not be empty"
             })
+        );
+    }
+
+    #[test]
+    fn connect_failure_preserves_underlying_transport_cause() {
+        let error = ClientError::transport(
+            TransportErrorKind::Connect,
+            std::io::Error::other("network operation was not permitted"),
+        );
+
+        let failure = CliFailure::from_client_error(&error);
+
+        assert_eq!(failure.code, FailureCode::ServerUnavailable);
+        assert_eq!(
+            failure.message,
+            "Could not connect to the Kival server: network operation was not permitted"
+        );
+        assert_eq!(
+            failure.details,
+            Some(ErrorDetails::Transport(TransportErrorDetails {
+                transport_kind: TransportKind::Connect,
+                cause: "network operation was not permitted".to_owned(),
+            }))
+        );
+    }
+
+    #[test]
+    fn timeout_failure_preserves_underlying_transport_cause() {
+        let error = ClientError::transport(
+            TransportErrorKind::Timeout,
+            std::io::Error::new(std::io::ErrorKind::TimedOut, "request deadline elapsed"),
+        );
+
+        let failure = CliFailure::from_client_error(&error);
+
+        assert_eq!(failure.code, FailureCode::ServerUnavailable);
+        assert_eq!(
+            failure.message,
+            "The request to the Kival server timed out: request deadline elapsed"
+        );
+        assert_eq!(
+            failure.details,
+            Some(ErrorDetails::Transport(TransportErrorDetails {
+                transport_kind: TransportKind::Timeout,
+                cause: "request deadline elapsed".to_owned(),
+            }))
         );
     }
 }
