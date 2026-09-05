@@ -113,13 +113,7 @@ pub(super) async fn issue_operator_enrollment_code(
 
     let url = format!("{origin}/auth/enroll#code={raw_code}&username={username}");
 
-    Ok(IssuedEnrollmentCode {
-        id: code_id,
-        user_id,
-        username,
-        url,
-        superseded_code_count,
-    })
+    Ok(IssuedEnrollmentCode { id: code_id, user_id, username, url, superseded_code_count })
 }
 
 /// Prints the raw one-time link only to the invoking operator's stdout.
