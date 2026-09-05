@@ -240,7 +240,7 @@ verify_attestation() {
         error "kivalup attestation pointer contains an invalid ID"
 
     local bundle_path="$TMP_DIR/kivalup.attestation.jsonl"
-    info "Downloading kivalup attestation bundle..."
+    info "Downloading kivalup.attestation.jsonl..."
     download "${attestation_url}/download" "$bundle_path"
 
     gh attestation verify "$script_path" \
@@ -253,7 +253,7 @@ verify_attestation() {
         --deny-self-hosted-runners >/dev/null ||
         error "kivalup GitHub attestation verification failed"
 
-    info "Kivalup GitHub attestation verified"
+    info "GitHub attestation verified ✓"
 }
 
 install_kivalup() {
