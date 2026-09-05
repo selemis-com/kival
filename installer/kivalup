@@ -290,8 +290,6 @@ preflight_dependencies() {
     if ! check_cmd sha256sum && ! check_cmd shasum; then
         error "sha256sum or shasum not found. Please install one of them."
     fi
-
-    configure_attestation_verification
 }
 
 detect_target() {
@@ -433,18 +431,34 @@ install_release() {
     INSTALL_FILES=()
 }
 
-current_kival_version() {
-    local binary="$BIN_DIR/kival"
+installed_binary_version() {
+    local name="$1"
+    local binary="$BIN_DIR/$name"
     [[ -x "$binary" && ! -L "$binary" ]] || return 0
 
     local output
     output="$("$binary" -V 2>/dev/null)" || return 0
     output="${output%%$'\n'*}"
-    output="${output#kival }"
+    output="${output#"$name "}"
     output="${output%%[[:space:]]*}"
 
     [[ "$output" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || return 0
     printf 'v%s\n' "$output"
+}
+
+current_kival_version() {
+    installed_binary_version kival
+}
+
+release_is_installed() {
+    local expected="$1"
+    local kival_version
+    local kivald_version
+
+    kival_version="$(installed_binary_version kival)"
+    kivald_version="$(installed_binary_version kivald)"
+
+    [[ "$kival_version" == "$expected" && "$kivald_version" == "$expected" ]]
 }
 
 latest_is_newer() {
@@ -492,6 +506,17 @@ install_kival() {
         warn_if_new_release_available "$tag"
         refresh_kivalup=1
     fi
+
+    if release_is_installed "$tag"; then
+        if [[ "$refresh_kivalup" -eq 1 ]]; then
+            info "Kival $tag is already up to date."
+        else
+            info "Kival $tag is already installed."
+        fi
+        return 0
+    fi
+
+    configure_attestation_verification
 
     local base="kival-${tag}-${target}"
     local archive_name="${base}.tar.gz"
