@@ -2,7 +2,8 @@
 
 use argx::{Args, ValueEnum, argx};
 use kival_cli::runner::CliContext;
-use kival_sdk::{SearchCategory, SearchHit, SearchMode, SearchParams, SearchResponse};
+use kival_sdk::{SearchCategory, SearchHit, SearchMode, SearchParams};
+use serde::Serialize;
 use uuid::Uuid;
 
 use crate::utils::{
@@ -30,6 +31,28 @@ command_error_codes! {
 
 /// Error returned by the corresponding command handler.
 type SearchError = CommandError<SearchErrorCode>;
+
+/// Search response enriched with browser links for each matched object.
+#[derive(Debug, Serialize)]
+#[argx(schema)]
+pub struct SearchOutput {
+    /// Search hits.
+    pub items: Vec<SearchOutputHit>,
+    /// Opaque cursor for the next page.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub next_cursor: Option<String>,
+}
+
+/// Search hit enriched with a canonical browser URL.
+#[derive(Debug, Serialize)]
+#[argx(schema)]
+pub struct SearchOutputHit {
+    /// Search hit returned by Kival.
+    #[serde(flatten)]
+    pub hit: SearchHit,
+    /// Browser URL for the matched object.
+    pub url: String,
+}
 
 /// Arguments for `kival search`.
 ///
@@ -183,7 +206,7 @@ impl SearchCommand {
         self,
         ctx: CliContext,
         output: OutputMode,
-    ) -> Result<SearchResponse, SearchError> {
+    ) -> Result<SearchOutput, SearchError> {
         let query = self.query.trim();
         if query.is_empty() {
             return Err(SearchError::invalid_argument("search query must not be empty"));
@@ -216,6 +239,17 @@ impl SearchCommand {
 
         let client = authenticated_client(&ctx)?;
         let response = client.search_workspace(self.workspace_id, &params).await?;
+        let response = SearchOutput {
+            items: response
+                .items
+                .into_iter()
+                .map(|hit| SearchOutputHit {
+                    url: client.object_url(hit.workspace_id, hit.object_id).to_string(),
+                    hit,
+                })
+                .collect(),
+            next_cursor: response.next_cursor,
+        };
 
         print_output(&output, &response, || {
             if response.items.is_empty() {
@@ -234,7 +268,8 @@ impl SearchCommand {
 }
 
 /// Prints a compact search hit.
-fn print_search_hit(hit: &SearchHit) {
+fn print_search_hit(output: &SearchOutputHit) {
+    let hit = &output.hit;
     let mut parts = Vec::new();
 
     parts.push(format!("object={}", hit.object_id));
@@ -253,4 +288,5 @@ fn print_search_hit(hit: &SearchHit) {
     println!("{}", parts.join(" "));
     println!("  {}", hit.snippet);
     println!("  metadata={}", hit.metadata);
+    println!("  url={}", output.url);
 }

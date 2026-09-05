@@ -288,6 +288,17 @@ impl<S> KivalClient<S> {
         &self.base_url
     }
 
+    /// Returns the canonical browser URL for an object.
+    ///
+    /// The URL is derived from the server root configured for this client, so links point at the
+    /// same Kival instance as API requests.
+    #[must_use]
+    pub fn object_url(&self, workspace_id: uuid::Uuid, object_id: uuid::Uuid) -> Url {
+        let mut url = self.base_url.clone();
+        url.set_path(&format!("/w/{workspace_id}/objects/{object_id}"));
+        url
+    }
+
     /// Returns the client's transport stack.
     #[must_use]
     pub const fn transport(&self) -> &S {

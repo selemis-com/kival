@@ -37,6 +37,14 @@ const workspaces = await client.listWorkspaces();
 console.log(`Found ${workspaces.items.length} workspaces`);
 ```
 
+The client can also construct canonical browser links for resources on the same Kival instance:
+
+```typescript
+const url = client.objectUrl(workspaceId, objectId);
+console.log(url);
+// https://kival.example/w/<workspace-id>/objects/<object-id>
+```
+
 The server URL must be an HTTP or HTTPS origin root:
 
 ```text
