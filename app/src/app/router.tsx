@@ -4,16 +4,19 @@ import { usePageTitle } from "./documentTitle";
 import { KivalApp } from "./KivalApp";
 import { RouteErrorPage } from "./RouteErrorPage";
 
-function EnrollmentRoute({ code }: { code: string | null }) {
+function EnrollmentRoute({ code, username }: { code: string | null; username: string | null }) {
   usePageTitle("Create a passkey");
-  return <PasskeyEnrollmentPage code={code} />;
+  return <PasskeyEnrollmentPage code={code} initialUsername={username} />;
 }
 
-export function createKivalRouter(enrollmentCode: string | null) {
+export function createKivalRouter(
+  enrollmentCode: string | null,
+  enrollmentUsername: string | null,
+) {
   return createBrowserRouter([
     {
       path: "/auth/enroll",
-      element: <EnrollmentRoute code={enrollmentCode} />,
+      element: <EnrollmentRoute code={enrollmentCode} username={enrollmentUsername} />,
       errorElement: <RouteErrorPage />,
     },
     {
