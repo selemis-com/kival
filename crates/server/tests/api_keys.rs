@@ -11,10 +11,10 @@ mod tests {
         ApiKey, ApiKeyResponse, ApiKeyScope, CreateApiKeyRequest, CreateApiKeyResponse, Event,
         ListResponse, MembershipRole, UpdateApiKeyRequest, WhoamiResponse, Workspace,
     };
-    use kival_tests::{TestFixtureExt, TestKival, TestResponseExt};
+    use kival_tests::{TestActor, TestFixtureExt, TestKival, TestResponseExt};
     use serde_json::json;
 
-    async fn mark_actor_fresh(r: &TestKival, actor: &kival_tests::TestActor) -> Result<()> {
+    async fn mark_actor_fresh(r: &TestKival, actor: &TestActor) -> Result<()> {
         sqlx::query(
             "UPDATE kival.sessions SET fresh_authenticated_at = now() WHERE user_id = $1 AND revoked_at IS NULL",
         )
@@ -26,7 +26,7 @@ mod tests {
 
     async fn create_api_key(
         r: &TestKival,
-        actor: &kival_tests::TestActor,
+        actor: &TestActor,
         scopes: Vec<ApiKeyScope>,
         workspace_ids: Vec<uuid::Uuid>,
     ) -> Result<CreateApiKeyResponse> {

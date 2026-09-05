@@ -4,7 +4,11 @@ use chrono::{DateTime, Utc};
 use sqlx::{Acquire, PgPool, Postgres, Transaction};
 use uuid::Uuid;
 
-use crate::{KernelError, MembershipRole, Result, parse_stored, users::ActiveUserIdentity};
+use crate::{
+    KernelError, MembershipRole, Result, parse_stored,
+    users::{ActiveUserIdentity, lock_active_user_for_reference},
+    workspaces::lock_active_workspace_for_child,
+};
 
 /// Workspace membership projection including user identity.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -169,10 +173,10 @@ pub async fn create_workspace_membership(
     workspace_role: MembershipRole,
     actor_id: Uuid,
 ) -> Result<WorkspaceMembershipRow> {
-    if !crate::workspaces::lock_active_workspace_for_child(tx, workspace_id).await? {
+    if !lock_active_workspace_for_child(tx, workspace_id).await? {
         return Err(KernelError::ResourceNotFound);
     }
-    let user = crate::users::lock_active_user_for_reference(tx, user_id, username).await?;
+    let user = lock_active_user_for_reference(tx, user_id, username).await?;
     create_workspace_membership_unchecked(tx, workspace_id, &user, workspace_role, actor_id).await
 }
 
@@ -298,7 +302,7 @@ async fn replace_workspace_membership_in_savepoint(
         username: previous.user_username.clone(),
         display_name: previous.user_display_name.clone(),
     };
-    let _user_lock = crate::users::lock_active_user_for_reference(tx, Some(user.id), None).await?;
+    let _user_lock = lock_active_user_for_reference(tx, Some(user.id), None).await?;
     let current =
         create_workspace_membership_unchecked(tx, workspace_id, &user, workspace_role, actor_id)
             .await?;

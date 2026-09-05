@@ -9,14 +9,15 @@ mod tests {
     };
 
     use kival_sdk::{
-        ApiKeyResponse, ApiKeyScope, ArchiveStatus, CommentMentionCandidate, CommentResponse,
-        CommentStatus, CommentThreadListResponse, CommentThreadResponse, CreateApiKeyRequest,
-        CreateApiKeyResponse, CreateCommentRequest, CreateGroupMembershipRequest,
-        CreateGroupRequest, CreateObjectEdgeRequest, CreateObjectGrantRequest, CreateObjectRequest,
-        CreateWorkspaceGroupRequest, CreateWorkspaceMembershipRequest, CreateWorkspaceRequest,
-        Event, FavoriteState, GrantPrincipal, Group, GroupMembership, GroupMembershipResponse,
-        GroupResponse, InboxEntry, InboxUnreadCountResponse, InboxUpdatedResponse, ListResponse,
-        MarkInboxReadRequest, ObjectAttachment, ObjectAttachmentResponse, ObjectBacklinksResponse,
+        ApiKeyResponse, ApiKeyScope, ArchiveStatus, Comment, CommentMentionCandidate,
+        CommentResponse, CommentStatus, CommentThreadListResponse, CommentThreadResponse,
+        CreateApiKeyRequest, CreateApiKeyResponse, CreateCommentRequest,
+        CreateGroupMembershipRequest, CreateGroupRequest, CreateObjectEdgeRequest,
+        CreateObjectGrantRequest, CreateObjectRequest, CreateWorkspaceGroupRequest,
+        CreateWorkspaceMembershipRequest, CreateWorkspaceRequest, Event, FavoriteState,
+        GrantPrincipal, Group, GroupMembership, GroupMembershipResponse, GroupResponse, InboxEntry,
+        InboxUnreadCountResponse, InboxUpdatedResponse, ListResponse, MarkInboxReadRequest,
+        MembershipRole, ObjectAttachment, ObjectAttachmentResponse, ObjectBacklinksResponse,
         ObjectEdge, ObjectEdgeResponse, ObjectGrant, ObjectGrantResponse, ObjectGraphResponse,
         ObjectNotificationPreference, ObjectResource, ObjectResponse, ObjectRole, ObjectVersion,
         ObjectVersionResponse, PinState, ReuseObjectAttachmentRequest, SearchResponse,
@@ -426,11 +427,7 @@ mod tests {
     }
 
     /// Verifies hydrated mention identities match the persisted fixture users.
-    fn assert_comment_mentions(
-        fixture: &Fixture,
-        comment: &kival_sdk::Comment,
-        expected: &[Actor],
-    ) {
+    fn assert_comment_mentions(fixture: &Fixture, comment: &Comment, expected: &[Actor]) {
         assert_eq!(comment.mentions.len(), expected.len());
         for (mention, expected_actor) in comment.mentions.iter().zip(expected) {
             let actor = fixture.actors.get(*expected_actor);
@@ -582,7 +579,7 @@ mod tests {
                     .iter()
                     .find(|membership| membership.user_id == creator_id)
                     .expect("workspace creator has initial administrator membership");
-                assert_eq!(creator_membership.workspace_role, kival_sdk::MembershipRole::Admin);
+                assert_eq!(creator_membership.workspace_role, MembershipRole::Admin);
                 resources
                     .bind(*membership_output, creator_membership.id)
                     .expect("bind initial workspace membership handle");
@@ -885,7 +882,7 @@ mod tests {
                     .json(&CreateGroupMembershipRequest {
                         user_id: Some(member.user_id),
                         username: None,
-                        group_role: kival_sdk::MembershipRole::Member,
+                        group_role: MembershipRole::Member,
                     })
                     .send()
                     .await
@@ -903,9 +900,7 @@ mod tests {
                 let update = actor
                     .browser
                     .patch(format!("{api}/groups/{group_id}/memberships/{membership_id}"))
-                    .json(&UpdateGroupMembershipRequest {
-                        group_role: kival_sdk::MembershipRole::Admin,
-                    })
+                    .json(&UpdateGroupMembershipRequest { group_role: MembershipRole::Admin })
                     .send()
                     .await
                     .expect("send archived-group membership replacement");
@@ -2392,7 +2387,7 @@ mod tests {
                 let expected = readable_object_outcome(reference, *object, operation.actor());
                 let context =
                     serde_json::to_string(operation).expect("serialize operation context");
-                let response = fetch_list::<kival_sdk::Comment>(
+                let response = fetch_list::<Comment>(
                     actor,
                     &format!(
                         "{api}/workspaces/{workspace_id}/objects/{object_id}/commentary/{thread_id}/comments?limit=200"
@@ -2966,7 +2961,7 @@ mod tests {
                     .json(&CreateGroupMembershipRequest {
                         user_id: Some(member.user_id),
                         username: None,
-                        group_role: kival_sdk::MembershipRole::Member,
+                        group_role: MembershipRole::Member,
                     })
                     .send()
                     .await
@@ -3015,7 +3010,7 @@ mod tests {
                     .json(&CreateWorkspaceMembershipRequest {
                         user_id: Some(member.user_id),
                         username: None,
-                        workspace_role: kival_sdk::MembershipRole::Member,
+                        workspace_role: MembershipRole::Member,
                     })
                     .send()
                     .await

@@ -7,7 +7,10 @@ use proptest::{
 use proptest_state_machine::ReferenceStateMachine;
 use serde::{Deserialize, Serialize};
 
-use super::{Handle, Lifecycle, Model, ModeledAttachment, ModeledEvent, Principal, ResourceKind};
+use super::{
+    Handle, Lifecycle, Model, ModeledApiKey, ModeledAttachment, ModeledComment,
+    ModeledCommentThread, ModeledEvent, Principal, ResourceKind,
+};
 use crate::actors::Actor;
 
 /// A shrinkable transition in the Kival reference state machine.
@@ -1333,7 +1336,7 @@ impl ReferenceStateMachine for KivalStateMachine {
                 state.next_api_key = state.next_api_key.max(output.index.saturating_add(1));
                 state.api_keys.insert(
                     *output,
-                    super::ModeledApiKey {
+                    ModeledApiKey {
                         owner: *actor,
                         workspace: *workspace,
                         scope: *scope,
@@ -1390,7 +1393,7 @@ impl ReferenceStateMachine for KivalStateMachine {
                 state.next_comment = state.next_comment.max(comment_output.index.saturating_add(1));
                 state.comment_threads.insert(
                     *thread_output,
-                    super::ModeledCommentThread {
+                    ModeledCommentThread {
                         workspace: *workspace,
                         object: *object,
                         author: *actor,
@@ -1400,7 +1403,7 @@ impl ReferenceStateMachine for KivalStateMachine {
                 );
                 state.comments.insert(
                     *comment_output,
-                    super::ModeledComment {
+                    ModeledComment {
                         thread: *thread_output,
                         author: *actor,
                         body: Some(body.clone()),
@@ -1417,11 +1420,7 @@ impl ReferenceStateMachine for KivalStateMachine {
                 state.next_comment = state.next_comment.max(output.index.saturating_add(1));
                 state.comments.insert(
                     *output,
-                    super::ModeledComment {
-                        thread: *thread,
-                        author: *actor,
-                        body: Some(body.clone()),
-                    },
+                    ModeledComment { thread: *thread, author: *actor, body: Some(body.clone()) },
                 );
                 let mut event = ModeledEvent::new("comment.replied", *actor)
                     .workspace(*workspace)

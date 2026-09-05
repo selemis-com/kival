@@ -8,7 +8,8 @@ use uuid::Uuid;
 use crate::{
     ArchiveListStatus, ArchiveStatus, CreateObjectVersion, KernelError, MembershipRole,
     ObjectListOrder, ObjectRole, ObjectVersion, Result, create_object_version,
-    parse_optional_stored, parse_stored,
+    object_grants::create_creator_admin_grant, parse_optional_stored, parse_stored,
+    workspaces::lock_active_workspace_for_child,
 };
 
 /// Input for creating a complete object aggregate with its first immutable version.
@@ -504,18 +505,13 @@ async fn create_initial_object_in_savepoint(
     tx: &mut Transaction<'_, Postgres>,
     input: CreateInitialObject,
 ) -> Result<CreatedObject> {
-    if !crate::workspaces::lock_active_workspace_for_child(tx, input.workspace_id).await? {
+    if !lock_active_workspace_for_child(tx, input.workspace_id).await? {
         return Err(KernelError::ResourceNotFound);
     }
 
     let object_id = create_object(tx, input.workspace_id, input.created_by).await?;
-    let creator_grant_id = crate::object_grants::create_creator_admin_grant(
-        tx,
-        input.workspace_id,
-        object_id,
-        input.created_by,
-    )
-    .await?;
+    let creator_grant_id =
+        create_creator_admin_grant(tx, input.workspace_id, object_id, input.created_by).await?;
     let version = create_object_version(
         tx,
         CreateObjectVersion {
@@ -596,7 +592,7 @@ pub(crate) async fn lock_active_objects_for_reference(
     workspace_id: Uuid,
     object_ids: &[Uuid],
 ) -> Result<bool> {
-    if !crate::workspaces::lock_active_workspace_for_child(tx, workspace_id).await? {
+    if !lock_active_workspace_for_child(tx, workspace_id).await? {
         return Ok(false);
     }
 

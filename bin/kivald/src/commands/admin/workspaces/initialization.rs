@@ -13,14 +13,14 @@ use std::{
 
 use eyre::{Context, Result, bail, eyre};
 use kival_kernel::{
-    CreateInitialObject, EventInsert, EventKind, GrantPrincipal, MembershipRole, ObjectRole,
-    UpdateObjectVersion, append_event, archive_object, create_comment, create_comment_thread,
-    create_group, create_group_membership, create_initial_object, create_object_edge,
-    create_object_grant, create_user, create_workspace, create_workspace_group,
-    create_workspace_membership, fetch_object_in_tx, lock_admin_provisioning,
-    lock_user_for_operator, maintain_object_references, re_resolve_current_wikilinks_for_titles,
-    set_thread_resolved, set_user_disabled_as_operator, touch_comment_thread,
-    update_object_version,
+    CreateInitialObject, EventInsert, EventKind, GrantPrincipal, MembershipRole,
+    ObjectReferenceMaintenance, ObjectRole, ReferenceReresolutionSummary, UpdateObjectVersion,
+    append_event, archive_object, create_comment, create_comment_thread, create_group,
+    create_group_membership, create_initial_object, create_object_edge, create_object_grant,
+    create_user, create_workspace, create_workspace_group, create_workspace_membership,
+    fetch_object_in_tx, lock_admin_provisioning, lock_user_for_operator,
+    maintain_object_references, re_resolve_current_wikilinks_for_titles, set_thread_resolved,
+    set_user_disabled_as_operator, touch_comment_thread, update_object_version,
 };
 use kival_tasks::DurableTasks;
 use serde::Deserialize;
@@ -1378,7 +1378,7 @@ async fn emit_reference_events(
     object_id: Uuid,
     version_id: Uuid,
     title: &str,
-    maintenance: kival_kernel::ObjectReferenceMaintenance,
+    maintenance: ObjectReferenceMaintenance,
 ) -> Result<()> {
     if maintenance.reference_update.changed() {
         let update = maintenance.reference_update;
@@ -1421,7 +1421,7 @@ async fn emit_reresolution_event(
     actor_id: Uuid,
     object_id: Uuid,
     affected_titles: &[String],
-    summary: kival_kernel::ReferenceReresolutionSummary,
+    summary: ReferenceReresolutionSummary,
 ) -> Result<()> {
     if !summary.changed() {
         return Ok(());
@@ -2019,8 +2019,8 @@ fn empty_metadata() -> Value {
 #[cfg(test)]
 mod tests {
     use super::{
-        WorkspaceInitializer, WorkspaceInitializerKind, load_catalog, resolve_initializer,
-        validate_catalog, workspace_initializers,
+        WorkspaceInitializer, WorkspaceInitializerKind, create_workspace_as_operator, load_catalog,
+        resolve_initializer, validate_catalog, workspace_initializers,
     };
 
     #[test]
@@ -2073,8 +2073,7 @@ mod tests {
 
         let initializer = WorkspaceInitializer::demo("acme");
         let created =
-            super::create_workspace_as_operator(&pool, "Kival Demo", None, Some(&initializer))
-                .await?;
+            create_workspace_as_operator(&pool, "Kival Demo", None, Some(&initializer)).await?;
 
         let object_count = sqlx::query_scalar::<_, i64>(
             "SELECT COUNT(*) FROM kival.objects WHERE workspace_id = $1",
@@ -2182,8 +2181,7 @@ mod tests {
 
         let initializer = WorkspaceInitializer::demo("acme");
         let created =
-            super::create_workspace_as_operator(&pool, "ACME Demo", None, Some(&initializer))
-                .await?;
+            create_workspace_as_operator(&pool, "ACME Demo", None, Some(&initializer)).await?;
 
         let object_count = sqlx::query_scalar::<_, i64>(
             "SELECT COUNT(*) FROM kival.objects WHERE workspace_id = $1",
@@ -2300,8 +2298,7 @@ mod tests {
 
         let initializer = WorkspaceInitializer::demo("acme");
         let created =
-            super::create_workspace_as_operator(&pool, "ACME Demo", None, Some(&initializer))
-                .await?;
+            create_workspace_as_operator(&pool, "ACME Demo", None, Some(&initializer)).await?;
 
         async fn access_role(
             pool: &sqlx::PgPool,
