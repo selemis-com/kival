@@ -6,8 +6,8 @@ use argx::{Args, ValueEnum, argx};
 use eyre::{Result, WrapErr};
 use kival_cli::runner::CliContext;
 use kival_sdk::{
-    ArchiveStatus, CreateObjectRequest, ListResponse, ObjectListItem, ObjectListOrder,
-    ObjectListParams, ObjectResponse, ObjectRole, ObjectVersion, UpdateObjectRequest,
+    ArchiveStatus, CreateObjectRequest, ObjectListItem, ObjectListOrder, ObjectListParams,
+    ObjectResponse, ObjectRole, ObjectVersion, UpdateObjectRequest,
 };
 use serde::{Deserialize, Serialize};
 use serde_json::{Map, Value, json};
@@ -403,6 +403,39 @@ pub struct ObjectsUnarchiveCommand {
     pub target: ObjectTargetArgs,
 }
 
+/// Object-list response enriched with browser links.
+#[derive(Debug, Serialize)]
+#[argx(schema)]
+pub(crate) struct ObjectListOutput {
+    /// Visible objects.
+    pub items: Vec<ObjectListOutputItem>,
+    /// Opaque cursor for the next page.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub next_cursor: Option<String>,
+}
+
+/// Object-list item enriched with its canonical browser URL.
+#[derive(Debug, Serialize)]
+#[argx(schema)]
+pub(crate) struct ObjectListOutputItem {
+    /// Object returned by Kival.
+    #[serde(flatten)]
+    pub object: ObjectListItem,
+    /// Browser URL for the object.
+    pub url: String,
+}
+
+/// Object response enriched with its canonical browser URL.
+#[derive(Debug, Serialize)]
+#[argx(schema)]
+pub(crate) struct ObjectReadOutput {
+    /// Object returned by Kival.
+    #[serde(flatten)]
+    pub response: ObjectResponse,
+    /// Browser URL for the object.
+    pub url: String,
+}
+
 #[argx(handler = run)]
 impl ObjectsListCommand {
     /// Run `kival objects list`.
@@ -414,7 +447,7 @@ impl ObjectsListCommand {
         self,
         ctx: CliContext,
         output: OutputMode,
-    ) -> std::result::Result<ListResponse<ObjectListItem>, ObjectListError> {
+    ) -> std::result::Result<ObjectListOutput, ObjectListError> {
         let client = authenticated_client(&ctx)?;
         let response = client
             .list_objects(
@@ -429,12 +462,24 @@ impl ObjectsListCommand {
                 },
             )
             .await?;
+        let response = ObjectListOutput {
+            items: response
+                .items
+                .into_iter()
+                .map(|object| ObjectListOutputItem {
+                    url: client.object_url(object.workspace_id, object.id).to_string(),
+                    object,
+                })
+                .collect(),
+            next_cursor: response.next_cursor,
+        };
         print_output(&output, &response, || {
             if response.items.is_empty() {
                 print_empty_list("objects");
             } else {
                 for object in &response.items {
-                    print_object_line(object, None);
+                    print_object_line(&object.object, None);
+                    println!("  url={}", object.url);
                 }
             }
             if let Some(cursor) = &response.next_cursor {
@@ -456,10 +501,17 @@ impl ObjectsGetCommand {
         self,
         ctx: CliContext,
         output: OutputMode,
-    ) -> std::result::Result<ObjectResponse, ObjectReadError> {
+    ) -> std::result::Result<ObjectReadOutput, ObjectReadError> {
         let client = authenticated_client(&ctx)?;
         let response = client.get_object(self.target.workspace_id, self.target.object_id).await?;
-        print_output(&output, &response, || print_object_response(&response, None))?;
+        let response = ObjectReadOutput {
+            url: client.object_url(response.object.workspace_id, response.object.id).to_string(),
+            response,
+        };
+        print_output(&output, &response, || {
+            print_object_response(&response.response, None);
+            println!("\nurl={}", response.url);
+        })?;
         Ok(response)
     }
 }

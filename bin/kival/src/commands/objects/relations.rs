@@ -10,6 +10,7 @@ use kival_sdk::{
     ObjectBacklinksParams, ObjectBacklinksResponse, ObjectEdge, ObjectGraphDirection,
     ObjectGraphEdge, ObjectGraphNode, ObjectGraphParams, ObjectGraphResponse,
 };
+use serde::Serialize;
 use uuid::Uuid;
 
 use super::{ObjectCommandError, ObjectTargetArgs, object_error_codes};
@@ -290,6 +291,28 @@ pub struct ObjectEdgesRevokeCommand {
     pub edge_id: Uuid,
 }
 
+/// Object graph response enriched with canonical browser URLs for returned objects.
+#[derive(Debug, Serialize)]
+#[argx(schema)]
+pub(crate) struct ObjectGraphOutput {
+    /// Graph returned by Kival.
+    #[serde(flatten)]
+    pub graph: ObjectGraphResponse,
+    /// Browser URLs keyed by object ID.
+    pub object_urls: HashMap<Uuid, String>,
+}
+
+/// Backlinks response enriched with canonical browser URLs for the target and visible sources.
+#[derive(Debug, Serialize)]
+#[argx(schema)]
+pub(crate) struct ObjectBacklinksOutput {
+    /// Backlinks returned by Kival.
+    #[serde(flatten)]
+    pub backlinks: ObjectBacklinksResponse,
+    /// Browser URLs keyed by object ID.
+    pub object_urls: HashMap<Uuid, String>,
+}
+
 #[argx(handler = run)]
 impl ObjectsGraphCommand {
     /// Run `kival objects graph`.
@@ -301,7 +324,7 @@ impl ObjectsGraphCommand {
         self,
         ctx: CliContext,
         output: OutputMode,
-    ) -> std::result::Result<ObjectGraphResponse, ObjectGraphError> {
+    ) -> std::result::Result<ObjectGraphOutput, ObjectGraphError> {
         let direction = ObjectGraphDirection::from(self.direction);
         let client = authenticated_client(&ctx)?;
         let graph = client
@@ -317,16 +340,25 @@ impl ObjectsGraphCommand {
                 },
             )
             .await?;
+        let mut object_urls = graph
+            .nodes
+            .iter()
+            .map(|node| (node.id, client.object_url(node.workspace_id, node.id).to_string()))
+            .collect::<HashMap<_, _>>();
+        object_urls.entry(graph.root_object_id).or_insert_with(|| {
+            client.object_url(graph.workspace_id, graph.root_object_id).to_string()
+        });
+        let output_value = ObjectGraphOutput { graph, object_urls };
 
-        print_output(&output, &graph, || {
-            print_object_graph(&graph);
+        print_output(&output, &output_value, || {
+            print_object_graph(&output_value.graph, &output_value.object_urls);
         })?;
-        Ok(graph)
+        Ok(output_value)
     }
 }
 
 /// Prints an object graph as source-grouped relations with node distances.
-fn print_object_graph(graph: &ObjectGraphResponse) {
+fn print_object_graph(graph: &ObjectGraphResponse, object_urls: &HashMap<Uuid, String>) {
     let nodes_by_id = graph.nodes.iter().map(|node| (node.id, node)).collect::<HashMap<_, _>>();
     let root = nodes_by_id
         .get(&graph.root_object_id)
@@ -393,7 +425,13 @@ fn print_object_graph(graph: &ObjectGraphResponse) {
         print_tree_none();
     } else {
         for node in &graph.nodes {
-            println!("{}  {} id={}", node.distance, node.title, node.id);
+            println!(
+                "{}  {} id={} url={}",
+                node.distance,
+                node.title,
+                node.id,
+                object_urls.get(&node.id).map_or("<unavailable>", String::as_str)
+            );
         }
     }
 }
@@ -422,7 +460,7 @@ impl ObjectsBacklinksCommand {
         self,
         ctx: CliContext,
         output: OutputMode,
-    ) -> std::result::Result<ObjectBacklinksResponse, ObjectPagedRelationError> {
+    ) -> std::result::Result<ObjectBacklinksOutput, ObjectPagedRelationError> {
         let client = authenticated_client(&ctx)?;
         let response = client
             .get_object_backlinks(
@@ -436,9 +474,26 @@ impl ObjectsBacklinksCommand {
                 },
             )
             .await?;
+        let mut object_urls = HashMap::from([(
+            response.object_id,
+            client.object_url(self.target.workspace_id, response.object_id).to_string(),
+        )]);
+        for backlink in &response.incoming_edges {
+            object_urls.entry(backlink.source_object.id).or_insert_with(|| {
+                client.object_url(self.target.workspace_id, backlink.source_object.id).to_string()
+            });
+        }
+        for reference in &response.incoming_references {
+            object_urls.entry(reference.source_object.id).or_insert_with(|| {
+                client.object_url(self.target.workspace_id, reference.source_object.id).to_string()
+            });
+        }
+        let output_value = ObjectBacklinksOutput { backlinks: response, object_urls };
 
-        print_output(&output, &response, || print_backlinks(&response))?;
-        Ok(response)
+        print_output(&output, &output_value, || {
+            print_backlinks(&output_value.backlinks, &output_value.object_urls);
+        })?;
+        Ok(output_value)
     }
 }
 
@@ -567,8 +622,11 @@ impl ObjectEdgesRevokeCommand {
 }
 
 /// Prints an object backlinks response.
-fn print_backlinks(response: &ObjectBacklinksResponse) {
+fn print_backlinks(response: &ObjectBacklinksResponse, object_urls: &HashMap<Uuid, String>) {
     println!("Backlinks for {}", response.object_id);
+    if let Some(url) = object_urls.get(&response.object_id) {
+        println!("url={url}");
+    }
     println!();
     println!("Explicit edges");
 
@@ -576,7 +634,7 @@ fn print_backlinks(response: &ObjectBacklinksResponse) {
         println!("none");
     } else {
         for backlink in &response.incoming_edges {
-            print_backlink_line(backlink);
+            print_backlink_line(backlink, object_urls.get(&backlink.source_object.id));
         }
     }
     if let Some(cursor) = &response.next_edge_cursor {
@@ -590,7 +648,7 @@ fn print_backlinks(response: &ObjectBacklinksResponse) {
         println!("none");
     } else {
         for reference in &response.incoming_references {
-            print_backlink_reference_line(reference);
+            print_backlink_reference_line(reference, object_urls.get(&reference.source_object.id));
         }
     }
     if let Some(cursor) = &response.next_reference_cursor {
@@ -599,7 +657,7 @@ fn print_backlinks(response: &ObjectBacklinksResponse) {
 }
 
 /// Prints a readable textual backlink.
-fn print_backlink_reference_line(reference: &ObjectBacklinkReference) {
+fn print_backlink_reference_line(reference: &ObjectBacklinkReference, url: Option<&String>) {
     let mut fields = vec![
         format!("reference={}", reference.reference_id),
         format!("kind={}", reference.reference_kind),
@@ -617,18 +675,27 @@ fn print_backlink_reference_line(reference: &ObjectBacklinkReference) {
         fields.push(format!("display={}", quote_human_string(display_text)));
     }
 
+    if let Some(url) = url {
+        fields.push(format!("url={url}"));
+    }
+
     println!("{}", fields.join(" "));
 }
 
 /// Prints a readable explicit backlink.
-fn print_backlink_line(backlink: &ObjectBacklink) {
-    println!(
-        "edge={} source={} title={} target={}",
-        backlink.edge_id,
-        backlink.source_object.id,
-        quote_human_string(&backlink.source_object.title),
-        backlink.target_object_id,
-    );
+fn print_backlink_line(backlink: &ObjectBacklink, url: Option<&String>) {
+    let mut fields = vec![
+        format!("edge={}", backlink.edge_id),
+        format!("source={}", backlink.source_object.id),
+        format!("title={}", quote_human_string(&backlink.source_object.title)),
+        format!("target={}", backlink.target_object_id),
+    ];
+
+    if let Some(url) = url {
+        fields.push(format!("url={url}"));
+    }
+
+    println!("{}", fields.join(" "));
 }
 
 /// Prints a compact edge line.

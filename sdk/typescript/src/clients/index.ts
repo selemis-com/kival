@@ -165,8 +165,14 @@ export type KivalActions = {
   [Name in keyof ActionModule]: BoundAction<ActionModule[Name]>;
 };
 
+/** Browser URL helpers derived from the Kival server root configured for a client. */
+export type KivalResourceUrls = {
+  /** Returns the canonical browser URL for an object. */
+  objectUrl(workspaceId: string, objectId: string): string;
+};
+
 /** Fully configured Kival client with all API-key-capable SDK actions. */
-export type KivalClient = KivalTransport & KivalActions;
+export type KivalClient = KivalTransport & KivalActions & KivalResourceUrls;
 
 function bindActions(client: KivalTransport): KivalActions {
   return Object.fromEntries(
@@ -204,5 +210,14 @@ export function createKivalClient(config: KivalClientConfig): KivalClient {
     },
   };
 
-  return { ...client, ...bindActions(client) };
+  const resourceUrls: KivalResourceUrls = {
+    objectUrl(workspaceId: string, objectId: string) {
+      return new URL(
+        `/w/${encodeURIComponent(workspaceId)}/objects/${encodeURIComponent(objectId)}`,
+        client.baseUrl,
+      ).toString();
+    },
+  };
+
+  return { ...client, ...bindActions(client), ...resourceUrls };
 }
