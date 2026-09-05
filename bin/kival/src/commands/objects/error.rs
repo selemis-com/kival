@@ -4,9 +4,8 @@ use argx::argx;
 use eyre::Report;
 use kival_sdk::ClientError;
 use serde::Serialize;
-use serde_json::Value;
 
-use crate::utils::error::{CliFailure, CommandErrorCode, FailureCode};
+use crate::utils::error::{CliFailure, CommandErrorCode, ErrorDetails, FailureCode};
 
 /// Error-code mapping for commands scoped to an object.
 pub(crate) trait ObjectScopedErrorCode: CommandErrorCode {
@@ -29,7 +28,7 @@ pub(crate) struct ObjectCommandError<C> {
     pub(crate) message: String,
     /// Optional structured details.
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub(crate) details: Option<Value>,
+    pub(crate) details: Option<ErrorDetails>,
 }
 
 impl<C> ObjectCommandError<C>
@@ -255,7 +254,7 @@ pub(crate) struct ObjectError {
     pub(super) message: String,
     /// Optional structured details.
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub(super) details: Option<Value>,
+    pub(super) details: Option<ErrorDetails>,
 }
 
 /// Error-code vocabulary available to object commands.
@@ -291,7 +290,7 @@ pub(crate) struct ObjectHistoryError {
     pub(crate) message: String,
     /// Optional structured details.
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub(crate) details: Option<Value>,
+    pub(crate) details: Option<ErrorDetails>,
 }
 
 /// Error-code vocabulary available to object history commands.
@@ -320,7 +319,7 @@ impl ObjectError {
     pub(crate) fn common(
         code: FailureCode,
         message: impl Into<String>,
-        details: Option<Value>,
+        details: Option<ErrorDetails>,
     ) -> Self {
         Self { code: ObjectCommandErrorCode::Common(code), message: message.into(), details }
     }
@@ -330,7 +329,7 @@ impl ObjectError {
     pub(super) fn object(
         code: ObjectErrorCode,
         message: impl Into<String>,
-        details: Option<Value>,
+        details: Option<ErrorDetails>,
     ) -> Self {
         Self { code: ObjectCommandErrorCode::Object(code), message: message.into(), details }
     }
@@ -343,7 +342,7 @@ impl ObjectError {
 
     /// Builds an invalid structured input value error.
     #[must_use]
-    pub(crate) fn input_invalid_value(details: Value) -> Self {
+    pub(crate) fn input_invalid_value(details: ErrorDetails) -> Self {
         Self::from(CliFailure::input_invalid_value(details))
     }
 
@@ -430,7 +429,7 @@ impl ObjectHistoryError {
     pub(crate) fn history(
         code: ObjectHistoryErrorCode,
         message: impl Into<String>,
-        details: Option<Value>,
+        details: Option<ErrorDetails>,
     ) -> Self {
         Self {
             code: ObjectHistoryCommandErrorCode::History(code),

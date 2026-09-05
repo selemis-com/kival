@@ -8,7 +8,6 @@ use kival_sdk::{
     ObjectVersionIdentifier, ObjectVersionWikilinksResponse, UpdateObjectRequest,
 };
 use serde::Serialize;
-use serde_json::json;
 use uuid::Uuid;
 
 use super::{
@@ -21,7 +20,10 @@ use crate::utils::{
     args::{DEFAULT_LIST_LIMIT, list_params},
     credentials::authenticated_client,
     diff::unified_diff,
-    error::{CommandErrorCode, FailureCode, erase_command_error},
+    error::{
+        CommandErrorCode, ErrorDetails, FailureCode, VersionConflictErrorDetails,
+        VersionSelectorErrorDetails, erase_command_error,
+    },
     output::{OutputMode, print_empty_list, print_output, quote_human_string},
 };
 
@@ -521,9 +523,9 @@ fn validate_restore_noop(
         return Err(ObjectError::common(
             FailureCode::VersionConflict,
             "Object changed while the restore operation was being validated.",
-            Some(json!({
-                "expected_current_version_id": expected_current_version_id,
-                "actual_current_version_id": current.id,
+            Some(ErrorDetails::VersionConflict(VersionConflictErrorDetails {
+                expected_current_version_id,
+                actual_current_version_id: current.id,
             })),
         )
         .into());
@@ -662,10 +664,10 @@ fn version_selector_out_of_range(selector: &str, version_count: i64) -> ObjectHi
         format!(
             "version selector `{selector}` is out of range; this object has {version_count} versions and valid relative selectors are {valid_range}; use `g` to select the genesis version",
         ),
-        Some(json!({
-            "selector": selector,
-            "version_count": version_count,
-            "oldest_offset": oldest_offset,
+        Some(ErrorDetails::VersionSelector(VersionSelectorErrorDetails {
+            selector: selector.to_owned(),
+            version_count,
+            oldest_offset,
         })),
     )
 }
@@ -868,10 +870,10 @@ mod tests {
         assert_eq!(error.code, ObjectHistoryErrorCode::VersionSelectorOutOfRange);
         assert_eq!(
             error.details,
-            Some(serde_json::json!({
-                "selector": "-4",
-                "version_count": 3,
-                "oldest_offset": -2,
+            Some(ErrorDetails::VersionSelector(VersionSelectorErrorDetails {
+                selector: "-4".to_owned(),
+                version_count: 3,
+                oldest_offset: -2,
             }))
         );
     }
@@ -927,9 +929,9 @@ mod tests {
         assert_eq!(error.code, FailureCode::VersionConflict);
         assert_eq!(
             error.details,
-            Some(serde_json::json!({
-                "expected_current_version_id": expected_version_id,
-                "actual_current_version_id": actual_version_id,
+            Some(ErrorDetails::VersionConflict(VersionConflictErrorDetails {
+                expected_current_version_id: expected_version_id,
+                actual_current_version_id: actual_version_id,
             }))
         );
     }

@@ -13,7 +13,7 @@ use thiserror::Error;
 use url::Url;
 use uuid::Uuid;
 
-use crate::actors::{Actor, FixtureUsers};
+use crate::actors::{Actor, FixtureUser, FixtureUsers};
 
 /// Default origin used by the local integration-test client.
 pub const TEST_ORIGIN: &str = "http://localhost";
@@ -435,7 +435,7 @@ pub async fn install_test_identities(
     for actor in Actor::ALL {
         let username = actor.username();
         let user_id = find_active_user(&mut transaction, username).await?;
-        users.push(crate::actors::FixtureUser::new(actor, user_id, username));
+        users.push(FixtureUser::new(actor, user_id, username));
     }
     transaction.rollback().await?;
 
