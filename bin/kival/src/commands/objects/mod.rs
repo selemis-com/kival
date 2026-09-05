@@ -363,6 +363,7 @@ impl ObjectsCommand {
 #[cfg(test)]
 mod tests {
     use argx::Parser as _;
+    use kival_sdk::ObjectVersionIdentifier;
 
     use super::*;
 
@@ -391,5 +392,52 @@ mod tests {
             panic!("expected restore command");
         };
         assert_eq!(restore.from, "-3");
+    }
+
+    #[test]
+    fn version_commands_accept_uuid_or_version_number() {
+        let workspace_id = Uuid::from_u128(1).to_string();
+        let object_id = Uuid::from_u128(2).to_string();
+        let version_id = Uuid::from_u128(3).to_string();
+
+        #[derive(Debug, argx::Parser)]
+        struct Parser {
+            #[argx(subcommand)]
+            command: ObjectsSubcommand,
+        }
+
+        let get = Parser::try_parse_from([
+            "objects",
+            "versions",
+            "get",
+            workspace_id.as_str(),
+            object_id.as_str(),
+            "3",
+        ])
+        .unwrap();
+        let ObjectsSubcommand::Versions(versions) = get.command else {
+            panic!("expected versions command");
+        };
+        let ObjectVersionsSubcommand::Get(get) = versions.command else {
+            panic!("expected get command");
+        };
+        assert_eq!(get.version_id, ObjectVersionIdentifier::Number(3));
+
+        let wikilinks = Parser::try_parse_from([
+            "objects",
+            "versions",
+            "wikilinks",
+            workspace_id.as_str(),
+            object_id.as_str(),
+            version_id.as_str(),
+        ])
+        .unwrap();
+        let ObjectsSubcommand::Versions(versions) = wikilinks.command else {
+            panic!("expected versions command");
+        };
+        let ObjectVersionsSubcommand::Wikilinks(wikilinks) = versions.command else {
+            panic!("expected wikilinks command");
+        };
+        assert_eq!(wikilinks.version_id, ObjectVersionIdentifier::Id(Uuid::from_u128(3)));
     }
 }
