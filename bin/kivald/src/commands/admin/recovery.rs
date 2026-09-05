@@ -111,11 +111,13 @@ pub(super) async fn issue_operator_enrollment_code(
         .await
         .wrap_err("failed to create operator enrollment code")?;
 
+    let url = format!("{origin}/auth/enroll#code={raw_code}&username={username}");
+
     Ok(IssuedEnrollmentCode {
         id: code_id,
         user_id,
         username,
-        url: format!("{origin}/auth/enroll#code={raw_code}"),
+        url,
         superseded_code_count,
     })
 }

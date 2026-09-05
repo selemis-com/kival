@@ -11,11 +11,12 @@ import { KivalLogo } from "../../shared/ui/KivalLogo";
 
 type Props = {
   code: string | null;
+  initialUsername: string | null;
 };
 
-export function PasskeyEnrollmentPage({ code }: Props) {
+export function PasskeyEnrollmentPage({ code, initialUsername }: Props) {
   const navigate = useNavigate();
-  const [username, setUsername] = useState("");
+  const [username, setUsername] = useState(initialUsername ?? "");
   const [label, setLabel] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);

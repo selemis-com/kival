@@ -16,6 +16,8 @@ const initialUrl = new URL(window.location.href);
 const enrollmentFragment = new URLSearchParams(initialUrl.hash.slice(1));
 const fragmentEnrollmentCode =
   initialUrl.pathname === "/auth/enroll" ? enrollmentFragment.get("code") : null;
+const fragmentEnrollmentUsername =
+  initialUrl.pathname === "/auth/enroll" ? enrollmentFragment.get("username") : null;
 
 if (fragmentEnrollmentCode) {
   rememberEnrollmentCode(fragmentEnrollmentCode);
@@ -45,7 +47,7 @@ if (!rootElement) {
   throw new Error('Root element with id "root" not found');
 }
 
-const router = createKivalRouter(enrollmentCode);
+const router = createKivalRouter(enrollmentCode, fragmentEnrollmentUsername);
 
 createRoot(rootElement).render(
   <StrictMode>
