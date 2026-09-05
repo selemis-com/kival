@@ -121,7 +121,7 @@ The demo includes connected documents, discussions, access boundaries, history, 
 Create a user from the server:
 
 ```sh
-kivald admin users create --username alice --display-name "Alice"
+kivald admin users create --username new-user --display-name "New User"
 ```
 
 The command prints a one-time enrollment link. Send it to the user so they can register a passkey and complete their account setup.

@@ -121,6 +121,13 @@ impl AdminUserCreateCommand {
             bail!("Kival is not bootstrapped; run `kivald admin bootstrap` first");
         }
 
+        if let Some((_, existing_username, _)) = lock_user_for_operator(&mut tx, username)
+            .await
+            .wrap_err("failed to inspect existing users")?
+        {
+            bail!("user `{existing_username}` already exists");
+        }
+
         let created =
             create_user(&mut tx, username, display_name).await.wrap_err("failed to create user")?;
 
@@ -241,6 +248,23 @@ mod tests {
             panic!("enable subcommand should parse");
         };
         assert_eq!(enable.user, user_id.to_string());
+    }
+
+    #[sqlx::test(migrations = "../../crates/kernel/migrations")]
+    async fn operator_create_reports_existing_username(pool: sqlx::PgPool) -> Result<()> {
+        let kival = TestKival::new(pool).await?;
+        let existing = kival.create_user("operator-create-existing").await?;
+
+        let error = super::AdminUserCreateCommand {
+            username: existing.username.clone(),
+            display_name: "Duplicate User".to_owned(),
+        }
+        .run(kival.pool.clone(), "http://localhost:3000")
+        .await
+        .expect_err("duplicate username should be rejected");
+
+        assert_eq!(error.to_string(), format!("user `{}` already exists", existing.username));
+        Ok(())
     }
 
     #[sqlx::test(migrations = "../../crates/kernel/migrations")]
