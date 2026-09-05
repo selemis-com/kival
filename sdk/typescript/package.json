@@ -1,7 +1,21 @@
 {
   "name": "kival-sdk",
   "version": "0.1.0",
-  "description": "TypeScript SDK for Kival",
+  "description": "TypeScript SDK for Kival, a self-hosted collaborative knowledge system for organizations.",
+  "keywords": [
+    "kival",
+    "knowledge",
+    "knowledge-management",
+    "collaboration",
+    "collaborative-knowledge",
+    "self-hosted",
+    "organizational-knowledge",
+    "sdk",
+    "api-client",
+    "typescript",
+    "agents",
+    "ai-agents"
+  ],
   "license": "MIT OR Apache-2.0",
   "repository": {
     "type": "git",

@@ -5,11 +5,11 @@ edition.workspace = true
 rust-version = "1.95"
 license.workspace = true
 publish = true
-description = "Canonical Rust types for Kival."
+description = "Canonical API and wire types for the Kival collaborative knowledge system."
 repository = "https://github.com/selemis-com/kival"
 homepage = "https://selemis.com"
 documentation = "https://docs.rs/kival-types"
-keywords = ["kival", "knowledge", "types"]
+keywords = ["api", "types", "schema", "serde", "knowledge"]
 categories = ["data-structures"]
 
 [lints]

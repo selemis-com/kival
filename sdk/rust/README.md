@@ -1,6 +1,6 @@
 # Kival SDK
 
-`kival-sdk` is the public Rust SDK for Kival. It provides Kival’s serializable wire types and an asynchronous HTTP client built on [`tower::Service`](https://docs.rs/tower/latest/tower/trait.Service.html).
+`kival-sdk` is the official Rust SDK for Kival, a self-hosted collaborative knowledge system for organizations. It provides typed API access for applications, integrations, automation, and agents through Kival’s serializable wire types and an asynchronous HTTP client built on [`tower::Service`](https://docs.rs/tower/latest/tower/trait.Service.html).
 
 The client classifies unsuccessful HTTP responses before they reach user-provided middleware. Timeouts, retries, tracing, metrics, and circuit breakers can therefore operate on structured `ClientError` values without reimplementing Kival’s response handling.
 

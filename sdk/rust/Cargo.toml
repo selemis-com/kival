@@ -5,11 +5,11 @@ edition.workspace = true
 rust-version = "1.95"
 license.workspace = true
 publish = true
-description = "Rust SDK for Kival."
+description = "Rust SDK for Kival, a self-hosted collaborative knowledge system for organizations."
 repository = "https://github.com/selemis-com/kival"
 homepage = "https://selemis.com"
 documentation = "https://docs.rs/kival-sdk"
-keywords = ["kival", "sdk", "knowledge", "tower"]
+keywords = ["sdk", "api", "knowledge", "agents", "self-hosted"]
 categories = ["api-bindings", "web-programming::http-client"]
 
 [lints]
