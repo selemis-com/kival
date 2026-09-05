@@ -73,7 +73,64 @@ To update later:
 kivalup --update
 ```
 
-### Build from source
+### Quick start
+
+Start a temporary PostgreSQL instance:
+
+```sh
+docker run --rm \
+  --name kival-postgres \
+  -e POSTGRES_USER=kival \
+  -e POSTGRES_PASSWORD=kival \
+  -e POSTGRES_DB=kival \
+  -p 5432:5432 \
+  postgres:18
+```
+
+In another terminal, point Kival at the database and start the server:
+
+```sh
+export DATABASE_URL=postgres://kival:kival@localhost:5432/kival
+kivald serve
+```
+
+Bootstrap the first administrator:
+
+```sh
+kivald admin bootstrap \
+  --username admin \
+  --display-name "Admin"
+```
+
+The command prints a one-time enrollment link. Open it in your browser to register a passkey and complete the initial setup.
+
+Kival is now available at [`http://localhost:3000`](http://localhost:3000).
+
+### Create a workspace
+
+Create a workspace from the web application, or explore Kival using the built-in fictional ACME workspace:
+
+```sh
+kivald admin workspaces create --name "ACME" --demo acme
+```
+
+The demo includes connected documents, discussions, access boundaries, history, and shared agent skills for exploring Kival before adding your own knowledge.
+
+### Add users
+
+Create a user from the server:
+
+```sh
+kivald admin users create --username alice --display-name "Alice"
+```
+
+The command prints a one-time enrollment link. Send it to the user so they can register a passkey and complete their account setup.
+
+Once enrolled, add the user to a workspace and manage their access from the web application.
+
+Finally, create an API key in the web application for CLI, SDK, integration, or agent access.
+
+## Development
 
 Kival requires Rust 1.97+, Node.js 26, pnpm 11, and Docker. PostgreSQL 18 runs locally through Docker Compose.
 
@@ -114,31 +171,13 @@ kivald admin bootstrap \
 
 The command prints a one-time enrollment link. Open it in your browser to register a passkey and complete the initial setup.
 
-Kival is now available at [`http://localhost:3000`](http://localhost:3000).
+Database-backed tests require `DATABASE_URL`. SQLx creates, migrates, and removes an isolated database for each test, so the configured PostgreSQL user must be able to create and drop databases.
 
-### Create a workspace
-
-Create a workspace from the web application, or explore Kival using the built-in fictional ACME workspace:
+Run the test suite with:
 
 ```sh
-kivald admin workspaces create --name "ACME" --demo acme
+make test
 ```
-
-The demo includes connected documents, discussions, access boundaries, history, and shared agent skills for exploring Kival before adding your own knowledge.
-
-### Add users
-
-Create a user from the server:
-
-```sh
-kivald admin users create --username alice --display-name "Alice"
-```
-
-The command prints a one-time enrollment link. Send it to the user so they can register a passkey and complete their account setup.
-
-Once enrolled, add the user to a workspace and manage their access from the web application.
-
-Finally, create an API key in the web application for CLI, SDK, integration, or agent access.
 
 ## Usage
 
@@ -252,16 +291,6 @@ Kival provides official SDKs for Rust and TypeScript:
 Both use scoped API keys and expose the same underlying system as the CLI.
 
 They are intended for applications, integrations, automation, and agents that need programmatic access to Kival.
-
-## Development
-
-Database-backed tests require `DATABASE_URL`. SQLx creates, migrates, and removes an isolated database for each test, so the configured PostgreSQL user must be able to create and drop databases.
-
-Run the test suite with:
-
-```sh
-make test
-```
 
 ## Sponsors
 
