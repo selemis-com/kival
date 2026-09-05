@@ -542,13 +542,17 @@ pub struct WorkspaceMembershipsListCommand {
 }
 
 /// Arguments for `kival workspaces memberships create`.
-#[derive(Debug, Clone, Copy, Args)]
+#[derive(Debug, Clone, Args)]
+#[argx(one_of = ["user_id", "username"])]
 pub struct WorkspaceMembershipsCreateCommand {
     /// Workspace ID.
     pub workspace_id: Uuid,
     /// User ID.
     #[argx(long)]
-    pub user_id: Uuid,
+    pub user_id: Option<Uuid>,
+    /// Username.
+    #[argx(long)]
+    pub username: Option<String>,
     /// Workspace role: member or admin.
     #[argx(long, value_enum)]
     pub role: CliMembershipRole,
@@ -1143,13 +1147,18 @@ impl WorkspaceMembershipsCreateCommand {
         output: OutputMode,
     ) -> std::result::Result<WorkspaceMembership, WorkspaceMembershipMutationError> {
         let role = MembershipRole::from(self.role);
+        if self.user_id.is_none() && self.username.is_none() {
+            return Err(WorkspaceMembershipMutationError::invalid_argument(
+                "either --user-id or --username is required",
+            ));
+        }
         let client = authenticated_client(&ctx)?;
         let membership = client
             .create_workspace_membership(
                 self.workspace_id,
                 CreateWorkspaceMembershipRequest {
-                    user_id: Some(self.user_id),
-                    username: None,
+                    user_id: self.user_id,
+                    username: self.username,
                     workspace_role: role,
                 },
             )
@@ -1392,7 +1401,88 @@ fn print_workspace_group_line(workspace_group: &WorkspaceGroup, action: Option<&
 
 #[cfg(test)]
 mod tests {
+    use argx::Parser as _;
+
     use super::*;
+
+    #[derive(Debug, argx::Parser)]
+    struct MembershipParser {
+        #[argx(subcommand)]
+        command: WorkspaceMembershipsSubcommand,
+    }
+
+    #[test]
+    fn membership_create_accepts_user_id_or_username() {
+        let workspace_id = Uuid::from_u128(1).to_string();
+        let user_id = Uuid::from_u128(2).to_string();
+
+        let by_id = MembershipParser::try_parse_from([
+            "memberships",
+            "create",
+            workspace_id.as_str(),
+            "--user-id",
+            user_id.as_str(),
+            "--role",
+            "member",
+        ])
+        .unwrap();
+        let WorkspaceMembershipsSubcommand::Create(by_id) = by_id.command else {
+            panic!("expected create command");
+        };
+        assert_eq!(by_id.user_id, Some(Uuid::from_u128(2)));
+        assert_eq!(by_id.username, None);
+
+        let by_username = MembershipParser::try_parse_from([
+            "memberships",
+            "create",
+            workspace_id.as_str(),
+            "--username",
+            "importer",
+            "--role",
+            "member",
+        ])
+        .unwrap();
+        let WorkspaceMembershipsSubcommand::Create(by_username) = by_username.command else {
+            panic!("expected create command");
+        };
+        assert_eq!(by_username.user_id, None);
+        assert_eq!(by_username.username.as_deref(), Some("importer"));
+    }
+
+    #[test]
+    fn membership_create_requires_a_user_selector() {
+        let resource_id = Uuid::from_u128(1).to_string();
+        assert!(
+            MembershipParser::try_parse_from([
+                "memberships",
+                "create",
+                resource_id.as_str(),
+                "--role",
+                "member",
+            ])
+            .is_err()
+        );
+    }
+
+    #[test]
+    fn membership_create_rejects_multiple_user_selectors() {
+        let workspace_id = Uuid::from_u128(1).to_string();
+        let user_id = Uuid::from_u128(2).to_string();
+        assert!(
+            MembershipParser::try_parse_from([
+                "memberships",
+                "create",
+                workspace_id.as_str(),
+                "--user-id",
+                user_id.as_str(),
+                "--username",
+                "importer",
+                "--role",
+                "member",
+            ])
+            .is_err()
+        );
+    }
 
     #[test]
     fn update_workspace_input_preserves_description_null_state() {
