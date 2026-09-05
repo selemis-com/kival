@@ -19,7 +19,7 @@
 <p align="center">
   <a href="#overview">Overview</a> ·
   <a href="#setup">Setup</a> ·
-  <a href="#usage">Usage</a> ·
+  <a href="#resources">Resources</a> ·
   <a href="#sdks">SDKs</a> ·
   <a href="#community">Community</a> ·
   <a href="#contributing">Contributing</a>
@@ -41,37 +41,30 @@ Kival gives people and agents a shared place to deliberately create, edit, discu
 
 ## Setup
 
-### Supported platforms
+### Installation
 
-Prebuilt Kival releases are available for:
-
-* Linux x86_64
-* Linux ARM64
-* macOS on Apple Silicon
-* Windows through WSL
-
-Native Windows and Intel Mac releases are not currently provided. Source builds on other platforms are outside the supported release matrix.
-
-### Install a release
-
-Install the version-bound `kivalup` installer from the latest stable GitHub release:
+Install `kivalup` from the latest stable release:
 
 ```sh
 curl --proto '=https' --tlsv1.2 -fsSL \
   https://github.com/selemis-com/kival/releases/latest/download/install | bash
-
-$HOME/.kival/bin/kivalup
 ```
 
-The bootstrap installer verifies the downloaded `kivalup` checksum and, when the GitHub CLI is available, its build provenance.
-
-`kivalup` installs the matching `kival` and `kivald` binaries under `$HOME/.kival/bin`.
-
-To update later:
+Then run:
 
 ```sh
-kivalup --update
+kivalup
 ```
+
+If your shell has not picked up the updated `PATH` yet, use `$HOME/.kival/bin/kivalup` or start a new shell.
+
+To build and run Kival from source, see the [development setup](CONTRIBUTING.md#development-setup).
+
+### Supported platforms
+
+Prebuilt releases are available for Linux x86_64 and ARM64, macOS on Apple Silicon, and Windows through WSL.
+
+Native Windows and Intel Mac releases are not currently provided.
 
 ### Quick start
 
@@ -144,194 +137,45 @@ kival workspaces list
 
 ### Explore with an agent
 
-Give your agent a prompt like:
+Agents can use the same CLI and access model to inspect existing knowledge, follow relationships, and contribute new material.
 
-> Use the kival binary to explore the ACME workspace. Find an important decision, explain what was decided and why, trace the supporting knowledge that led to it, and include links to the relevant Kival objects.
+**Trace a decision and its supporting context**
 
-> Use the kival binary to inspect Project Relay and RFC 024. Create a new object titled "Project Relay rollout review" summarizing the current rollout state, remaining risks, and next decision point, then link it to the relevant existing Kival objects. Show me what you created and include links to the objects you used.
+> Use the Kival CLI to explore the ACME workspace. Find an important decision, explain what was decided and why, trace the supporting knowledge that led to it, and include links to the relevant Kival objects.
 
-> Use the kival binary to find a recent ACME incident and its related runbook. Create a short follow-up object with the key operational lesson and recommended next action, link it to both the incident and runbook, and include links to the resulting Kival objects.
+**Synthesize project state into new knowledge**
 
-### Add users
+> Use the Kival CLI to inspect Project Relay and RFC 024. Create a new object titled "Project Relay rollout review" summarizing the current rollout state, remaining risks, and next decision point, then link it to the relevant existing Kival objects. Show me what you created and include links to the objects you used.
 
-Once the initial administrator and workspace are configured, create additional users as needed:
+**Turn operational history into follow-up knowledge**
 
-```sh
-kivald admin users create \
-  --username victor \
-  --display-name "Victor"
-```
+> Use the Kival CLI to find a recent ACME incident and its related runbook. Create a short follow-up object with the key operational lesson and recommended next action, link it to both the incident and runbook, and include links to the resulting Kival objects.
 
-The command prints a one-time enrollment link. Send it to the user so they can register a passkey and complete their account setup.
+## Resources
 
-Once enrolled, add the user to a workspace and manage their access from the web application.
+The [Kival resources](https://selemis.com/resources) contain the complete guides and reference material.
 
-### Managing the local database
+### Users
 
-To stop the local PostgreSQL instance:
+* [Getting started](https://selemis.com/resources/docs/users/getting-started)
+* [Objects and content](https://selemis.com/resources/docs/users/objects-and-content)
+* [Relations and context](https://selemis.com/resources/docs/users/relations-and-context)
+* [Access and collaboration](https://selemis.com/resources/docs/users/access-and-collaboration)
+* [Account and security](https://selemis.com/resources/docs/users/account-and-security)
 
-```sh
-docker stop kival-postgres
-```
+### Developers
 
-To start it again later:
+* [Getting started](https://selemis.com/resources/docs/developers/getting-started)
+* [Core concepts](https://selemis.com/resources/docs/developers/core-concepts)
+* [SDKs](https://selemis.com/resources/docs/developers/sdks)
+* [Integrations](https://selemis.com/resources/docs/developers/integrations)
+* [API reference](https://selemis.com/resources/docs/developers/api-reference)
+* [CLI automation](https://selemis.com/resources/docs/developers/cli-automation)
 
-```sh
-docker start kival-postgres
-```
+### Administrators
 
-The database is stored in the `kival-postgres-data` Docker volume, so stopping or removing the container does not remove your Kival data.
-
-## Development
-
-Kival requires Rust 1.97+, Node.js 26, pnpm 11, and Docker. PostgreSQL 18 runs locally through Docker Compose.
-
-Clone the repository:
-
-```sh
-git clone https://github.com/selemis-com/kival.git
-cd kival
-```
-
-Create the local environment and start PostgreSQL:
-
-```sh
-cp .env.template .env
-docker compose up -d postgres
-```
-
-Install the dependencies and Kival binaries:
-
-```sh
-pnpm install
-make install
-```
-
-Start Kival:
-
-```sh
-kivald serve
-```
-
-Bootstrap the first administrator:
-
-```sh
-kivald admin bootstrap \
-  --username admin \
-  --display-name "Admin"
-```
-
-The command prints a one-time enrollment link. Open it in your browser to register a passkey and complete the initial setup.
-
-Database-backed tests require `DATABASE_URL`. SQLx creates, migrates, and removes an isolated database for each test, so the configured PostgreSQL user must be able to create and drop databases.
-
-Run the test suite with:
-
-```sh
-make test
-```
-
-## Usage
-
-The web application provides an interactive browser interface authenticated with a passkey-backed user session.
-
-The `kival` CLI and SDKs use scoped API keys for terminal workflows, integrations, and agents.
-
-Authenticate the CLI:
-
-```sh
-export KIVAL_API_KEY=<API_KEY>
-```
-
-For a remote Kival instance, also set its URL:
-
-```sh
-export KIVAL_URL=https://kival.example
-```
-
-Check the current identity and available workspaces:
-
-```sh
-kival whoami
-kival workspaces list
-```
-
-### Create and edit knowledge
-
-Create an object:
-
-```sh
-kival objects create <WORKSPACE_ID> \
-  --title "Database migration" \
-  --body-file migration.md
-```
-
-Edit it using your local editor:
-
-```sh
-kival objects edit <WORKSPACE_ID> <OBJECT_ID>
-```
-
-Kival opens a Markdown document with editable YAML front matter:
-
-```md
----
-title: "Database migration"
-metadata:
-  status: "proposed"
-  area: "infrastructure"
-  tags:
-    - "postgres"
-    - "migration"
----
-```
-
-Saving commits all changed fields atomically as one new version. If nothing changed, no version is created.
-
-Previous versions remain available and can be compared:
-
-```sh
-kival objects diff <WORKSPACE_ID> <OBJECT_ID> --from -1
-```
-
-### Connect and explore
-
-Connect two objects:
-
-```sh
-kival objects edges create <WORKSPACE_ID> \
-  --source-object-id <SOURCE_OBJECT_ID> \
-  --target-object-id <TARGET_OBJECT_ID>
-```
-
-Follow the surrounding context:
-
-```sh
-kival objects backlinks <WORKSPACE_ID> <OBJECT_ID>
-kival objects graph <WORKSPACE_ID> <OBJECT_ID>
-```
-
-Search across a workspace:
-
-```sh
-kival search <WORKSPACE_ID> "database migration"
-```
-
-### Machine-readable interfaces
-
-Most CLI commands support JSON output:
-
-```sh
-kival objects get <WORKSPACE_ID> <OBJECT_ID> -O json
-```
-
-The CLI can also describe its commands and JSON Schema contracts:
-
-```sh
-kival schema
-kival schema objects create
-kival schema objects --full
-```
+* [Deployment](https://selemis.com/resources/docs/administrators/deployment)
+* [Administration](https://selemis.com/resources/docs/administrators/administration)
 
 ## SDKs
 
