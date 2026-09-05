@@ -2,10 +2,7 @@
 
 use argx::ValueEnum;
 use eyre::Result;
-use kival_sdk::{
-    ArchiveListStatus, EventListParams, EventOrder, GrantPrincipal, ListParams, MembershipRole,
-    ObjectRole,
-};
+use kival_sdk::{ArchiveListStatus, GrantPrincipal, ListParams, MembershipRole, ObjectRole};
 use serde_json::{Map, Value};
 use uuid::Uuid;
 
@@ -26,30 +23,6 @@ pub const fn list_params(limit: Option<i64>, cursor: Option<String>) -> ListPara
     };
 
     ListParams { limit: Some(limit), cursor }
-}
-
-/// Builds event list parameters from common event filter flags.
-#[must_use]
-pub const fn event_params(
-    limit: Option<i64>,
-    after_sequence: Option<i64>,
-    event_kind: Option<String>,
-    actor_user_id: Option<Uuid>,
-    target_user_id: Option<Uuid>,
-    object_id: Option<Uuid>,
-    group_id: Option<Uuid>,
-) -> EventListParams {
-    EventListParams {
-        limit,
-        after_sequence,
-        before_sequence: None,
-        order: EventOrder::Asc,
-        event_kind,
-        actor_user_id,
-        target_user_id,
-        object_id,
-        group_id,
-    }
 }
 
 /// CLI archive status values accepted by list and search commands.

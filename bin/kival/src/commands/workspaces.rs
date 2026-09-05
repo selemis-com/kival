@@ -6,11 +6,11 @@ use argx::{Args, Subcommand, argx};
 use eyre::Result;
 use kival_cli::runner::CliContext;
 use kival_sdk::{
-    CreateWorkspaceGroupRequest, CreateWorkspaceMembershipRequest, Event, ListResponse,
-    MembershipRole, PatchField, UpdateWorkspaceMembershipRequest, UpdateWorkspaceRequest,
-    Workspace, WorkspaceGraphEdge, WorkspaceGraphNode, WorkspaceGraphParams,
-    WorkspaceGraphResponse, WorkspaceGroup, WorkspaceGroupListParams, WorkspaceListItem,
-    WorkspaceListParams, WorkspaceMembership,
+    CreateWorkspaceGroupRequest, CreateWorkspaceMembershipRequest, Event, EventListParams,
+    EventOrder, ListResponse, MembershipRole, PatchField, UpdateWorkspaceMembershipRequest,
+    UpdateWorkspaceRequest, Workspace, WorkspaceGraphEdge, WorkspaceGraphNode,
+    WorkspaceGraphParams, WorkspaceGraphResponse, WorkspaceGroup, WorkspaceGroupListParams,
+    WorkspaceListItem, WorkspaceListParams, WorkspaceMembership,
 };
 use serde::Deserialize;
 use uuid::Uuid;
@@ -18,9 +18,7 @@ use uuid::Uuid;
 use crate::{
     commands::events::print_event_line,
     utils::{
-        args::{
-            CliArchiveListStatus, CliMembershipRole, DEFAULT_LIST_LIMIT, event_params, list_params,
-        },
+        args::{CliArchiveListStatus, CliMembershipRole, DEFAULT_LIST_LIMIT, list_params},
         credentials::authenticated_client,
         error::{CommandError, command_error_codes, erase_command_error},
         input::{
@@ -303,10 +301,10 @@ pub enum WorkspacesSubcommand {
     )]
     Unarchive(WorkspacesUnarchiveCommand),
 
-    /// List workspace events in ascending global sequence order.
+    /// List workspace events.
     ///
-    /// `--after-sequence` is exclusive. When multiple filters are supplied, every filter must
-    /// match.
+    /// Sequence bounds are exclusive. Events are returned in ascending order by default. When
+    /// multiple filters are supplied, every filter must match.
     #[argx(
         metadata({
             "readOnly": true,
@@ -429,6 +427,12 @@ pub struct WorkspacesEventsCommand {
     /// Return events with a global sequence number strictly greater than SEQUENCE.
     #[argx(long)]
     pub after_sequence: Option<i64>,
+    /// Return events with a global sequence number strictly less than SEQUENCE.
+    #[argx(long)]
+    pub before_sequence: Option<i64>,
+    /// Event sequence ordering.
+    #[argx(long, default = EventOrder::Asc)]
+    pub order: EventOrder,
     /// Filter by event kind.
     #[argx(long)]
     pub event_kind: Option<String>,
@@ -1042,15 +1046,17 @@ impl WorkspacesEventsCommand {
         ctx: CliContext,
         output: OutputMode,
     ) -> std::result::Result<ListResponse<Event>, WorkspaceEventsError> {
-        let params = event_params(
-            self.limit,
-            self.after_sequence,
-            self.event_kind,
-            self.actor_user_id,
-            self.target_user_id,
-            self.object_id,
-            self.group_id,
-        );
+        let params = EventListParams {
+            limit: self.limit,
+            after_sequence: self.after_sequence,
+            before_sequence: self.before_sequence,
+            order: self.order,
+            event_kind: self.event_kind,
+            actor_user_id: self.actor_user_id,
+            target_user_id: self.target_user_id,
+            object_id: self.object_id,
+            group_id: self.group_id,
+        };
         let client = authenticated_client(&ctx)?;
         let response = client.list_workspace_events(self.workspace_id, &params).await?;
 

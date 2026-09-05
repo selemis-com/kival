@@ -2,14 +2,14 @@
 
 use argx::{Args, argx};
 use kival_cli::runner::CliContext;
-use kival_sdk::{Event, ListResponse};
+use kival_sdk::{Event, EventListParams, EventOrder, ListResponse};
 use uuid::Uuid;
 
 use super::{ObjectCommandError, ObjectTargetArgs, object_error_codes};
 use crate::{
     commands::events::print_event_line,
     utils::{
-        args::{DEFAULT_LIST_LIMIT, event_params},
+        args::DEFAULT_LIST_LIMIT,
         credentials::authenticated_client,
         output::{OutputMode, print_empty_list, print_output},
     },
@@ -49,6 +49,12 @@ pub struct ObjectEventsCommand {
     /// Return events with a global sequence number strictly greater than SEQUENCE.
     #[argx(long)]
     pub after_sequence: Option<i64>,
+    /// Return events with a global sequence number strictly less than SEQUENCE.
+    #[argx(long)]
+    pub before_sequence: Option<i64>,
+    /// Event sequence ordering.
+    #[argx(long, default = EventOrder::Asc)]
+    pub order: EventOrder,
     /// Filter by event kind.
     #[argx(long)]
     pub event_kind: Option<String>,
@@ -75,15 +81,17 @@ impl ObjectEventsCommand {
         ctx: CliContext,
         output: OutputMode,
     ) -> Result<ListResponse<Event>, ObjectEventsError> {
-        let params = event_params(
-            self.limit,
-            self.after_sequence,
-            self.event_kind,
-            self.actor_user_id,
-            self.target_user_id,
-            Some(self.target.object_id),
-            self.group_id,
-        );
+        let params = EventListParams {
+            limit: self.limit,
+            after_sequence: self.after_sequence,
+            before_sequence: self.before_sequence,
+            order: self.order,
+            event_kind: self.event_kind,
+            actor_user_id: self.actor_user_id,
+            target_user_id: self.target_user_id,
+            object_id: Some(self.target.object_id),
+            group_id: self.group_id,
+        };
         let client = authenticated_client(&ctx)?;
         let response = client
             .list_object_events(self.target.workspace_id, self.target.object_id, &params)
