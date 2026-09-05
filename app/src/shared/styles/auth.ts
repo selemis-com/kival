@@ -136,6 +136,9 @@ export const authStyles: Record<string, CSSProperties> = {
     fontSize: 15,
     outline: "none",
   },
+  inputReadOnly: {
+    background: colors.surfaceSubtle,
+  },
   primaryButton: {
     height: 42,
     border: 0,

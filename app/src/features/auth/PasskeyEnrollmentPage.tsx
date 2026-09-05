@@ -117,12 +117,16 @@ export function PasskeyEnrollmentPage({ code, initialUsername }: Props) {
                   value={username}
                   onChange={(event) => setUsername(event.target.value)}
                   autoComplete="username"
+                  readOnly={initialUsername !== null}
                   maxLength={30}
                   placeholder="your-username"
                   autoFocus
                   required
                   disabled={loading || missingCode}
-                  style={styles.input}
+                  style={{
+                    ...styles.input,
+                    ...(initialUsername !== null ? styles.inputReadOnly : {}),
+                  }}
                 />
               </label>
 
