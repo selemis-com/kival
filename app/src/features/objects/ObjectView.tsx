@@ -67,12 +67,20 @@ function findVersionNumber(event: Event, versions: ObjectVersion[]) {
   return versions.find((version) => version.id === event.object_version_id)?.version_number ?? null;
 }
 
-function findObjectTitle(objectId: string | null | undefined, objects: ObjectSummary[]) {
+function findObjectTitle(
+  objectId: string | null | undefined,
+  objects: ObjectSummary[],
+  context: ObjectContext | null,
+) {
   if (!objectId) {
     return null;
   }
 
-  return objects.find((object) => object.id === objectId)?.title ?? null;
+  return (
+    context?.graph.nodes.find((node) => node.id === objectId)?.title ??
+    objects.find((object) => object.id === objectId)?.title ??
+    null
+  );
 }
 
 function describeEvent(
@@ -130,7 +138,7 @@ function describeEvent(
       const targetObjectId =
         edge?.target_object_id ??
         (typeof payload.target_object_id === "string" ? payload.target_object_id : null);
-      const targetTitle = findObjectTitle(targetObjectId, objects);
+      const targetTitle = findObjectTitle(targetObjectId, objects, context);
 
       return {
         title: "Connection created",
