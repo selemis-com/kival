@@ -4,7 +4,11 @@ use chrono::{DateTime, Utc};
 use sqlx::{Acquire, PgPool, Postgres, Transaction};
 use uuid::Uuid;
 
-use crate::{GrantPrincipal, KernelError, ObjectRole, Result, parse_stored};
+use crate::{
+    GrantPrincipal, KernelError, ObjectRole, Result, objects::lock_active_objects_for_reference,
+    parse_stored, workspace_groups::lock_active_workspace_group,
+    workspace_memberships::lock_active_workspace_member,
+};
 
 /// Stored object-grant projection.
 #[derive(Debug, Clone, Copy)]
@@ -190,26 +194,18 @@ pub async fn create_object_grant(
     object_role: ObjectRole,
     created_by: Uuid,
 ) -> Result<ObjectGrantRow> {
-    if !crate::objects::lock_active_objects_for_reference(tx, workspace_id, &[object_id]).await? {
+    if !lock_active_objects_for_reference(tx, workspace_id, &[object_id]).await? {
         return Err(KernelError::ResourceNotFound);
     }
 
     match principal {
         GrantPrincipal::User(user_id) => {
-            if !crate::workspace_memberships::lock_active_workspace_member(
-                tx,
-                workspace_id,
-                user_id,
-            )
-            .await?
-            {
+            if !lock_active_workspace_member(tx, workspace_id, user_id).await? {
                 return Err(KernelError::InvalidObjectGrantUserPrincipal);
             }
         }
         GrantPrincipal::Group(group_id) => {
-            if !crate::workspace_groups::lock_active_workspace_group(tx, workspace_id, group_id)
-                .await?
-            {
+            if !lock_active_workspace_group(tx, workspace_id, group_id).await? {
                 return Err(KernelError::InvalidObjectGrantGroupPrincipal);
             }
         }

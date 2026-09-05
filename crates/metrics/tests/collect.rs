@@ -13,6 +13,7 @@ mod tests {
     };
 
     use kival_metrics::{
+        LocalRecorderGuard,
         process::Collector,
         prometheus::{PrometheusBuilder, PrometheusHandle},
         set_default_local_recorder,
@@ -27,7 +28,7 @@ mod tests {
     /// assume.
     static SERIAL: Mutex<()> = Mutex::new(());
 
-    fn install() -> (MutexGuard<'static, ()>, kival_metrics::LocalRecorderGuard, PrometheusHandle) {
+    fn install() -> (MutexGuard<'static, ()>, LocalRecorderGuard, PrometheusHandle) {
         // `lock()` returns `PoisonError` only if a previous holder panicked.
         // Subsequent tests don't depend on shared state behind the lock — it
         // exists purely for serialization — so unwrap the poison and continue.

@@ -5,7 +5,7 @@ use kival_types::CommentStatus;
 use sqlx::{Acquire, PgPool, Postgres, Transaction};
 use uuid::Uuid;
 
-use crate::Result;
+use crate::{KernelError, Result, objects::lock_active_objects_for_reference};
 
 /// Stored comment-thread projection.
 #[derive(Debug, Clone, Copy, sqlx::FromRow)]
@@ -210,8 +210,8 @@ async fn require_active_commentary_object(
     workspace_id: Uuid,
     object_id: Uuid,
 ) -> Result<()> {
-    if !crate::objects::lock_active_objects_for_reference(tx, workspace_id, &[object_id]).await? {
-        return Err(crate::KernelError::ResourceNotFound);
+    if !lock_active_objects_for_reference(tx, workspace_id, &[object_id]).await? {
+        return Err(KernelError::ResourceNotFound);
     }
     Ok(())
 }

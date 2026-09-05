@@ -226,7 +226,7 @@ mod tests {
     use serde_json::json;
 
     use super::*;
-    use crate::utils::error::FailureCode;
+    use crate::utils::error::{ErrorDetails, FailureCode, FieldErrorDetails};
 
     fn fields(values: &[&str]) -> Vec<String> {
         values.iter().map(|value| (*value).to_owned()).collect()
@@ -312,12 +312,10 @@ mod tests {
         assert_eq!(body.code, FailureCode::InvalidField);
         assert_eq!(
             body.details,
-            Some(crate::utils::error::ErrorDetails::Field(
-                crate::utils::error::FieldErrorDetails {
-                    field: "items.nope".to_owned(),
-                    available: Some(vec!["id".to_owned(), "title".to_owned()]),
-                },
-            )),
+            Some(ErrorDetails::Field(FieldErrorDetails {
+                field: "items.nope".to_owned(),
+                available: Some(vec!["id".to_owned(), "title".to_owned()]),
+            })),
         );
     }
 }

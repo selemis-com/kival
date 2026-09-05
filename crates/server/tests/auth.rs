@@ -15,7 +15,7 @@ mod tests {
     use kival_sdk::{
         API_PREFIX, MembershipRole, SessionListResponse, SessionOnlyResponse, WhoamiResponse,
     };
-    use kival_tests::{TestFixtureExt, TestKival, TestResponseExt};
+    use kival_tests::{TestActor, TestFixtureExt, TestKival, TestResponseExt};
     use tower::ServiceExt;
 
     #[sqlx::test(migrations = "../kernel/migrations")]
@@ -343,7 +343,7 @@ mod tests {
 
     async fn raw_authenticated_request_without_csrf(
         app: Router,
-        actor: &kival_tests::TestActor,
+        actor: &TestActor,
         method: Method,
         path: &str,
     ) -> Result<axum::response::Response> {

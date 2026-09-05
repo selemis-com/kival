@@ -4,7 +4,10 @@ use chrono::{DateTime, Utc};
 use sqlx::{PgPool, Postgres, Transaction};
 use uuid::Uuid;
 
-use crate::{ArchiveStatus, KernelError, ObjectGraphDirection, ObjectRole, Result, parse_stored};
+use crate::{
+    ArchiveStatus, KernelError, ObjectGraphDirection, ObjectRole, Result,
+    objects::lock_active_objects_for_reference, parse_stored,
+};
 
 /// Active explicit edge that points to an object.
 #[derive(Debug, Clone)]
@@ -647,12 +650,7 @@ async fn lock_active_object_edge_endpoints(
     source_object_id: Uuid,
     target_object_id: Uuid,
 ) -> Result<bool> {
-    crate::objects::lock_active_objects_for_reference(
-        tx,
-        workspace_id,
-        &[source_object_id, target_object_id],
-    )
-    .await
+    lock_active_objects_for_reference(tx, workspace_id, &[source_object_id, target_object_id]).await
 }
 
 /// Loads one active edge while a kernel transition is already in progress.

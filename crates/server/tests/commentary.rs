@@ -8,8 +8,8 @@ mod tests {
     use eyre::Result;
     use kival_sdk::{
         CommentListResponse, CommentMentionCandidateListResponse, CommentResponse, CommentStatus,
-        CommentThreadListResponse, CommentThreadResponse, CreateCommentRequest, ListResponse,
-        MembershipRole, ObjectRole, UpdateCommentRequest,
+        CommentThreadListResponse, CommentThreadResponse, CreateCommentRequest, Event,
+        ListResponse, MembershipRole, ObjectRole, UpdateCommentRequest,
     };
     use kival_tests::{
         TestFixtureExt, TestKival, TestRawResponseExt, TestResponseExt, object_metadata, test_body,
@@ -934,7 +934,7 @@ mod tests {
         .await?;
         assert_eq!(applied, (0, 1));
 
-        let event_ids: ListResponse<kival_sdk::Event> = r
+        let event_ids: ListResponse<Event> = r
             .get_json_as(
                 &r.admin,
                 &format!(

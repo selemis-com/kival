@@ -5,7 +5,7 @@ use serde_json::Value;
 use sqlx::{PgPool, Postgres, Transaction};
 use uuid::Uuid;
 
-use crate::{KernelError, Result};
+use crate::{KernelError, Result, objects::lock_active_objects_for_reference};
 
 /// Stored object-attachment projection.
 #[derive(Debug, Clone, sqlx::FromRow)]
@@ -302,12 +302,8 @@ pub async fn create_object_attachment(
     tx: &mut Transaction<'_, Postgres>,
     attachment: CreateObjectAttachment<'_>,
 ) -> Result<ObjectAttachmentRow> {
-    if !crate::objects::lock_active_objects_for_reference(
-        tx,
-        attachment.workspace_id,
-        &[attachment.object_id],
-    )
-    .await?
+    if !lock_active_objects_for_reference(tx, attachment.workspace_id, &[attachment.object_id])
+        .await?
     {
         return Err(KernelError::ResourceNotFound);
     }
@@ -329,7 +325,7 @@ pub async fn reuse_object_attachment(
     tx: &mut Transaction<'_, Postgres>,
     request: ReuseObjectAttachment,
 ) -> Result<ObjectAttachmentRow> {
-    if !crate::objects::lock_active_objects_for_reference(
+    if !lock_active_objects_for_reference(
         tx,
         request.workspace_id,
         &[request.source_object_id, request.target_object_id],

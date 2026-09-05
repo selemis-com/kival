@@ -10,7 +10,11 @@ use serde_json::Value;
 use sqlx::{Postgres, Transaction};
 use uuid::Uuid;
 
-use crate::{KernelError, MembershipRole, ObjectRole, Result, parse_optional_stored};
+use crate::{
+    KernelError, MembershipRole, ObjectRole, Result,
+    objects::{lock_active_object, set_active_object_version},
+    parse_optional_stored,
+};
 
 /// Object version row with canonical text body from `PostgreSQL`.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -309,7 +313,7 @@ pub async fn update_object_version(
     tx: &mut Transaction<'_, Postgres>,
     request: UpdateObjectVersion,
 ) -> Result<UpdatedObjectVersion> {
-    let locked = crate::objects::lock_active_object(tx, request.workspace_id, request.object_id)
+    let locked = lock_active_object(tx, request.workspace_id, request.object_id)
         .await?
         .ok_or(KernelError::ResourceNotFound)?;
     let current_version_id =
@@ -367,13 +371,7 @@ pub async fn update_object_version(
     .fetch_one(&mut **tx)
     .await?;
     let version = stored.into_object_version();
-    crate::objects::set_active_object_version(
-        tx,
-        request.workspace_id,
-        request.object_id,
-        version.id,
-    )
-    .await?;
+    set_active_object_version(tx, request.workspace_id, request.object_id, version.id).await?;
 
     Ok(UpdatedObjectVersion { version, previous_title, changed: true })
 }

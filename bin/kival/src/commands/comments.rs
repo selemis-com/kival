@@ -15,7 +15,7 @@ use crate::{
     utils::{
         args::{DEFAULT_LIST_LIMIT, list_params},
         credentials::authenticated_client,
-        error::{CliFailure, erase_command_error},
+        error::{CliFailure, FailureCode, erase_command_error},
         input::{StructuredInputArgs, read_json_input, reject_conflicting_input},
         output::{
             OutputMode, format_human_timestamp, print_empty_list, print_output, quote_human_string,
@@ -747,7 +747,7 @@ async fn find_comment_thread(
     }
 
     Err(CliFailure {
-        code: crate::utils::error::FailureCode::ResourceNotFound,
+        code: FailureCode::ResourceNotFound,
         message: "Comment was not found on this object.".to_owned(),
         details: None,
     }

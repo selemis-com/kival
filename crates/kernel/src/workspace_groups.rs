@@ -4,7 +4,10 @@ use chrono::{DateTime, Utc};
 use sqlx::{PgPool, Postgres, Transaction};
 use uuid::Uuid;
 
-use crate::{ArchiveListStatus, ArchiveStatus, KernelError, Result, parse_stored};
+use crate::{
+    ArchiveListStatus, ArchiveStatus, KernelError, Result, groups::lock_active_group_for_reference,
+    parse_stored, workspaces::lock_active_workspace_for_child,
+};
 
 /// Workspace-to-group link projection.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -185,10 +188,10 @@ pub async fn create_workspace_group(
     group_id: Uuid,
     actor_id: Uuid,
 ) -> Result<WorkspaceGroupRow> {
-    if !crate::workspaces::lock_active_workspace_for_child(tx, workspace_id).await? {
+    if !lock_active_workspace_for_child(tx, workspace_id).await? {
         return Err(KernelError::ResourceNotFound);
     }
-    if !crate::groups::lock_active_group_for_reference(tx, group_id).await? {
+    if !lock_active_group_for_reference(tx, group_id).await? {
         return Err(sqlx::Error::RowNotFound.into());
     }
 
@@ -280,8 +283,8 @@ pub async fn unarchive_workspace_group(
     workspace_id: Uuid,
     group_id: Uuid,
 ) -> Result<WorkspaceGroupRow> {
-    if !crate::workspaces::lock_active_workspace_for_child(tx, workspace_id).await?
-        || !crate::groups::lock_active_group_for_reference(tx, group_id).await?
+    if !lock_active_workspace_for_child(tx, workspace_id).await?
+        || !lock_active_group_for_reference(tx, group_id).await?
     {
         return Err(sqlx::Error::RowNotFound.into());
     }

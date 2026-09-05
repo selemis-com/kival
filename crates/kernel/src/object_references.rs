@@ -5,7 +5,7 @@ use std::collections::BTreeSet;
 use sqlx::{Acquire, Postgres, Transaction};
 use uuid::Uuid;
 
-use crate::Result;
+use crate::{KernelError, Result, objects::lock_active_object};
 
 /// Kind of internal object reference found in version content.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -230,11 +230,11 @@ async fn current_object_references(
     source_object_id: Uuid,
     source_version_id: Uuid,
 ) -> Result<Vec<ParsedObjectReference>> {
-    let locked = crate::objects::lock_active_object(tx, workspace_id, source_object_id)
+    let locked = lock_active_object(tx, workspace_id, source_object_id)
         .await?
-        .ok_or(crate::KernelError::ResourceNotFound)?;
+        .ok_or(KernelError::ResourceNotFound)?;
     if locked.current_version_id != Some(source_version_id) {
-        return Err(crate::KernelError::ResourceNotFound);
+        return Err(KernelError::ResourceNotFound);
     }
 
     let body = sqlx::query_scalar::<_, String>(

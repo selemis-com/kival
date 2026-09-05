@@ -221,7 +221,10 @@ mod tests {
     use eyre::Result;
     use kival_tests::{TestFixtureExt, TestKival};
 
-    use super::{AdminUserLifecycleCommand, AdminUsersSubcommand, UserLifecycleAction};
+    use super::{
+        AdminUserCreateCommand, AdminUserLifecycleCommand, AdminUsersSubcommand,
+        UserLifecycleAction,
+    };
 
     #[derive(Parser)]
     struct TestCli {
@@ -255,7 +258,7 @@ mod tests {
         let kival = TestKival::new(pool).await?;
         let existing = kival.create_user("operator-create-existing").await?;
 
-        let error = super::AdminUserCreateCommand {
+        let error = AdminUserCreateCommand {
             username: existing.username.clone(),
             display_name: "Duplicate User".to_owned(),
         }
