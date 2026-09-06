@@ -92,7 +92,6 @@ In another terminal, bootstrap the first global administrator:
 
 ```sh
 export DATABASE_URL=postgres://kival:kival@localhost:5432/kival
-
 kivald admin bootstrap \
   --username admin \
   --display-name "Admin"
