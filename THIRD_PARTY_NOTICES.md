@@ -2635,8 +2635,8 @@ Apache License 2.0
 Apache License 2.0
 
 #### Used by
-- [kival-types]( https://github.com/selemis-com/kival ) 0.1.0
-- [kival-sdk]( https://github.com/selemis-com/kival ) 0.1.0
+- [kival-types]( https://github.com/selemis-com/kival ) 0.1.1
+- [kival-sdk]( https://github.com/selemis-com/kival ) 0.1.1
 - [ciborium-io]( https://github.com/enarx/ciborium ) 0.2.2
 - [ciborium-ll]( https://github.com/enarx/ciborium ) 0.2.2
 - [ciborium]( https://github.com/enarx/ciborium ) 0.2.2
@@ -8465,17 +8465,17 @@ limitations under the License.
 Apache License 2.0
 
 #### Used by
-- [kival]( https://crates.io/crates/kival ) 0.1.0
-- [kivald]( https://crates.io/crates/kivald ) 0.1.0
-- [kival-cli]( https://crates.io/crates/kival-cli ) 0.1.0
-- [kival-common]( https://crates.io/crates/kival-common ) 0.1.0
-- [kival-kernel]( https://crates.io/crates/kival-kernel ) 0.1.0
-- [kival-metrics]( https://crates.io/crates/kival-metrics ) 0.1.0
-- [kival-server]( https://crates.io/crates/kival-server ) 0.1.0
-- [kival-storage]( https://crates.io/crates/kival-storage ) 0.1.0
-- [kival-tasks]( https://crates.io/crates/kival-tasks ) 0.1.0
-- [kival-tests]( https://crates.io/crates/kival-tests ) 0.1.0
-- [kival-tracing]( https://crates.io/crates/kival-tracing ) 0.1.0
+- [kival]( https://crates.io/crates/kival ) 0.1.1
+- [kivald]( https://crates.io/crates/kivald ) 0.1.1
+- [kival-cli]( https://crates.io/crates/kival-cli ) 0.1.1
+- [kival-common]( https://crates.io/crates/kival-common ) 0.1.1
+- [kival-kernel]( https://crates.io/crates/kival-kernel ) 0.1.1
+- [kival-metrics]( https://crates.io/crates/kival-metrics ) 0.1.1
+- [kival-server]( https://crates.io/crates/kival-server ) 0.1.1
+- [kival-storage]( https://crates.io/crates/kival-storage ) 0.1.1
+- [kival-tasks]( https://crates.io/crates/kival-tasks ) 0.1.1
+- [kival-tests]( https://crates.io/crates/kival-tests ) 0.1.1
+- [kival-tracing]( https://crates.io/crates/kival-tracing ) 0.1.1
 - [allocator-api2]( https://github.com/zakarumych/allocator-api2 ) 0.2.21
 - [android_system_properties]( https://github.com/nical/android_system_properties ) 0.1.5
 - [argx-derive]( https://github.com/selemis-com/argx ) 0.3.0

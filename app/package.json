@@ -1,6 +1,6 @@
 {
   "name": "kival-app",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Web application for Kival.",
   "type": "module",
   "private": true,
