@@ -149,29 +149,38 @@ Agents can use the same CLI and access model to inspect existing knowledge, foll
 
 ## Resources
 
-The [Kival resources](https://selemis.com/resources) contain the complete guides and reference material.
+The [Kival resources](https://selemis.com/resources) cover how Kival works, how to use it, how to connect it to other systems, and how to run it in production.
 
-### Users
+### Understand Kival
 
-* [Getting started](https://selemis.com/resources/docs/users/getting-started)
-* [Objects and content](https://selemis.com/resources/docs/users/objects-and-content)
-* [Relations and context](https://selemis.com/resources/docs/users/relations-and-context)
-* [Access and collaboration](https://selemis.com/resources/docs/users/access-and-collaboration)
-* [Account and security](https://selemis.com/resources/docs/users/account-and-security)
+* [Core concepts](https://selemis.com/resources/docs/understand/core-concepts)
+* [Objects and versions](https://selemis.com/resources/docs/understand/objects-and-versions)
+* [Relations and context](https://selemis.com/resources/docs/understand/relations-and-context)
+* [History and provenance](https://selemis.com/resources/docs/understand/history-and-provenance)
+* [Access model](https://selemis.com/resources/docs/understand/access-model)
 
-### Developers
+### Use Kival
 
-* [Getting started](https://selemis.com/resources/docs/developers/getting-started)
-* [Core concepts](https://selemis.com/resources/docs/developers/core-concepts)
-* [SDKs](https://selemis.com/resources/docs/developers/sdks)
-* [Integrations](https://selemis.com/resources/docs/developers/integrations)
-* [API reference](https://selemis.com/resources/docs/developers/api-reference)
-* [CLI automation](https://selemis.com/resources/docs/developers/cli-automation)
+* [Creating and organizing knowledge](https://selemis.com/resources/docs/use/creating-and-organizing-knowledge)
+* [Search and navigation](https://selemis.com/resources/docs/use/search-and-navigation)
+* [Discussions and collaboration](https://selemis.com/resources/docs/use/discussions-and-collaboration)
+* [Working with others](https://selemis.com/resources/docs/use/working-with-others)
+* [Practical workflows](https://selemis.com/resources/docs/use/practical-workflows)
+* [Using Kival with agents](https://selemis.com/resources/docs/use/using-kival-with-agents)
 
-### Administrators
+### Connect Kival
 
-* [Deployment](https://selemis.com/resources/docs/administrators/deployment)
-* [Administration](https://selemis.com/resources/docs/administrators/administration)
+* [CLI](https://selemis.com/resources/docs/connect/cli)
+* [API](https://selemis.com/resources/docs/connect/api)
+* [SDKs](https://selemis.com/resources/docs/connect/sdks)
+* [Agent access](https://selemis.com/resources/docs/connect/agent-access)
+* [Automation](https://selemis.com/resources/docs/connect/automation)
+* [Integrations](https://selemis.com/resources/docs/connect/integrations)
+
+### Deployment & administration
+
+* [Deployment](https://selemis.com/resources/docs/operations/deployment)
+* [Administration](https://selemis.com/resources/docs/operations/administration)
 
 ## SDKs
 
