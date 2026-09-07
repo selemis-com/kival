@@ -1328,7 +1328,7 @@ dependencies = [
 
 [[package]]
 name = "kival"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "argx",
  "chrono",
@@ -1344,7 +1344,7 @@ dependencies = [
 
 [[package]]
 name = "kival-cli"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "argx",
  "eyre",
@@ -1356,7 +1356,7 @@ dependencies = [
 
 [[package]]
 name = "kival-common"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "base64 0.23.1",
  "getrandom 0.4.3",
@@ -1366,7 +1366,7 @@ dependencies = [
 
 [[package]]
 name = "kival-kernel"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "chrono",
  "kival-types",
@@ -1379,7 +1379,7 @@ dependencies = [
 
 [[package]]
 name = "kival-metrics"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "axum",
  "eyre",
@@ -1391,7 +1391,7 @@ dependencies = [
 
 [[package]]
 name = "kival-sdk"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "chrono",
  "http",
@@ -1409,7 +1409,7 @@ dependencies = [
 
 [[package]]
 name = "kival-server"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "axum",
  "base64 0.23.1",
@@ -1446,7 +1446,7 @@ dependencies = [
 
 [[package]]
 name = "kival-storage"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "bytes",
  "futures-util",
@@ -1462,7 +1462,7 @@ dependencies = [
 
 [[package]]
 name = "kival-tasks"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "futures-util",
  "kival-metrics",
@@ -1475,7 +1475,7 @@ dependencies = [
 
 [[package]]
 name = "kival-tests"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "axum",
  "base64 0.23.1",
@@ -1504,7 +1504,7 @@ dependencies = [
 
 [[package]]
 name = "kival-tracing"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "argx",
  "eyre",
@@ -1518,7 +1518,7 @@ dependencies = [
 
 [[package]]
 name = "kival-types"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "schemars",
  "serde",
@@ -1527,7 +1527,7 @@ dependencies = [
 
 [[package]]
 name = "kivald"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "argx",
  "eyre",
