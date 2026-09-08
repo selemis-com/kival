@@ -166,7 +166,7 @@ The [Kival resources](https://selemis.com/resources) cover how Kival works, how 
 * [Discussions and collaboration](https://selemis.com/resources/docs/use/discussions-and-collaboration)
 * [Working with others](https://selemis.com/resources/docs/use/working-with-others)
 * [Practical workflows](https://selemis.com/resources/docs/use/practical-workflows)
-* [Using Kival with agents](https://selemis.com/resources/docs/use/using-kival-with-agents)
+* [Using Kival with agents](https://selemis.com/resources/docs/use/agents)
 
 ### Connect Kival
 
