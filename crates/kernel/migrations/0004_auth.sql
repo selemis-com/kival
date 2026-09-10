@@ -1,5 +1,5 @@
 -- =====================================================================
--- Kival migration 0003: authentication
+-- Kival migration 0004: authentication
 -- =====================================================================
 -- Purpose
 --   Define Kival authentication state: interactive passkeys, WebAuthn
@@ -8,9 +8,9 @@
 --   for machine credentials.
 --
 -- Depends on
---   * 0000_setup.sql for the `kival` schema and shared trigger helpers.
---   * 0001_identity.sql for immutable user IDs and account lookup.
---   * 0002_workspaces.sql for API-key workspace allow-lists.
+--   * 0001_setup.sql for the `kival` schema and shared trigger helpers.
+--   * 0002_identity.sql for immutable user IDs and account lookup.
+--   * 0003_workspaces.sql for API-key workspace allow-lists.
 --
 -- Owns
 --   * `kival.passkey_credentials`

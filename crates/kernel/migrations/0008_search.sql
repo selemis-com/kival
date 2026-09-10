@@ -1,13 +1,13 @@
 -- =====================================================================
--- Kival migration 0007: search
+-- Kival migration 0008: search
 -- =====================================================================
 -- Purpose
 --   Build and maintain the denormalized search projection for immutable object
 --   versions.
 --
 -- Depends on
---   * 0002_workspaces.sql for workspace identity and scoping.
---   * 0004_objects.sql for objects and immutable versions.
+--   * 0003_workspaces.sql for workspace identity and scoping.
+--   * 0005_objects.sql for objects and immutable versions.
 --
 -- Owns
 --   * `kival.search_documents`

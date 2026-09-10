@@ -1,5 +1,5 @@
 -- =====================================================================
--- Kival migration 0006: events
+-- Kival migration 0007: events
 -- =====================================================================
 -- Purpose
 --   Define Kival's append-only event log for auditable domain activity, including
