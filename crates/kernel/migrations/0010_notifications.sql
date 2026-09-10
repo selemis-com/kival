@@ -1,5 +1,5 @@
 -- =====================================================================
--- Kival migration 0009: notifications, inbox, and realtime invalidation
+-- Kival migration 0010: notifications, inbox, and realtime invalidation
 -- =====================================================================
 -- Purpose
 --   Add explicit per-object notification preferences, durable event-time
@@ -7,12 +7,12 @@
 --   realtime invalidation delivery.
 --
 -- Depends on
---   * 0000_setup.sql for shared update helpers.
---   * 0001_identity.sql for notification recipients and actors.
---   * 0002_workspaces.sql for workspace scope and membership.
---   * 0004_objects.sql for object-scoped notification state.
---   * 0005_access.sql for current-visibility predicates.
---   * 0006_events.sql and 0008_commentary.sql for durable event subjects.
+--   * 0001_setup.sql for shared update helpers.
+--   * 0002_identity.sql for notification recipients and actors.
+--   * 0003_workspaces.sql for workspace scope and membership.
+--   * 0005_objects.sql for object-scoped notification state.
+--   * 0006_access.sql for current-visibility predicates.
+--   * 0007_events.sql and 0009_commentary.sql for durable event subjects.
 --
 -- Owns
 --   * `kival.object_notification_preferences`

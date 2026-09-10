@@ -1,14 +1,14 @@
 -- =====================================================================
--- Kival migration 0004: objects
+-- Kival migration 0005: objects
 -- =====================================================================
 -- Purpose
 --   Define Kival's core knowledge model: objects, immutable versions,
 --   attachments, explicit object edges, and derived textual references.
 --
 -- Depends on
---   * 0000_setup.sql for lifecycle and immutability trigger helpers.
---   * 0001_identity.sql for actor attribution.
---   * 0002_workspaces.sql for workspace identity and isolation.
+--   * 0001_setup.sql for lifecycle and immutability trigger helpers.
+--   * 0002_identity.sql for actor attribution.
+--   * 0003_workspaces.sql for workspace identity and isolation.
 --
 -- Owns
 --   * `kival.objects`
