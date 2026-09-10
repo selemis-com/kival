@@ -14,15 +14,16 @@ use sqlx::PgPool;
 use tokio::{net::TcpListener, task::JoinError};
 use tokio_util::sync::CancellationToken;
 
-/// Root namespace reserved for Kival HTTP APIs.
-const API_ROOT: &str = "/api";
-/// Interval between low-frequency Steda retention and recovery maintenance passes.
-const DURABLE_MAINTENANCE_INTERVAL: Duration = Duration::from_secs(60 * 60);
 pub mod api;
 pub mod layers;
 mod web;
 mod webauthn;
 pub use webauthn::{WebAuthnConfig, WebAuthnConfigError};
+
+/// Root namespace reserved for Kival HTTP APIs.
+const API_ROOT: &str = "/api";
+/// Interval between low-frequency Steda retention and recovery maintenance passes.
+const DURABLE_MAINTENANCE_INTERVAL: Duration = Duration::from_secs(60 * 60);
 
 /// Runtime settings used by request handlers.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
