@@ -82,22 +82,6 @@ pub use database::{
     DatabasePoolSettings, database_ready, open_pool_with_options, open_pool_with_settings,
 };
 pub use error::{KernelError, Result};
-
-/// Parses constrained stored vocabulary at the kernel boundary.
-fn parse_stored<T>(kind: &'static str, value: String) -> Result<T>
-where
-    T: std::str::FromStr<Err = ()>,
-{
-    value.parse().map_err(|()| KernelError::InvalidStoredValue { kind, value })
-}
-
-/// Parses optional constrained stored vocabulary at the kernel boundary.
-fn parse_optional_stored<T>(kind: &'static str, value: Option<String>) -> Result<Option<T>>
-where
-    T: std::str::FromStr<Err = ()>,
-{
-    value.map(|value| parse_stored(kind, value)).transpose()
-}
 pub use events::{
     ApiKeyAttribution, EventInsert, EventKind, EventRow, ListEvents, append_event, list_events,
     list_object_events, list_workspace_events,
@@ -202,3 +186,19 @@ pub use workspaces::{
     create_workspace, fetch_visible_workspace, list_visible_workspaces, unarchive_workspace,
     update_workspace, workspace_exists,
 };
+
+/// Parses constrained stored vocabulary at the kernel boundary.
+fn parse_stored<T>(kind: &'static str, value: String) -> Result<T>
+where
+    T: std::str::FromStr<Err = ()>,
+{
+    value.parse().map_err(|()| KernelError::InvalidStoredValue { kind, value })
+}
+
+/// Parses optional constrained stored vocabulary at the kernel boundary.
+fn parse_optional_stored<T>(kind: &'static str, value: Option<String>) -> Result<Option<T>>
+where
+    T: std::str::FromStr<Err = ()>,
+{
+    value.map(|value| parse_stored(kind, value)).transpose()
+}
