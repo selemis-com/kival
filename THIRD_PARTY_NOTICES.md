@@ -7209,7 +7209,7 @@ Apache License 2.0
 - [sha2]( https://github.com/RustCrypto/hashes ) 0.11.0
 - [signature]( https://github.com/RustCrypto/traits ) 3.0.0
 - [spki]( https://github.com/RustCrypto/formats ) 0.8.0
-- [wnaf]( https://github.com/RustCrypto/elliptic-curves ) 0.14.0
+- [wnaf]( https://github.com/RustCrypto/elliptic-curves ) 0.14.1
 
 #### License
 ```
