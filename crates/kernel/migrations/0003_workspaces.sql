@@ -1,13 +1,13 @@
 -- =====================================================================
--- Kival migration 0002: workspaces
+-- Kival migration 0003: workspaces
 -- =====================================================================
 -- Purpose
 --   Define workspaces as Kival's primary organizational and security boundary,
 --   together with direct user membership and the groups attached to a workspace.
 --
 -- Depends on
---   * 0000_setup.sql for shared trigger helpers.
---   * 0001_identity.sql for users and groups.
+--   * 0001_setup.sql for shared trigger helpers.
+--   * 0002_identity.sql for users and groups.
 --
 -- Owns
 --   * `kival.workspaces`

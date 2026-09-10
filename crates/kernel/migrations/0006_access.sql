@@ -1,15 +1,15 @@
 -- =====================================================================
--- Kival migration 0005: access control
+-- Kival migration 0006: access control
 -- =====================================================================
 -- Purpose
 --   Define object-level roles, administrative authority, explicit object grants,
 --   and the canonical database functions for resolving effective object access.
 --
 -- Depends on
---   * 0000_setup.sql for shared lifecycle trigger helpers.
---   * 0001_identity.sql for users, groups, and group memberships.
---   * 0002_workspaces.sql for workspace membership and workspace/group links.
---   * 0004_objects.sql for objects receiving grants.
+--   * 0001_setup.sql for shared lifecycle trigger helpers.
+--   * 0002_identity.sql for users, groups, and group memberships.
+--   * 0003_workspaces.sql for workspace membership and workspace/group links.
+--   * 0005_objects.sql for objects receiving grants.
 --
 -- Owns
 --   * `kival.object_role`

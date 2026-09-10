@@ -1,14 +1,14 @@
 -- =====================================================================
--- Kival migration 0010: personal favorites and pins
+-- Kival migration 0011: personal favorites and pins
 -- =====================================================================
 -- Purpose
 --   Add user-owned workspace pins, object favorites, and object pins as lightweight
 --   personal organization metadata.
 --
 -- Depends on
---   * 0001_identity.sql for users.
---   * 0002_workspaces.sql for workspace identity and scoping.
---   * 0004_objects.sql for workspace-scoped object targets.
+--   * 0002_identity.sql for users.
+--   * 0003_workspaces.sql for workspace identity and scoping.
+--   * 0005_objects.sql for workspace-scoped object targets.
 --
 -- Owns
 --   * `kival.workspace_pins`

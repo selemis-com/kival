@@ -1,15 +1,15 @@
 -- =====================================================================
--- Kival migration 0008: object commentary
+-- Kival migration 0009: object commentary
 -- =====================================================================
 -- Purpose
 --   Add mutable discussion threads, comments, mentions, commentary audit subjects,
 --   and bounded retention for working context attached to durable objects.
 --
 -- Depends on
---   * 0000_setup.sql for shared update helpers.
---   * 0001_identity.sql for comment authors, resolvers, deleters, and mentions.
---   * 0004_objects.sql for workspace-scoped object identity.
---   * 0006_events.sql for the append-only event log extended by this migration.
+--   * 0001_setup.sql for shared update helpers.
+--   * 0002_identity.sql for comment authors, resolvers, deleters, and mentions.
+--   * 0005_objects.sql for workspace-scoped object identity.
+--   * 0007_events.sql for the append-only event log extended by this migration.
 --
 -- Owns
 --   * `kival.comment_threads`
@@ -267,7 +267,7 @@ CREATE INDEX IF NOT EXISTS events_comment_idx
 --   Extend canonical event-scope validation to commentary event subjects.
 -- Trigger contract
 --   BEFORE INSERT on `kival.events`; replaces the function introduced by
---   0006_events.sql after commentary subject columns are added.
+--   0007_events.sql after commentary subject columns are added.
 -- Behavior
 --   Retains validation for object, edge, grant, and version subjects and adds
 --   workspace/object/thread consistency checks for comment threads and comments.

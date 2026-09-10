@@ -1,5 +1,5 @@
 -- =====================================================================
--- Kival migration 0000: setup
+-- Kival migration 0001: setup
 -- =====================================================================
 -- Purpose
 --   Establish the `kival` schema and reusable database primitives used by
