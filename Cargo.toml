@@ -201,6 +201,7 @@ argx = { version = "0.3.0", features = ["chrono", "url", "uuid", "toml"] }
 axum = { version = "0.8.9", default-features = false }
 base64 = "0.23.1"
 bytes = "1.12.0"
+chrono = { version = "0.4.45", features = ["serde"] }
 ciborium = "0.2.2"
 coset = "0.4.2"
 eyre = "0.6.12"
@@ -208,10 +209,10 @@ futures-util = { version = "0.3.32", default-features = false, features = [
     "std",
 ] }
 getrandom = "0.4.2"
-object_store = { version = "0.14.1", default-features = false, features = ["fs"] }
 hex = "0.4.3"
 http = "1.4.1"
 libc = { version = "0.2.186", default-features = false }
+object_store = { version = "0.14.1", default-features = false, features = ["fs"] }
 proptest = "1.11.0"
 proptest-state-machine = "0.8.0"
 reqwest = { version = "0.13.4", default-features = false }
@@ -234,7 +235,6 @@ sqlx = { version = "0.9.0", default-features = false, features = [
 ] }
 tempfile = "3.27.0"
 thiserror = "2.0.18"
-chrono = { version = "0.4.45", features = ["serde"] }
 tokio = { version = "1.52.3", default-features = false }
 tokio-util = { version = "0.7.18", default-features = false }
 tower = "0.5.3"

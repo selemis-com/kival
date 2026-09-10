@@ -13,7 +13,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     rerun_if_git_metadata_changes()?;
 
     let sha = git(&["rev-parse", "HEAD"])?;
-    let sha_short = &sha[0..7];
+    let sha_short = &sha[0..8];
 
     let is_dirty = !git(&["status", "--porcelain"])?.is_empty();
 
