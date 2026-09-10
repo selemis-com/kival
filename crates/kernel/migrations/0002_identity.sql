@@ -1,12 +1,12 @@
 -- =====================================================================
--- Kival migration 0001: identity
+-- Kival migration 0002: identity
 -- =====================================================================
 -- Purpose
 --   Define Kival's human identity and reusable group model: users, groups, and
 --   revocable group memberships.
 --
 -- Depends on
---   0000_setup.sql for the `kival` schema and shared trigger helpers.
+--   0001_setup.sql for the `kival` schema and shared trigger helpers.
 --
 -- Owns
 --   * `kival.users`
@@ -15,7 +15,7 @@
 --
 -- Design notes
 --   Users and groups are global identities. Workspace participation is modeled
---   separately in 0002_workspaces.sql. Membership rows are lifecycle records:
+--   separately in 0003_workspaces.sql. Membership rows are lifecycle records:
 --   an active membership is revoked in place, after which the row is immutable.
 --   Partial unique indexes ensure at most one active membership per user/group.
 -- =====================================================================
