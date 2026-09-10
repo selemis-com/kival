@@ -335,7 +335,7 @@ jobs:
           )"
 
           if [[ "$entries" != "$expected" ]]; then
-            echo "::error::Release archive contents do not match RELEASE_BINARIES_JSON."
+            echo "::error::Release archive contents do not match the release contract."
             printf 'Expected:\n%s\n' "$expected"
             printf 'Found:\n%s\n' "$entries"
             exit 1
