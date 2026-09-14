@@ -16,6 +16,7 @@ env:
   CARGO_TERM_COLOR: always
   CARGO_BUILD_WARNINGS: deny
   RUST_BACKTRACE: full
+  SCCACHE_GHA_ENABLED: "true"
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.head_ref || github.ref }}
@@ -246,10 +247,10 @@ jobs:
       - name: Install frontend dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Install stable Rust toolchain
+      - name: Install nightly Rust toolchain
         uses: dtolnay/rust-toolchain@6c977a6ca4077a0ceb28ffbe03f59d46e9ac8772 # master
         with:
-          toolchain: stable
+          toolchain: nightly
 
       - name: Install sccache
         uses: mozilla-actions/sccache-action@fc920bf0ec8de6ee65d409111f7ec508035751ba # v0.0.11
@@ -258,9 +259,6 @@ jobs:
         uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
         with:
           cache-on-failure: true
-
-      - name: Install nightly Rust toolchain
-        run: rustup toolchain install nightly --profile minimal
 
       - name: Run documentation tests
         run: |
