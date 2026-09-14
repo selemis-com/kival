@@ -39,6 +39,8 @@ Kival gives people and agents a shared place to deliberately create, edit, discu
 * **Durable context**: knowledge remains understandable even as the people, agents, models, applications, and tools around it change.
 * **Self-hosted ownership**: the organization retains control over the knowledge and infrastructure on which its work depends.
 
+<br/>
+
 <picture>
   <img
     src=".github/assets/graph.jpg"
