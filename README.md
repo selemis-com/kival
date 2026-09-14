@@ -39,6 +39,24 @@ Kival gives people and agents a shared place to deliberately create, edit, discu
 * **Durable context**: knowledge remains understandable even as the people, agents, models, applications, and tools around it change.
 * **Self-hosted ownership**: the organization retains control over the knowledge and infrastructure on which its work depends.
 
+<picture>
+  <img
+    src=".github/assets/graph.jpg"
+    alt="Kival graph view showing connected organizational knowledge"
+    width="100%"
+  >
+</picture>
+
+<br/>
+
+<picture>
+  <img
+    src=".github/assets/object.jpg"
+    alt="Kival object view showing metadata, connected knowledge, and local graph context"
+    width="100%"
+  >
+</picture>
+
 ## Setup
 
 ### Installation
