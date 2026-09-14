@@ -104,7 +104,7 @@ test-stateful-for: ## Run stateful fuzz tests for STATEFUL_DURATION (default: 10
 
 .PHONY: test-doc
 test-doc: ## Run doc tests.
-	cargo test \
+	cargo +nightly test \
 		--doc \
 		--workspace \
 		--all-features \

@@ -4,7 +4,7 @@ This page lists the licenses of the projects used in Kival.
 
 ## Overview of licenses
 
-- [Apache License 2.0](#Apache-2.0) (279)
+- [Apache License 2.0](#Apache-2.0) (280)
 - [MIT License](#MIT) (57)
 - [ISC License](#ISC) (20)
 - [Unicode License v3](#Unicode-3.0) (19)
@@ -6085,6 +6085,7 @@ Apache License 2.0
 - [parking_lot]( https://github.com/Amanieu/parking_lot ) 0.12.5
 - [parking_lot_core]( https://github.com/Amanieu/parking_lot ) 0.9.12
 - [percent-encoding]( https://github.com/servo/rust-url/ ) 2.3.2
+- [pkg-config]( https://github.com/rust-lang/pkg-config-rs ) 0.3.33
 - [proptest-state-machine]( https://github.com/proptest-rs/proptest ) 0.8.0
 - [proptest]( https://github.com/proptest-rs/proptest ) 1.11.0
 - [psl-types]( https://github.com/addr-rs/psl-types ) 2.0.11
@@ -6095,7 +6096,7 @@ Apache License 2.0
 - [rustc_version]( https://github.com/djc/rustc-version-rs ) 0.4.1
 - [rustix]( https://github.com/bytecodealliance/rustix ) 1.1.4
 - [rustls-native-certs]( https://github.com/rustls/rustls-native-certs ) 0.8.4
-- [rustls]( https://github.com/rustls/rustls ) 0.23.41
+- [rustls]( https://github.com/rustls/rustls ) 0.23.45
 - [rusty-fork]( https://github.com/altsysrq/rusty-fork ) 0.3.1
 - [scopeguard]( https://github.com/bluss/scopeguard ) 1.2.0
 - [security-framework-sys]( https://github.com/kornelski/rust-security-framework ) 2.17.0
@@ -8481,7 +8482,7 @@ Apache License 2.0
 - [argx-derive]( https://github.com/selemis-com/argx ) 0.3.0
 - [argx]( https://github.com/selemis-com/argx ) 0.3.0
 - [async-trait]( https://github.com/dtolnay/async-trait ) 0.1.89
-- [aws-lc-sys]( https://github.com/aws/aws-lc-rs ) 0.41.0
+- [aws-lc-sys]( https://github.com/aws/aws-lc-rs ) 0.45.0
 - [document-features]( https://github.com/slint-ui/document-features ) 0.2.12
 - [dunce]( https://gitlab.com/kornelski/dunce ) 1.0.5
 - [dyn-clone]( https://github.com/dtolnay/dyn-clone ) 1.0.20
@@ -8944,7 +8945,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 BSD 3-Clause "New" or "Revised" License
 
 #### Used by
-- [aws-lc-sys]( https://github.com/aws/aws-lc-rs ) 0.41.0
+- [aws-lc-sys]( https://github.com/aws/aws-lc-rs ) 0.45.0
 
 #### License
 ```
@@ -9612,7 +9613,7 @@ CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 ISC License
 
 #### Used by
-- [rustls-webpki]( https://github.com/rustls/webpki ) 0.103.13
+- [rustls-webpki]( https://github.com/rustls/webpki ) 0.103.15
 
 #### License
 ```
@@ -9641,8 +9642,8 @@ third-party/chromium/LICENSE.
 ISC License
 
 #### Used by
-- [aws-lc-rs]( https://github.com/aws/aws-lc-rs ) 1.17.0
-- [aws-lc-sys]( https://github.com/aws/aws-lc-rs ) 0.41.0
+- [aws-lc-rs]( https://github.com/aws/aws-lc-rs ) 1.18.1
+- [aws-lc-sys]( https://github.com/aws/aws-lc-rs ) 0.45.0
 
 #### License
 ```
@@ -10846,7 +10847,7 @@ SOFTWARE.
 MIT License
 
 #### Used by
-- [aws-lc-sys]( https://github.com/aws/aws-lc-rs ) 0.41.0
+- [aws-lc-sys]( https://github.com/aws/aws-lc-rs ) 0.45.0
 
 #### License
 ```
