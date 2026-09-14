@@ -10230,7 +10230,7 @@ MIT License
 
 #### Used by
 - [tower-http]( https://github.com/tower-rs/tower-http ) 0.6.11
-- [tower-http]( https://github.com/tower-rs/tower-http ) 0.7.0
+- [tower-http]( https://github.com/tower-rs/tower-http ) 0.7.1
 
 #### License
 ```
