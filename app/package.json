@@ -22,16 +22,16 @@
     "preview": "vite preview"
   },
   "dependencies": {
-    "katex": "0.18.4",
+    "katex": "0.18.7",
     "kival-sdk": "workspace:*",
     "react": "19.2.8",
     "react-dom": "19.2.8",
     "react-router": "8.3.1"
   },
   "devDependencies": {
-    "@biomejs/biome": "2.5.11",
+    "@biomejs/biome": "2.5.12",
     "@types/react": "19.2.18",
-    "@types/react-dom": "19.2.5",
+    "@types/react-dom": "19.2.7",
     "@vitejs/plugin-react": "6.1.1",
     "typescript": "7.0.2",
     "vite": "8.2.2"
