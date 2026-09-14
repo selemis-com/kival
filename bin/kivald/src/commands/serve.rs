@@ -312,7 +312,6 @@ impl ServeCommand {
             );
         }
 
-        let db_pool_shutdown = db_pool.clone();
         let server_settings = ServerSettings {
             authentication_start_requests_per_minute: config.passkey_start_requests_per_minute,
             authentication_finish_requests_per_minute: config.passkey_finish_requests_per_minute,
@@ -332,13 +331,13 @@ impl ServeCommand {
         ctx.task_executor.spawn_critical_with_graceful_shutdown_signal(
             "http-server",
             async move |shutdown| {
-                // Axum only needs a unit-output signal. The original graceful handle remains in
-                // this task so its guard covers both request draining and database pool closure.
+                // Axum only needs a unit-output signal. Keep the original guard alive until the
+                // HTTP server has drained and exited. The database pool is process-scoped and must
+                // remain available to work that can outlive the Axum serve future, such as upgraded
+                // WebSocket tasks; runtime teardown drops the remaining pool handles afterwards.
                 let shutdown_signal = shutdown.clone().ignore_guard();
                 let result =
                     server.run_with_graceful_shutdown(server_address, shutdown_signal).await;
-
-                db_pool_shutdown.close().await;
                 drop(shutdown);
 
                 if let Err(error) = result {
