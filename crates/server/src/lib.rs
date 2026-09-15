@@ -171,6 +171,27 @@ impl Server {
         Arc::clone(&self.state)
     }
 
+    /// Builds the fully layered Kival HTTP application.
+    ///
+    /// # Panics
+    ///
+    /// Panics if the compile-time API prefix is not contained within the `/api` namespace.
+    pub fn router(&self) -> Router {
+        let api_version_prefix = API_PREFIX
+            .strip_prefix(API_ROOT)
+            .expect("API_PREFIX must remain inside the /api namespace");
+        let api_namespace = Router::new()
+            .nest(api_version_prefix, api::router(self.state()))
+            .fallback(api::status::handle_get_fallback);
+        let router = Router::new()
+            .route(API_ROOT, axum::routing::any(api::status::handle_get_fallback))
+            .route("/api/", axum::routing::any(api::status::handle_get_fallback))
+            .nest(API_ROOT, api_namespace)
+            .merge(web::router());
+
+        layers::build_layers(router)
+    }
+
     /// Runs the HTTP server until the task is cancelled or the listener fails.
     ///
     /// # Errors
@@ -200,17 +221,7 @@ impl Server {
     ) -> Result<()> {
         let listener = TcpListener::bind(bind_addr).await?;
 
-        let api_version_prefix = API_PREFIX
-            .strip_prefix(API_ROOT)
-            .expect("API_PREFIX must remain inside the /api namespace");
-        let api_namespace = Router::new()
-            .nest(api_version_prefix, api::router(self.state()))
-            .fallback(api::status::handle_get_fallback);
-        let router = Router::new()
-            .route(API_ROOT, axum::routing::any(api::status::handle_get_fallback))
-            .route("/api/", axum::routing::any(api::status::handle_get_fallback))
-            .nest(API_ROOT, api_namespace)
-            .merge(web::router());
+        let router = self.router();
 
         let notification_queue = self.state.durable_tasks().queue().clone();
         api::enqueue_notification_backlog_if_needed(&notification_queue, self.state.db())
@@ -247,12 +258,9 @@ impl Server {
         ));
 
         let mut serve = Box::pin(
-            axum::serve(
-                listener,
-                layers::build_layers(router).into_make_service_with_connect_info::<SocketAddr>(),
-            )
-            .with_graceful_shutdown(cancellation.clone().cancelled_owned())
-            .into_future(),
+            axum::serve(listener, router.into_make_service_with_connect_info::<SocketAddr>())
+                .with_graceful_shutdown(cancellation.clone().cancelled_owned())
+                .into_future(),
         );
         let mut worker =
             Box::pin(notification_worker.run_until(cancellation.clone().cancelled_owned()));
