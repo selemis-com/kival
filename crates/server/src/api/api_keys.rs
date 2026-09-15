@@ -63,8 +63,8 @@ pub(crate) async fn handle_create_api_key(
         return Err(ApiError::bad_request("API key has too many workspace restrictions"));
     }
 
-    let credential = security::generate_api_key()
-        .map_err(|_| ApiError::internal("random generation failed"))?;
+    let credential =
+        security::generate_api_key().map_err(|_| ApiError::internal("random generation failed"))?;
     let mut tx = state.db().begin().await?;
     require_fresh_session_in_tx(&mut tx, actor.id, &headers).await?;
 
@@ -105,11 +105,7 @@ pub(crate) async fn handle_create_api_key(
     let mut headers = HeaderMap::new();
     headers.insert(header::CACHE_CONTROL, HeaderValue::from_static("private, no-store"));
 
-    Ok((
-        headers,
-        Json(CreateApiKeyResponse { api_key, token: credential.token }),
-    )
-        .into_response())
+    Ok((headers, Json(CreateApiKeyResponse { api_key, token: credential.token })).into_response())
 }
 
 /// Lists API keys created by the authenticated user.
