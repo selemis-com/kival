@@ -25,7 +25,7 @@ use uuid::Uuid;
 use crate::{
     ServerState,
     api::{
-        auth::{API_KEY_PREFIX, AuthenticatedUser, generate_secret_token},
+        auth::AuthenticatedUser,
         emit::emit_event,
         error::{ApiError, ApiResult},
         json::JsonBody,
@@ -63,14 +63,20 @@ pub(crate) async fn handle_create_api_key(
         return Err(ApiError::bad_request("API key has too many workspace restrictions"));
     }
 
-    let token = format!("{API_KEY_PREFIX}{}", generate_secret_token()?);
-    let token_hash = security::hash_token(&token);
+    let credential =
+        security::generate_api_key().map_err(|_| ApiError::internal("random generation failed"))?;
     let mut tx = state.db().begin().await?;
     require_fresh_session_in_tx(&mut tx, actor.id, &headers).await?;
 
-    let row = create_api_key(&mut tx, actor.id, label, token_hash.as_slice(), request.expires_at)
-        .await?
-        .ok_or_else(|| ApiError::bad_request("API key expiration must be in the future"))?;
+    let row = create_api_key(
+        &mut tx,
+        actor.id,
+        label,
+        credential.token_hash.as_slice(),
+        request.expires_at,
+    )
+    .await?
+    .ok_or_else(|| ApiError::bad_request("API key expiration must be in the future"))?;
 
     ensure_accessible_workspaces(&mut tx, actor.id, &workspace_ids).await?;
     set_api_key_delegation(&mut tx, row.id, &scopes, &workspace_ids).await?;
@@ -99,7 +105,7 @@ pub(crate) async fn handle_create_api_key(
     let mut headers = HeaderMap::new();
     headers.insert(header::CACHE_CONTROL, HeaderValue::from_static("private, no-store"));
 
-    Ok((headers, Json(CreateApiKeyResponse { api_key, token })).into_response())
+    Ok((headers, Json(CreateApiKeyResponse { api_key, token: credential.token })).into_response())
 }
 
 /// Lists API keys created by the authenticated user.

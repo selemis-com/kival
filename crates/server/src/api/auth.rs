@@ -48,8 +48,6 @@ pub(super) const SESSION_COOKIE: &str = "__Host-kival_session";
 pub(super) const CSRF_COOKIE: &str = "__Host-kival_csrf";
 /// Header carrying the CSRF token for unsafe requests.
 const CSRF_HEADER: HeaderName = HeaderName::from_static("x-csrf-token");
-/// Prefix applied to generated API key secrets.
-pub(super) const API_KEY_PREFIX: &str = "kvl_";
 /// Lifetime assigned to newly created sessions.
 pub(super) const SESSION_TTL: Duration = Duration::from_secs(60 * 60 * 24 * 30);
 /// Maximum old terminal sessions deleted by one opportunistic cleanup.
@@ -350,7 +348,7 @@ fn workspace_id_from_path(path: &str) -> ApiResult<Uuid> {
 
 /// Validates and hashes an API key token.
 fn api_key_token_hash(token: &str) -> Option<[u8; 32]> {
-    let encoded = token.strip_prefix(API_KEY_PREFIX)?;
+    let encoded = token.strip_prefix(security::API_KEY_PREFIX)?;
     let decoded = URL_SAFE_NO_PAD.decode(encoded).ok()?;
     (decoded.len() == security::SECRET_TOKEN_BYTES).then(|| security::hash_token(token))
 }
@@ -594,7 +592,7 @@ mod tests {
     #[test]
     fn api_key_hash_accepts_the_kival_prefix() {
         let secret = URL_SAFE_NO_PAD.encode([0_u8; security::SECRET_TOKEN_BYTES]);
-        let token = format!("{API_KEY_PREFIX}{secret}");
+        let token = format!("{}{secret}", security::API_KEY_PREFIX);
 
         assert_eq!(api_key_token_hash(&token), Some(security::hash_token(&token)));
     }

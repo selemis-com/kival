@@ -25,10 +25,7 @@ pub use fixtures::{
     test_body,
 };
 pub use http::{TestActor, TestJsonResponse, TestRawResponseExt, TestResponseExt};
-use kival_sdk::API_PREFIX;
-use kival_server::{
-    ServerSettings, ServerState, WebAuthnConfig, api::router, layers::build_layers,
-};
+use kival_server::{Server, ServerSettings, ServerState, WebAuthnConfig};
 use kival_storage::BlobStore;
 use kival_tasks::DurableTasks;
 pub use names::unique_name;
@@ -61,7 +58,7 @@ pub struct TestKival {
     /// Server state used by the test app.
     pub state: Arc<ServerState>,
 
-    /// Fully layered Axum app rooted at [`API_PREFIX`].
+    /// Fully layered Kival HTTP application.
     pub app: Router,
 
     /// Authenticated global admin actor.
@@ -99,7 +96,7 @@ impl TestKival {
             settings,
         ));
 
-        let app = Router::new().nest(API_PREFIX, build_layers(router(Arc::clone(&state))));
+        let app = Server::new(Arc::clone(&state)).router();
 
         let admin_session = db::insert_global_admin(&pool).await?;
         let admin = http::actor_from_session(admin_session)?;
