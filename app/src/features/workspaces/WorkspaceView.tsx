@@ -547,6 +547,7 @@ export function WorkspaceView({
                   }
                 }}
                 onAccessChanged={() => onRefreshObjectAccess(currentObject.object.id)}
+                onUpdate={(input) => onUpdateObject(currentObject.object.id, input)}
               />
             )}
 

@@ -1,4 +1,4 @@
-import { type ReactNode, useEffect, useRef, useState } from "react";
+import { type DragEvent, type ReactNode, useEffect, useRef, useState } from "react";
 import { styles } from "../../../shared/styles/index";
 import type { ObjectAttachment } from "../../../shared/types";
 import { MarkdownBody } from "./MarkdownBody";
@@ -251,11 +251,13 @@ export function MarkdownEditor({
   const lastValueRef = useRef(value);
   const lastTypingAtRef = useRef(0);
   const lastSelectionRef = useRef({ start: 0, end: 0 });
+  const attachmentUploadInProgressRef = useRef(false);
   const [mode, setMode] = useState<Mode>("split");
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [headingMenuOpen, setHeadingMenuOpen] = useState(false);
   const [attachmentUploading, setAttachmentUploading] = useState(false);
   const [attachmentError, setAttachmentError] = useState<string | null>(null);
+  const [fileDragActive, setFileDragActive] = useState(false);
 
   useEffect(() => {
     if (value !== lastValueRef.current) {
@@ -587,14 +589,20 @@ export function MarkdownEditor({
     });
   }
 
-  function insertAttachmentReference(attachment: ObjectAttachment, file: File) {
-    const { start, end } = lastSelectionRef.current;
+  function insertAttachmentReference(
+    attachment: ObjectAttachment,
+    file: File,
+    selection = lastSelectionRef.current,
+    prefix = "",
+  ) {
+    const { start, end } = selection;
     const currentValue = lastValueRef.current;
     const label = (attachment.name || file.name || "attachment").replace(/[[\]]/g, "");
     const reference = `kival://attachments/${attachment.id}`;
-    const markdown = (attachment.media_type || file.type).startsWith("image/")
+    const attachmentMarkdown = (attachment.media_type || file.type).startsWith("image/")
       ? `![${label}](${reference})`
       : `[${label}](${reference})`;
+    const markdown = `${prefix}${attachmentMarkdown}`;
     const nextValue = `${currentValue.slice(0, start)}${markdown}${currentValue.slice(end)}`;
     const nextCursor = start + markdown.length;
 
@@ -606,24 +614,84 @@ export function MarkdownEditor({
       textarea?.focus();
       textarea?.setSelectionRange(nextCursor, nextCursor);
     });
+
+    return { start: nextCursor, end: nextCursor };
   }
 
-  async function handleAttachmentSelected(file: File | undefined) {
-    if (!file || !onUploadAttachment) {
+  async function handleAttachmentsSelected(files: File[], selection = lastSelectionRef.current) {
+    if (files.length === 0 || !onUploadAttachment || attachmentUploadInProgressRef.current) {
       return;
     }
 
+    attachmentUploadInProgressRef.current = true;
     setAttachmentUploading(true);
     setAttachmentError(null);
 
     try {
-      const attachment = await onUploadAttachment(file);
-      insertAttachmentReference(attachment, file);
+      let insertion = selection;
+
+      for (const [index, file] of files.entries()) {
+        const attachment = await onUploadAttachment(file);
+        insertion = insertAttachmentReference(attachment, file, insertion, index === 0 ? "" : "\n");
+      }
     } catch (error) {
       setAttachmentError(error instanceof Error ? error.message : String(error));
     } finally {
+      attachmentUploadInProgressRef.current = false;
       setAttachmentUploading(false);
     }
+  }
+
+  function hasDraggedFiles(event: DragEvent<HTMLElement>) {
+    return Array.from(event.dataTransfer.types).includes("Files");
+  }
+
+  function handleFileDragEnter(event: DragEvent<HTMLTextAreaElement>) {
+    if (!onUploadAttachment || !hasDraggedFiles(event)) {
+      return;
+    }
+
+    event.preventDefault();
+    setFileDragActive(true);
+  }
+
+  function handleFileDragLeave(event: DragEvent<HTMLTextAreaElement>) {
+    if (!onUploadAttachment || !hasDraggedFiles(event)) {
+      return;
+    }
+
+    setFileDragActive(false);
+  }
+
+  function handleFileDragOver(event: DragEvent<HTMLTextAreaElement>) {
+    if (!onUploadAttachment || !hasDraggedFiles(event)) {
+      return;
+    }
+
+    event.preventDefault();
+    event.dataTransfer.dropEffect = "copy";
+    lastSelectionRef.current = {
+      start: event.currentTarget.selectionStart,
+      end: event.currentTarget.selectionEnd,
+    };
+  }
+
+  function handleFileDrop(event: DragEvent<HTMLTextAreaElement>) {
+    if (!onUploadAttachment || !hasDraggedFiles(event)) {
+      return;
+    }
+
+    event.preventDefault();
+    setFileDragActive(false);
+    breakTypingGroup();
+
+    const textarea = textareaRef.current;
+    const selection = textarea
+      ? { start: textarea.selectionStart, end: textarea.selectionEnd }
+      : lastSelectionRef.current;
+    lastSelectionRef.current = selection;
+
+    void handleAttachmentsSelected(Array.from(event.dataTransfer.files), selection);
   }
 
   function toggleDisplayMath() {
@@ -759,7 +827,7 @@ export function MarkdownEditor({
                 onChange={(event) => {
                   const file = event.currentTarget.files?.[0];
                   event.currentTarget.value = "";
-                  void handleAttachmentSelected(file);
+                  void handleAttachmentsSelected(file ? [file] : []);
                 }}
               />
             </>
@@ -879,6 +947,10 @@ export function MarkdownEditor({
             onPaste={breakTypingGroup}
             onCut={breakTypingGroup}
             onPointerDown={breakTypingGroup}
+            onDragEnter={handleFileDragEnter}
+            onDragLeave={handleFileDragLeave}
+            onDragOver={handleFileDragOver}
+            onDrop={handleFileDrop}
             onKeyDown={(event) => {
               const modifier = event.metaKey || event.ctrlKey;
 
@@ -908,6 +980,7 @@ export function MarkdownEditor({
               ...styles.markdownTextarea,
               ...(mode === "split" ? styles.markdownTextareaSplit : {}),
               ...(isFullscreen ? styles.markdownTextareaFullscreen : {}),
+              ...(fileDragActive ? styles.markdownTextareaDropActive : {}),
             }}
             placeholder="Start writing in Markdown…"
             spellCheck="true"

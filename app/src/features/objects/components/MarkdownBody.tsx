@@ -12,6 +12,14 @@ type Props = {
   objectId?: string;
   wikilinks?: ObjectVersionWikilink[];
   onOpenObject: (objectId: string) => void;
+  onTaskToggle?: (taskIndex: number, checked: boolean) => void;
+  taskToggleDisabled?: boolean;
+};
+
+type TaskInteraction = {
+  nextIndex: number;
+  disabled: boolean;
+  onToggle: (taskIndex: number, checked: boolean) => void;
 };
 
 type InlineToken =
@@ -996,6 +1004,7 @@ function renderBlocks(
   objectId: string | undefined,
   wikilinks: ObjectVersionWikilink[],
   onOpenObject: (objectId: string) => void,
+  taskInteraction?: TaskInteraction,
 ): ReactNode[] {
   return withStableKeys(blocks).map(({ item: block, key }) => {
     switch (block.kind) {
@@ -1066,37 +1075,77 @@ function renderBlocks(
             start={block.ordered && block.start !== 1 ? block.start : undefined}
             style={block.ordered ? styles.markdownOrderedList : styles.markdownList}
           >
-            {withStableKeys(block.items).map(({ item, key: itemKey }) => (
-              <li
-                key={itemKey}
-                style={
-                  item.task
-                    ? { ...styles.markdownListItem, ...styles.markdownTaskListItem }
-                    : styles.markdownListItem
-                }
-              >
-                {item.task && (
-                  <input
-                    type="checkbox"
-                    checked={item.checked}
-                    readOnly
-                    tabIndex={-1}
-                    aria-label={item.checked ? "Completed task" : "Incomplete task"}
-                    style={styles.markdownTaskCheckbox}
-                  />
-                )}
-                <div style={item.task ? styles.markdownTaskContent : undefined}>
-                  {renderBlocks(item.blocks, workspaceId, objectId, wikilinks, onOpenObject)}
-                </div>
-              </li>
-            ))}
+            {withStableKeys(block.items).map(({ item, key: itemKey }) => {
+              const taskIndex = item.task && taskInteraction ? taskInteraction.nextIndex++ : -1;
+
+              return (
+                <li
+                  key={itemKey}
+                  style={
+                    item.task
+                      ? { ...styles.markdownListItem, ...styles.markdownTaskListItem }
+                      : styles.markdownListItem
+                  }
+                >
+                  {item.task && (
+                    <input
+                      type="checkbox"
+                      checked={item.checked}
+                      readOnly={!taskInteraction}
+                      disabled={taskInteraction?.disabled}
+                      tabIndex={taskInteraction ? 0 : -1}
+                      aria-label={item.checked ? "Mark task incomplete" : "Mark task complete"}
+                      style={
+                        taskInteraction
+                          ? {
+                              ...styles.markdownTaskCheckbox,
+                              ...styles.markdownTaskCheckboxInteractive,
+                            }
+                          : styles.markdownTaskCheckbox
+                      }
+                      onChange={
+                        taskInteraction
+                          ? () => taskInteraction.onToggle(taskIndex, !item.checked)
+                          : undefined
+                      }
+                    />
+                  )}
+                  <div
+                    style={
+                      item.task
+                        ? {
+                            ...styles.markdownTaskContent,
+                            ...(item.checked ? styles.markdownTaskContentCompleted : {}),
+                          }
+                        : undefined
+                    }
+                  >
+                    {renderBlocks(
+                      item.blocks,
+                      workspaceId,
+                      objectId,
+                      wikilinks,
+                      onOpenObject,
+                      taskInteraction,
+                    )}
+                  </div>
+                </li>
+              );
+            })}
           </Tag>
         );
       }
       case "blockquote":
         return (
           <blockquote key={key} style={styles.markdownBlockquote}>
-            {renderBlocks(block.blocks, workspaceId, objectId, wikilinks, onOpenObject)}
+            {renderBlocks(
+              block.blocks,
+              workspaceId,
+              objectId,
+              wikilinks,
+              onOpenObject,
+              taskInteraction,
+            )}
           </blockquote>
         );
       case "code":
@@ -1172,10 +1221,29 @@ function renderBlocks(
   });
 }
 
-export function MarkdownBody({ body, workspaceId, objectId, wikilinks = [], onOpenObject }: Props) {
+export function MarkdownBody({
+  body,
+  workspaceId,
+  objectId,
+  wikilinks = [],
+  onOpenObject,
+  onTaskToggle,
+  taskToggleDisabled = false,
+}: Props) {
+  const taskInteraction = onTaskToggle
+    ? { nextIndex: 0, disabled: taskToggleDisabled, onToggle: onTaskToggle }
+    : undefined;
+
   return (
     <div style={styles.markdownBody}>
-      {renderBlocks(parseBlocks(body), workspaceId, objectId, wikilinks, onOpenObject)}
+      {renderBlocks(
+        parseBlocks(body),
+        workspaceId,
+        objectId,
+        wikilinks,
+        onOpenObject,
+        taskInteraction,
+      )}
     </div>
   );
 }
