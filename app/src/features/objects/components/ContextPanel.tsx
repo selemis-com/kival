@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { kival } from "../../../shared/api";
 import { selectSoleResultOnEnter } from "../../../shared/forms";
 import { styles } from "../../../shared/styles/index";
@@ -13,8 +13,133 @@ type Props = {
   objects: ObjectSummary[];
   onOpenObject: (objectId: string) => void;
   onRevealInGraph: (objectId: string) => void;
+  onCreateConnectedObject: (objectId: string) => void;
   onContextChanged: (objectId: string) => Promise<void>;
 };
+
+type CreationContextPanelProps = {
+  workspaceId: string;
+  draftTitle: string;
+  connectedFrom: Pick<ObjectSummary, "id" | "title"> | null;
+  onOpenObject: (objectId: string) => void;
+};
+
+export function CreationContextPanel({
+  workspaceId,
+  draftTitle,
+  connectedFrom,
+  onOpenObject,
+}: CreationContextPanelProps) {
+  const graphContext = useMemo<ObjectContext>(() => {
+    const timestamp = new Date().toISOString();
+    const draftObjectId = "draft-object";
+    const sourceNodes = connectedFrom
+      ? [
+          {
+            id: connectedFrom.id,
+            workspace_id: workspaceId,
+            current_version_id: null,
+            title: connectedFrom.title,
+            status: "active" as const,
+            created_by: null,
+            created_at: timestamp,
+            updated_at: timestamp,
+            distance: 1,
+            incoming_count: 0,
+            outgoing_count: 1,
+          },
+        ]
+      : [];
+    const sourceEdges = connectedFrom
+      ? [
+          {
+            id: "draft-edge",
+            workspace_id: workspaceId,
+            source_object_id: connectedFrom.id,
+            target_object_id: draftObjectId,
+            kind: "relationship" as const,
+            created_by: null,
+            created_at: timestamp,
+            updated_at: timestamp,
+          },
+        ]
+      : [];
+
+    return {
+      backlinks: {
+        object_id: draftObjectId,
+        incoming_edges: [],
+        incoming_references: [],
+      },
+      edges: { items: [] },
+      graph: {
+        workspace_id: workspaceId,
+        root_object_id: draftObjectId,
+        depth: 1,
+        direction: "both",
+        max_nodes: connectedFrom ? 2 : 1,
+        max_edges: connectedFrom ? 1 : 0,
+        truncated: false,
+        truncation: { nodes: false, edges: false },
+        nodes: [
+          {
+            id: draftObjectId,
+            workspace_id: workspaceId,
+            current_version_id: null,
+            title: draftTitle,
+            status: "active",
+            created_by: null,
+            created_at: timestamp,
+            updated_at: timestamp,
+            distance: 0,
+            incoming_count: connectedFrom ? 1 : 0,
+            outgoing_count: 0,
+          },
+          ...sourceNodes,
+        ],
+        edges: sourceEdges,
+      },
+    };
+  }, [connectedFrom, draftTitle, workspaceId]);
+
+  return (
+    <aside style={styles.contextPanel}>
+      <span style={styles.sidebarLabel}>Context</span>
+
+      <LocalGraph context={graphContext} onOpenObject={onOpenObject} showIsolated />
+
+      <div style={styles.contextBlock}>
+        <div style={styles.contextHeading}>
+          <strong>Connections</strong>
+
+          <span style={styles.contextCount}>{connectedFrom ? 1 : 0}</span>
+        </div>
+
+        {!connectedFrom && <span style={styles.muted}>No connected objects yet.</span>}
+      </div>
+
+      {connectedFrom && (
+        <div style={styles.contextBlock}>
+          <div style={styles.contextHeading}>
+            <strong>Incoming</strong>
+
+            <span style={styles.contextCount}>1</span>
+          </div>
+
+          <div style={styles.connectionList}>
+            <button
+              type="button"
+              style={styles.connectionItem}
+              onClick={() => onOpenObject(connectedFrom.id)}
+            >
+              <strong style={styles.connectionTitle}>{connectedFrom.title}</strong>
+            </button>
+          </div>
+        </div>
+      )}
+    </aside>
+  );
+}
 
 export function ContextPanel({
   workspaceId,
@@ -23,6 +148,7 @@ export function ContextPanel({
   objects,
   onOpenObject,
   onRevealInGraph,
+  onCreateConnectedObject,
   onContextChanged,
 }: Props) {
   const [creatingConnection, setCreatingConnection] = useState(false);
@@ -132,13 +258,24 @@ export function ContextPanel({
         {connectionCount === 0 && <span style={styles.muted}>No connected objects yet.</span>}
 
         {!creatingConnection && (
-          <button
-            type="button"
-            style={styles.contextAction}
-            onClick={() => setCreatingConnection(true)}
+          <div
+            style={{ display: "flex", flexDirection: "column", alignItems: "flex-start", gap: 8 }}
           >
-            Add connection
-          </button>
+            <button
+              type="button"
+              style={styles.contextAction}
+              onClick={() => onCreateConnectedObject(objectId)}
+            >
+              Create connected object
+            </button>
+            <button
+              type="button"
+              style={styles.contextAction}
+              onClick={() => setCreatingConnection(true)}
+            >
+              Add existing connection
+            </button>
+          </div>
         )}
 
         {creatingConnection && (

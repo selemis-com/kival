@@ -20,6 +20,7 @@ type CreateProps = {
   workspaceId: string;
   onOpenObject: (objectId: string) => void;
   onDirtyChange: (dirty: boolean) => void;
+  onTitleChange?: (title: string) => void;
 };
 
 type EditProps = {
@@ -135,6 +136,11 @@ export function ObjectEditor(props: Props) {
       body !== props.value.current_version.body ||
       JSON.stringify(metadataObject) !== JSON.stringify(props.value.current_version.metadata)
     : title.trim().length > 0 || body.length > 0 || metadataProperties.length > 0;
+  const onTitleChange = props.mode === "create" ? props.onTitleChange : undefined;
+
+  useEffect(() => {
+    onTitleChange?.(title.trim() || "New object");
+  }, [onTitleChange, title]);
 
   useEffect(() => {
     props.onDirtyChange(dirty);

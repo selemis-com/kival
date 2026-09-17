@@ -57,7 +57,7 @@ export const graphStyles: Record<string, CSSProperties> = {
   graphContextMenu: {
     position: "absolute",
     zIndex: 30,
-    width: 156,
+    width: 190,
     padding: 3,
     border: `1px solid ${colors.border}`,
     borderRadius: 7,

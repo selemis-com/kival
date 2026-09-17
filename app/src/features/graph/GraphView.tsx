@@ -21,7 +21,7 @@ type Props = {
   workspace: Workspace;
   onOpenObject: (objectId: string) => void;
   onEditObject: (objectId: string) => void;
-  onCreateObject: () => void;
+  onCreateObject: (connectedToObjectId?: string, connectedToObjectTitle?: string) => void;
   focusObjectId?: string | null;
 };
 
@@ -31,7 +31,7 @@ type GraphContextMenu = {
   node: PositionedNode | null;
 };
 
-type GraphContextAction = "open" | "edit" | "create";
+type GraphContextAction = "open" | "edit" | "createConnected" | "create";
 
 type PointerState = {
   pointerId: number;
@@ -229,6 +229,7 @@ export function GraphView({
 
   const [response, setResponse] = useState<WorkspaceGraphResponse | null>(null);
   const [hoveredNode, setHoveredNode] = useState<PositionedNode | null>(null);
+  const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
   const [tooltipPosition, setTooltipPosition] = useState({ x: 0, y: 0 });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -370,6 +371,7 @@ export function GraphView({
     focusedNeighborIdsRef.current = new Set();
     rendererRef.current?.setFocusedNode(null);
     rendererRef.current?.setSelectedNode(null);
+    setSelectedNodeId(null);
     drawLabels();
   }
 
@@ -386,6 +388,7 @@ export function GraphView({
       focusedNeighborIdsRef.current = neighborIds;
       renderer.setFocusedNode(node.id, neighborIds);
       renderer.setSelectedNode(node.id);
+      setSelectedNodeId(node.id);
       drawLabels();
     },
     [drawLabels, getNeighborIds],
@@ -465,6 +468,7 @@ export function GraphView({
     focusedNodeIdRef.current = null;
     focusedNeighborIdsRef.current = new Set();
     setHoveredNode(null);
+    setSelectedNodeId(null);
 
     graphRef.current = graph;
     physicsRef.current = new GraphPhysics(graph, layoutOptions);
@@ -683,8 +687,8 @@ export function GraphView({
     const pointerX = event.clientX - rect.left;
     const pointerY = event.clientY - rect.top;
     const node = renderer.pickNode(pointerX, pointerY);
-    const menuWidth = 156;
-    const menuHeight = node ? 88 : 36;
+    const menuWidth = 190;
+    const menuHeight = node ? 116 : 36;
 
     setHighlightedContextAction(null);
     setContextMenu({
@@ -896,6 +900,20 @@ export function GraphView({
                 outline: "none",
               }}
             />
+            {selectedNodeId && (
+              <button
+                type="button"
+                style={styles.secondaryButton}
+                onClick={() =>
+                  onCreateObject(
+                    selectedNodeId,
+                    response.nodes.find((node) => node.id === selectedNodeId)?.title,
+                  )
+                }
+              >
+                Create connected object
+              </button>
+            )}
           </div>
 
           <canvas
@@ -988,25 +1006,48 @@ export function GraphView({
                   >
                     Edit object
                   </button>
+                  <button
+                    type="button"
+                    role="menuitem"
+                    style={
+                      highlightedContextAction === "createConnected"
+                        ? styles.graphContextMenuItemHighlighted
+                        : styles.graphContextMenuItem
+                    }
+                    onFocus={() => setHighlightedContextAction("createConnected")}
+                    onPointerMove={() => setHighlightedContextAction("createConnected")}
+                    onClick={() => {
+                      const nodeId = contextMenu.node?.id;
+                      const nodeTitle = contextMenu.node?.title;
+                      setContextMenu(null);
+                      if (nodeId) {
+                        onCreateObject(nodeId, nodeTitle);
+                      }
+                    }}
+                  >
+                    New connected object
+                  </button>
                 </>
               )}
-              <button
-                type="button"
-                role="menuitem"
-                style={
-                  highlightedContextAction === "create"
-                    ? styles.graphContextMenuItemHighlighted
-                    : styles.graphContextMenuItem
-                }
-                onFocus={() => setHighlightedContextAction("create")}
-                onPointerMove={() => setHighlightedContextAction("create")}
-                onClick={() => {
-                  setContextMenu(null);
-                  onCreateObject();
-                }}
-              >
-                New object
-              </button>
+              {!contextMenu.node && (
+                <button
+                  type="button"
+                  role="menuitem"
+                  style={
+                    highlightedContextAction === "create"
+                      ? styles.graphContextMenuItemHighlighted
+                      : styles.graphContextMenuItem
+                  }
+                  onFocus={() => setHighlightedContextAction("create")}
+                  onPointerMove={() => setHighlightedContextAction("create")}
+                  onClick={() => {
+                    setContextMenu(null);
+                    onCreateObject();
+                  }}
+                >
+                  New object
+                </button>
+              )}
             </div>
           )}
 
