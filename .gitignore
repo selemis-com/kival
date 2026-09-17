@@ -81,8 +81,5 @@ lcov.info
 .env
 !.env.template
 
-# Debugging
+# Maintenance
 scripts/
-
-# References
-references/
