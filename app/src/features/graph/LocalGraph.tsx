@@ -11,7 +11,8 @@ import { GraphPhysics } from "./physics";
 type Props = {
   context: ObjectContext;
   onOpenObject: (objectId: string) => void;
-  onRevealInGraph: () => void;
+  onRevealInGraph?: () => void;
+  showIsolated?: boolean;
 };
 
 type PointerState = {
@@ -306,7 +307,12 @@ function drawLocalLabels(
   context.restore();
 }
 
-export function LocalGraph({ context, onOpenObject, onRevealInGraph }: Props) {
+export function LocalGraph({
+  context,
+  onOpenObject,
+  onRevealInGraph,
+  showIsolated = false,
+}: Props) {
   const { resolvedTheme } = useTheme();
   const graphTheme = graphThemes[resolvedTheme];
   const containerRef = useRef<HTMLDivElement>(null);
@@ -323,6 +329,7 @@ export function LocalGraph({ context, onOpenObject, onRevealInGraph }: Props) {
   const graph = useMemo(() => createLocalGraph(context), [context]);
   const currentObjectId = context.graph.root_object_id;
   const hasGraphLinks = graph.nodes.length > 1;
+  const shouldRenderGraph = hasGraphLinks || showIsolated;
 
   const drawLabels = useCallback(() => {
     const overlay = overlayRef.current;
@@ -383,7 +390,7 @@ export function LocalGraph({ context, onOpenObject, onRevealInGraph }: Props) {
   }, [currentObjectId, drawLabels]);
 
   useEffect(() => {
-    if (!hasGraphLinks) {
+    if (!shouldRenderGraph) {
       return;
     }
 
@@ -409,7 +416,7 @@ export function LocalGraph({ context, onOpenObject, onRevealInGraph }: Props) {
       renderer.destroy();
       rendererRef.current = null;
     };
-  }, [hasGraphLinks, resolvedTheme]);
+  }, [resolvedTheme, shouldRenderGraph]);
 
   useEffect(() => {
     rendererRef.current?.setTheme(resolvedTheme);
@@ -579,7 +586,7 @@ export function LocalGraph({ context, onOpenObject, onRevealInGraph }: Props) {
     pointerRef.current = null;
   }
 
-  if (!hasGraphLinks) {
+  if (!shouldRenderGraph) {
     return null;
   }
 
@@ -609,40 +616,42 @@ export function LocalGraph({ context, onOpenObject, onRevealInGraph }: Props) {
         >
           <canvas ref={canvasRef} style={styles.localGraphCanvas} />
           <canvas ref={overlayRef} style={styles.localGraphOverlay} />
-          <button
-            type="button"
-            style={styles.localGraphRevealButton}
-            onPointerDown={(event) => {
-              event.stopPropagation();
-            }}
-            onClick={onRevealInGraph}
-            aria-label="Reveal in graph"
-            title="Open the workspace graph centered on this object"
-          >
-            <svg
-              aria-hidden="true"
-              width="16"
-              height="16"
-              viewBox="0 0 16 16"
-              fill="none"
-              xmlns="http://www.w3.org/2000/svg"
+          {onRevealInGraph && (
+            <button
+              type="button"
+              style={styles.localGraphRevealButton}
+              onPointerDown={(event) => {
+                event.stopPropagation();
+              }}
+              onClick={onRevealInGraph}
+              aria-label="Reveal in graph"
+              title="Open the workspace graph centered on this object"
             >
-              <path
-                d="M6 3.5H3.75A1.75 1.75 0 0 0 2 5.25v7A1.75 1.75 0 0 0 3.75 14h7a1.75 1.75 0 0 0 1.75-1.75V10"
-                stroke="currentColor"
-                strokeWidth="1.5"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              />
-              <path
-                d="M8.5 2H14v5.5M13.75 2.25 7.5 8.5"
-                stroke="currentColor"
-                strokeWidth="1.5"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              />
-            </svg>
-          </button>
+              <svg
+                aria-hidden="true"
+                width="16"
+                height="16"
+                viewBox="0 0 16 16"
+                fill="none"
+                xmlns="http://www.w3.org/2000/svg"
+              >
+                <path
+                  d="M6 3.5H3.75A1.75 1.75 0 0 0 2 5.25v7A1.75 1.75 0 0 0 3.75 14h7a1.75 1.75 0 0 0 1.75-1.75V10"
+                  stroke="currentColor"
+                  strokeWidth="1.5"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+                <path
+                  d="M8.5 2H14v5.5M13.75 2.25 7.5 8.5"
+                  stroke="currentColor"
+                  strokeWidth="1.5"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+              </svg>
+            </button>
+          )}
         </div>
       )}
 

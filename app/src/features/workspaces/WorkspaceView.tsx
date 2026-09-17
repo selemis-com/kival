@@ -24,7 +24,7 @@ import { PinIcon } from "../../shared/ui/PinIcon";
 import { ProfileHoverName } from "../../shared/ui/ProfileHoverCard";
 import { Toast } from "../../shared/ui/Toast";
 import { GraphView } from "../graph/GraphView";
-import { ContextPanel } from "../objects/components/ContextPanel";
+import { ContextPanel, CreationContextPanel } from "../objects/components/ContextPanel";
 import { ObjectEditor } from "../objects/ObjectEditor";
 import { ObjectView } from "../objects/ObjectView";
 import { CommandPalette } from "./components/CommandPalette";
@@ -83,7 +83,10 @@ type Props = {
   onRefreshWorkspaceAccess: () => Promise<void>;
   onSetObjectFavorite: (id: string, favorited: boolean) => Promise<void>;
   onSetObjectPin: (id: string, pinned: boolean) => Promise<void>;
-  onCreateObject: (input: CreateObjectRequest) => Promise<boolean>;
+  onCreateObject: (
+    input: CreateObjectRequest,
+    connectedToObjectId?: string,
+  ) => Promise<"created" | "connected" | "created_unconnected" | false>;
   onUpdateObject: (id: string, input: UpdateObjectRequest) => Promise<boolean>;
   onArchiveObject: (id: string) => Promise<boolean>;
   onUnarchiveObject: (id: string) => Promise<boolean>;
@@ -158,6 +161,7 @@ export function WorkspaceView({
   const [unarchiveTargetId, setUnarchiveTargetId] = useState<string | null>(null);
   const [unarchivingObjectId, setUnarchivingObjectId] = useState<string | null>(null);
   const [commandPaletteOpen, setCommandPaletteOpen] = useState(false);
+  const [draftObjectTitle, setDraftObjectTitle] = useState("New object");
   const [editorDirty, setEditorDirty] = useState(false);
   const [discardNavigationOpen, setDiscardNavigationOpen] = useState(false);
   const discardDialogRef = useRef<HTMLDivElement>(null);
@@ -189,6 +193,21 @@ export function WorkspaceView({
       : matchPath(`${workspaceBasePath}/objects/:objectId/edit`, location.pathname)
         ? "edit"
         : null;
+  const connectedToObjectId =
+    editorMode === "create" ? (searchParams.get("connectedTo") ?? undefined) : undefined;
+  const navigationState = location.state as {
+    from?: string;
+    connectedFrom?: { id: string; title: string };
+  } | null;
+  const connectedFromState = navigationState?.connectedFrom;
+  const connectedFromObject = connectedToObjectId
+    ? connectedFromState?.id === connectedToObjectId
+      ? connectedFromState
+      : (objects.find((object) => object.id === connectedToObjectId) ?? {
+          id: connectedToObjectId,
+          title: connectedToObjectId,
+        })
+    : null;
   const searchQuery = searchParams.get("q") ?? "";
   const includeSearchHistory = searchParams.get("history") === "1";
 
@@ -243,11 +262,13 @@ export function WorkspaceView({
   const canManageWorkspace = workspace.effective_role === "admin";
   const unarchiveTarget = archivedObjects.find((object) => object.id === unarchiveTargetId) ?? null;
   const currentObject = hasCurrentVersion(selectedObject) ? selectedObject : null;
-  const showContextPanel =
+  const showObjectContextPanel =
     !objectLoading &&
-    !editorMode &&
+    editorMode !== "create" &&
     currentObject?.object.status === "active" &&
     objectContext?.backlinks.object_id === currentObject.object.id;
+  const showCreationContextPanel = !objectLoading && editorMode === "create";
+  const showContextPanel = showObjectContextPanel || showCreationContextPanel;
   const graphMode = view === "graph" && !objectLoading && !editorMode && !selectedObject;
 
   useEffect(() => {
@@ -475,13 +496,24 @@ export function WorkspaceView({
                 workspaceId={workspace.id}
                 onOpenObject={guardedOpenObject}
                 onDirtyChange={setEditorDirty}
-                onCancel={() => guardedNavigate(workspaceBasePath)}
+                onTitleChange={setDraftObjectTitle}
+                onCancel={() => {
+                  const from = navigationState?.from;
+                  guardedNavigate(from ?? workspaceBasePath);
+                }}
                 onSubmit={async (input) => {
                   setSaveLoading(true);
 
                   try {
-                    if (await onCreateObject(input)) {
-                      setToastMessage("Object created");
+                    const result = await onCreateObject(input, connectedToObjectId);
+                    if (result) {
+                      setToastMessage(
+                        result === "connected"
+                          ? "Connected object created"
+                          : result === "created_unconnected"
+                            ? "Object created without the connection"
+                            : "Object created",
+                      );
                     }
                   } finally {
                     setSaveLoading(false);
@@ -1025,7 +1057,22 @@ export function WorkspaceView({
                 onEditObject={(objectId) =>
                   guardedNavigate(`${workspaceBasePath}/objects/${objectId}/edit`)
                 }
-                onCreateObject={() => guardedNavigate(`${workspaceBasePath}/new`)}
+                onCreateObject={(sourceObjectId, sourceObjectTitle) => {
+                  const target = sourceObjectId
+                    ? `${workspaceBasePath}/new?connectedTo=${encodeURIComponent(sourceObjectId)}`
+                    : `${workspaceBasePath}/new`;
+                  requestNavigation(() =>
+                    navigate(target, {
+                      state: {
+                        from: `${location.pathname}${location.search}`,
+                        connectedFrom:
+                          sourceObjectId && sourceObjectTitle
+                            ? { id: sourceObjectId, title: sourceObjectTitle }
+                            : undefined,
+                      },
+                    }),
+                  );
+                }}
                 focusObjectId={searchParams.get("focus")}
               />
             )}
@@ -1273,7 +1320,7 @@ export function WorkspaceView({
           </div>
         )}
 
-        {showContextPanel && (
+        {showObjectContextPanel && (
           <ContextPanel
             workspaceId={workspace.id}
             context={objectContext}
@@ -1283,7 +1330,28 @@ export function WorkspaceView({
             onRevealInGraph={(objectId) =>
               guardedNavigate(`${workspaceBasePath}/graph?focus=${encodeURIComponent(objectId)}`)
             }
+            onCreateConnectedObject={(objectId) =>
+              requestNavigation(() =>
+                navigate(`${workspaceBasePath}/new?connectedTo=${encodeURIComponent(objectId)}`, {
+                  state: {
+                    from: `${location.pathname}${location.search}`,
+                    connectedFrom: currentObject
+                      ? { id: objectId, title: currentObject.current_version.title }
+                      : undefined,
+                  },
+                }),
+              )
+            }
             onContextChanged={onRefreshObjectContext}
+          />
+        )}
+
+        {showCreationContextPanel && (
+          <CreationContextPanel
+            workspaceId={workspace.id}
+            draftTitle={draftObjectTitle}
+            connectedFrom={connectedFromObject}
+            onOpenObject={guardedOpenObject}
           />
         )}
       </div>

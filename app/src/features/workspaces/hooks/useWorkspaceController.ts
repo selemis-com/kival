@@ -679,16 +679,37 @@ export function useWorkspaceController({
     return true;
   }
 
-  async function handleCreateObject(input: CreateObjectRequest): Promise<boolean> {
-    const mutation = await runWorkspaceMutation((workspaceId) =>
-      kival.createObject({ workspaceId, input }),
-    );
+  async function handleCreateObject(
+    input: CreateObjectRequest,
+    connectedToObjectId?: string,
+  ): Promise<"created" | "connected" | "created_unconnected" | false> {
+    const mutation = await runWorkspaceMutation(async (workspaceId) => {
+      const response = await kival.createObject({ workspaceId, input });
+      let connectionError: string | null = null;
+
+      if (connectedToObjectId) {
+        try {
+          await kival.createObjectEdge({
+            workspaceId,
+            input: {
+              source_object_id: connectedToObjectId,
+              target_object_id: response.object.id,
+            },
+          });
+        } catch (cause) {
+          connectionError = cause instanceof Error ? cause.message : String(cause);
+        }
+      }
+
+      return { response, connectionError };
+    });
 
     if (!mutation) {
       return false;
     }
 
-    const response = mutation.result;
+    const { response, connectionError } = mutation.result;
+    const connected = Boolean(connectedToObjectId && !connectionError);
     objectRefreshControllerRef.current?.abort();
     objectRefreshRequestIdRef.current += 1;
     setObjects((current) => [
@@ -698,7 +719,7 @@ export function useWorkspaceController({
         updated_by_display_name: user.display_name,
         updated_by_workspace_role: workspace?.effective_role,
         updated_by_object_role: response.effective_role,
-        connection_count: 0,
+        connection_count: connected ? 1 : 0,
         unresolved_thread_count: 0,
         favorited: false,
         pinned: false,
@@ -708,44 +729,60 @@ export function useWorkspaceController({
     ]);
     setRecentObjects([]);
     setRecentNextCursor(null);
-    setSelectedObject(response);
-    setObjectContext({
-      backlinks: {
-        object_id: response.object.id,
-        incoming_edges: [],
-        incoming_references: [],
-      },
-      edges: { items: [] },
-      graph: {
-        workspace_id: response.object.workspace_id,
-        root_object_id: response.object.id,
-        depth: 1,
-        direction: "both",
-        max_nodes: 100,
-        max_edges: 250,
-        truncated: false,
-        truncation: { nodes: false, edges: false },
-        nodes: [
-          {
-            id: response.object.id,
-            workspace_id: response.object.workspace_id,
-            current_version_id: response.object.current_version_id,
-            title: response.current_version?.title ?? response.object.title,
-            status: response.object.status,
-            created_by: response.object.created_by,
-            created_at: response.object.created_at,
-            updated_at: response.object.updated_at,
-            distance: 0,
-            incoming_count: 0,
-            outgoing_count: 0,
-          },
-        ],
-        edges: [],
-      },
-    });
-    setApplicationError(null);
+    if (!connectedToObjectId) {
+      setSelectedObject(response);
+      setObjectContext({
+        backlinks: {
+          object_id: response.object.id,
+          incoming_edges: [],
+          incoming_references: [],
+        },
+        edges: { items: [] },
+        graph: {
+          workspace_id: response.object.workspace_id,
+          root_object_id: response.object.id,
+          depth: 1,
+          direction: "both",
+          max_nodes: 100,
+          max_edges: 250,
+          truncated: false,
+          truncation: { nodes: false, edges: false },
+          nodes: [
+            {
+              id: response.object.id,
+              workspace_id: response.object.workspace_id,
+              current_version_id: response.object.current_version_id,
+              title: response.current_version?.title ?? response.object.title,
+              status: response.object.status,
+              created_by: response.object.created_by,
+              created_at: response.object.created_at,
+              updated_at: response.object.updated_at,
+              distance: 0,
+              incoming_count: 0,
+              outgoing_count: 0,
+            },
+          ],
+          edges: [],
+        },
+      });
+    }
+
+    if (connected) {
+      setObjects((current) =>
+        current.map((object) =>
+          object.id === connectedToObjectId
+            ? { ...object, connection_count: (object.connection_count ?? 0) + 1 }
+            : object,
+        ),
+      );
+    }
+    setApplicationError(
+      connectionError
+        ? `The object was created, but its connection failed: ${connectionError}`
+        : null,
+    );
     navigate(`/w/${mutation.workspaceId}/objects/${response.object.id}`);
-    return true;
+    return connectionError ? "created_unconnected" : connected ? "connected" : "created";
   }
 
   async function handleUpdateObject(
