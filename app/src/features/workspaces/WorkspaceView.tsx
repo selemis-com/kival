@@ -85,13 +85,18 @@ type Props = {
   onSetObjectPin: (id: string, pinned: boolean) => Promise<void>;
   onCreateObject: (
     input: CreateObjectRequest,
-    connectedToObjectId?: string,
+    connections?: Array<{ objectId: string; direction: "incoming" | "outgoing" }>,
   ) => Promise<"created" | "connected" | "created_unconnected" | false>;
   onUpdateObject: (id: string, input: UpdateObjectRequest) => Promise<boolean>;
   onArchiveObject: (id: string) => Promise<boolean>;
   onUnarchiveObject: (id: string) => Promise<boolean>;
   onUpdateWorkspace: (input: UpdateWorkspaceRequest) => Promise<boolean>;
   onArchiveWorkspace: () => Promise<boolean>;
+};
+
+type DraftConnection = {
+  object: Pick<ObjectSummary, "id" | "title">;
+  direction: "incoming" | "outgoing";
 };
 
 function hasCurrentVersion(value: ObjectResponse | null): value is CurrentObjectResponse {
@@ -162,16 +167,13 @@ export function WorkspaceView({
   const [unarchivingObjectId, setUnarchivingObjectId] = useState<string | null>(null);
   const [commandPaletteOpen, setCommandPaletteOpen] = useState(false);
   const [draftObjectTitle, setDraftObjectTitle] = useState("New object");
-  const [editorDirty, setEditorDirty] = useState(false);
+  const [draftConnections, setDraftConnections] = useState<DraftConnection[]>([]);
+  const [editorFormDirty, setEditorFormDirty] = useState(false);
   const [discardNavigationOpen, setDiscardNavigationOpen] = useState(false);
   const discardDialogRef = useRef<HTMLDivElement>(null);
   const pendingNavigationRef = useRef<(() => void) | null>(null);
   const bypassNavigationBlockRef = useRef(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
-  const navigationBlocker = useBlocker(
-    () => editorDirty && !saveLoading && !bypassNavigationBlockRef.current,
-  );
-
   const workspaceBasePath = `/w/${workspace.id}`;
   const view =
     location.pathname === `${workspaceBasePath}/favorites`
@@ -208,6 +210,24 @@ export function WorkspaceView({
           title: connectedToObjectId,
         })
     : null;
+  const initialConnectionKey = connectedToObjectId ? `incoming:${connectedToObjectId}` : "";
+  const draftConnectionKey = draftConnections
+    .map((connection) => `${connection.direction}:${connection.object.id}`)
+    .sort()
+    .join(",");
+  const draftConnectionsDirty =
+    editorMode === "create" && draftConnectionKey !== initialConnectionKey;
+  const editorDirty = editorFormDirty || draftConnectionsDirty;
+  const navigationBlocker = useBlocker(
+    () => editorDirty && !saveLoading && !bypassNavigationBlockRef.current,
+  );
+
+  // biome-ignore lint/correctness/useExhaustiveDependencies: A new navigation entry starts a new draft connection set.
+  useEffect(() => {
+    setDraftConnections(
+      connectedFromObject ? [{ object: connectedFromObject, direction: "incoming" }] : [],
+    );
+  }, [editorMode, location.key]);
   const searchQuery = searchParams.get("q") ?? "";
   const includeSearchHistory = searchParams.get("history") === "1";
 
@@ -262,6 +282,13 @@ export function WorkspaceView({
   const canManageWorkspace = workspace.effective_role === "admin";
   const unarchiveTarget = archivedObjects.find((object) => object.id === unarchiveTargetId) ?? null;
   const currentObject = hasCurrentVersion(selectedObject) ? selectedObject : null;
+  const currentObjectSummary = currentObject
+    ? (objects.find((object) => object.id === currentObject.object.id) ??
+      pinnedObjects.find((object) => object.id === currentObject.object.id) ??
+      favoriteObjects.find((object) => object.id === currentObject.object.id) ??
+      pinnedFavoriteObjects.find((object) => object.id === currentObject.object.id) ??
+      archivedObjects.find((object) => object.id === currentObject.object.id))
+    : undefined;
   const showObjectContextPanel =
     !objectLoading &&
     editorMode !== "create" &&
@@ -495,7 +522,7 @@ export function WorkspaceView({
                 loading={saveLoading}
                 workspaceId={workspace.id}
                 onOpenObject={guardedOpenObject}
-                onDirtyChange={setEditorDirty}
+                onDirtyChange={setEditorFormDirty}
                 onTitleChange={setDraftObjectTitle}
                 onCancel={() => {
                   const from = navigationState?.from;
@@ -505,13 +532,19 @@ export function WorkspaceView({
                   setSaveLoading(true);
 
                   try {
-                    const result = await onCreateObject(input, connectedToObjectId);
+                    const result = await onCreateObject(
+                      input,
+                      draftConnections.map((connection) => ({
+                        objectId: connection.object.id,
+                        direction: connection.direction,
+                      })),
+                    );
                     if (result) {
                       setToastMessage(
                         result === "connected"
                           ? "Connected object created"
                           : result === "created_unconnected"
-                            ? "Object created without the connection"
+                            ? "Object created; some connections could not be added"
                             : "Object created",
                       );
                     }
@@ -529,7 +562,7 @@ export function WorkspaceView({
                 loading={saveLoading}
                 workspaceId={workspace.id}
                 onOpenObject={guardedOpenObject}
-                onDirtyChange={setEditorDirty}
+                onDirtyChange={setEditorFormDirty}
                 onCancel={() =>
                   guardedNavigate(`${workspaceBasePath}/objects/${currentObject.object.id}`)
                 }
@@ -578,6 +611,12 @@ export function WorkspaceView({
                     setToastMessage("Object restored");
                   }
                 }}
+                favorited={Boolean(currentObjectSummary?.favorited)}
+                pinned={Boolean(currentObjectSummary?.pinned)}
+                onSetFavorite={(favorited) =>
+                  onSetObjectFavorite(currentObject.object.id, favorited)
+                }
+                onSetPin={(pinned) => onSetObjectPin(currentObject.object.id, pinned)}
                 onAccessChanged={() => onRefreshObjectAccess(currentObject.object.id)}
                 onUpdate={(input) => onUpdateObject(currentObject.object.id, input)}
               />
@@ -726,7 +765,7 @@ export function WorkspaceView({
                               aria-label={`Open ${object.title}`}
                               onClick={() => guardedOpenObject(object.id)}
                             />
-                            <span style={styles.pinnedCardPinAction}>
+                            <div style={styles.pinnedObjectCardActions}>
                               <button
                                 type="button"
                                 style={styles.pinButtonActive}
@@ -737,39 +776,36 @@ export function WorkspaceView({
                               >
                                 <PinIcon active />
                               </button>
-                            </span>
+                              <button
+                                type="button"
+                                style={styles.favoriteButton}
+                                aria-label={
+                                  object.favorited
+                                    ? `Remove ${object.title} from favorites`
+                                    : `Add ${object.title} to favorites`
+                                }
+                                aria-pressed={Boolean(object.favorited)}
+                                title={
+                                  object.favorited ? "Remove from favorites" : "Add to favorites"
+                                }
+                                onClick={() =>
+                                  void onSetObjectFavorite(object.id, !object.favorited)
+                                }
+                              >
+                                {object.favorited ? "★" : "☆"}
+                              </button>
+                              <CopyableId
+                                value={object.id}
+                                displayValue={`ID: ${object.id}`}
+                                label="object ID"
+                                iconOnly
+                              />
+                            </div>
                             <div style={styles.pinnedCardMain}>
                               <strong style={styles.workspaceName}>{object.title}</strong>
                               <span style={styles.objectMeta}>
                                 Updated {formatTimestamp(object.updated_at)}
                               </span>
-                            </div>
-                            <div style={styles.pinnedCardFooter}>
-                              <CopyableId
-                                value={object.id}
-                                displayValue={`ID: ${object.id}`}
-                                label="object ID"
-                              />
-                              <div style={styles.objectOverviewActions}>
-                                <button
-                                  type="button"
-                                  style={styles.favoriteButton}
-                                  aria-label={
-                                    object.favorited
-                                      ? `Remove ${object.title} from favorites`
-                                      : `Add ${object.title} to favorites`
-                                  }
-                                  aria-pressed={Boolean(object.favorited)}
-                                  title={
-                                    object.favorited ? "Remove from favorites" : "Add to favorites"
-                                  }
-                                  onClick={() =>
-                                    void onSetObjectFavorite(object.id, !object.favorited)
-                                  }
-                                >
-                                  {object.favorited ? "★" : "☆"}
-                                </button>
-                              </div>
                             </div>
                           </article>
                         ))}
@@ -856,6 +892,18 @@ export function WorkspaceView({
                             <div style={styles.objectOverviewActions}>
                               <button
                                 type="button"
+                                style={object.pinned ? styles.pinButtonActive : styles.pinButton}
+                                aria-label={
+                                  object.pinned ? `Unpin ${object.title}` : `Pin ${object.title}`
+                                }
+                                aria-pressed={Boolean(object.pinned)}
+                                title={object.pinned ? "Unpin object" : "Pin object"}
+                                onClick={() => void onSetObjectPin(object.id, !object.pinned)}
+                              >
+                                <PinIcon active={Boolean(object.pinned)} />
+                              </button>
+                              <button
+                                type="button"
                                 style={styles.favoriteButton}
                                 aria-label={
                                   object.favorited
@@ -872,23 +920,12 @@ export function WorkspaceView({
                               >
                                 {object.favorited ? "★" : "☆"}
                               </button>
-                              <button
-                                type="button"
-                                style={object.pinned ? styles.pinButtonActive : styles.pinButton}
-                                aria-label={
-                                  object.pinned ? `Unpin ${object.title}` : `Pin ${object.title}`
-                                }
-                                aria-pressed={Boolean(object.pinned)}
-                                title={object.pinned ? "Unpin object" : "Pin object"}
-                                onClick={() => void onSetObjectPin(object.id, !object.pinned)}
-                              >
-                                <PinIcon active={Boolean(object.pinned)} />
-                              </button>
                               <CopyableId
                                 value={object.id}
                                 displayValue={`ID: ${object.id}`}
                                 label="object ID"
                                 style={styles.objectOverviewId}
+                                iconOnly
                               />
                             </div>
                           </div>
@@ -942,16 +979,6 @@ export function WorkspaceView({
                         <div style={styles.objectOverviewActions}>
                           <button
                             type="button"
-                            style={styles.favoriteButton}
-                            aria-label={`Remove ${object.title} from favorites`}
-                            aria-pressed="true"
-                            title="Remove from favorites"
-                            onClick={() => void onSetObjectFavorite(object.id, false)}
-                          >
-                            ★
-                          </button>
-                          <button
-                            type="button"
                             style={object.pinned ? styles.pinButtonActive : styles.pinButton}
                             aria-label={
                               object.pinned ? `Unpin ${object.title}` : `Pin ${object.title}`
@@ -962,11 +989,22 @@ export function WorkspaceView({
                           >
                             <PinIcon active={Boolean(object.pinned)} />
                           </button>
+                          <button
+                            type="button"
+                            style={styles.favoriteButton}
+                            aria-label={`Remove ${object.title} from favorites`}
+                            aria-pressed="true"
+                            title="Remove from favorites"
+                            onClick={() => void onSetObjectFavorite(object.id, false)}
+                          >
+                            ★
+                          </button>
                           <CopyableId
                             value={object.id}
                             displayValue={`ID: ${object.id}`}
                             label="object ID"
                             style={styles.objectOverviewId}
+                            iconOnly
                           />
                         </div>
                       </div>
@@ -1239,7 +1277,7 @@ export function WorkspaceView({
                     const action = pendingNavigationRef.current;
                     pendingNavigationRef.current = null;
                     setDiscardNavigationOpen(false);
-                    setEditorDirty(false);
+                    setEditorFormDirty(false);
 
                     if (navigationBlocker.state === "blocked") {
                       navigationBlocker.proceed();
@@ -1350,8 +1388,17 @@ export function WorkspaceView({
           <CreationContextPanel
             workspaceId={workspace.id}
             draftTitle={draftObjectTitle}
-            connectedFrom={connectedFromObject}
+            objects={objects}
+            connections={draftConnections}
             onOpenObject={guardedOpenObject}
+            onAddConnection={(connection) =>
+              setDraftConnections((current) => [...current, connection])
+            }
+            onRemoveConnection={(objectId) =>
+              setDraftConnections((current) =>
+                current.filter((connection) => connection.object.id !== objectId),
+              )
+            }
           />
         )}
       </div>

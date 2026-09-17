@@ -681,35 +681,45 @@ export function useWorkspaceController({
 
   async function handleCreateObject(
     input: CreateObjectRequest,
-    connectedToObjectId?: string,
+    connections: Array<{ objectId: string; direction: "incoming" | "outgoing" }> = [],
   ): Promise<"created" | "connected" | "created_unconnected" | false> {
     const mutation = await runWorkspaceMutation(async (workspaceId) => {
       const response = await kival.createObject({ workspaceId, input });
-      let connectionError: string | null = null;
-
-      if (connectedToObjectId) {
-        try {
-          await kival.createObjectEdge({
+      const connectionResults = await Promise.allSettled(
+        connections.map((connection) =>
+          kival.createObjectEdge({
             workspaceId,
             input: {
-              source_object_id: connectedToObjectId,
-              target_object_id: response.object.id,
+              source_object_id:
+                connection.direction === "incoming" ? connection.objectId : response.object.id,
+              target_object_id:
+                connection.direction === "incoming" ? response.object.id : connection.objectId,
             },
-          });
-        } catch (cause) {
-          connectionError = cause instanceof Error ? cause.message : String(cause);
+          }),
+        ),
+      );
+      const successfulConnections = connections.filter(
+        (_connection, index) => connectionResults[index]?.status === "fulfilled",
+      );
+      const connectionErrors = connectionResults.flatMap((result) => {
+        if (result.status === "fulfilled") {
+          return [];
         }
-      }
 
-      return { response, connectionError };
+        const cause = result.reason;
+        return [cause instanceof Error ? cause.message : String(cause)];
+      });
+
+      return { response, successfulConnections, connectionErrors };
     });
 
     if (!mutation) {
       return false;
     }
 
-    const { response, connectionError } = mutation.result;
-    const connected = Boolean(connectedToObjectId && !connectionError);
+    const { response, successfulConnections, connectionErrors } = mutation.result;
+    const hasRequestedConnections = connections.length > 0;
+    const hasConnectionErrors = connectionErrors.length > 0;
     objectRefreshControllerRef.current?.abort();
     objectRefreshRequestIdRef.current += 1;
     setObjects((current) => [
@@ -719,7 +729,7 @@ export function useWorkspaceController({
         updated_by_display_name: user.display_name,
         updated_by_workspace_role: workspace?.effective_role,
         updated_by_object_role: response.effective_role,
-        connection_count: connected ? 1 : 0,
+        connection_count: successfulConnections.length,
         unresolved_thread_count: 0,
         favorited: false,
         pinned: false,
@@ -729,7 +739,7 @@ export function useWorkspaceController({
     ]);
     setRecentObjects([]);
     setRecentNextCursor(null);
-    if (!connectedToObjectId) {
+    if (!hasRequestedConnections) {
       setSelectedObject(response);
       setObjectContext({
         backlinks: {
@@ -767,22 +777,29 @@ export function useWorkspaceController({
       });
     }
 
-    if (connected) {
+    if (successfulConnections.length > 0) {
+      const connectedObjectIds = new Set(
+        successfulConnections.map((connection) => connection.objectId),
+      );
       setObjects((current) =>
         current.map((object) =>
-          object.id === connectedToObjectId
+          connectedObjectIds.has(object.id)
             ? { ...object, connection_count: (object.connection_count ?? 0) + 1 }
             : object,
         ),
       );
     }
     setApplicationError(
-      connectionError
-        ? `The object was created, but its connection failed: ${connectionError}`
+      hasConnectionErrors
+        ? `The object was created, but ${connectionErrors.length === 1 ? "a connection" : `${connectionErrors.length} connections`} failed: ${connectionErrors.join("; ")}`
         : null,
     );
     navigate(`/w/${mutation.workspaceId}/objects/${response.object.id}`);
-    return connectionError ? "created_unconnected" : connected ? "connected" : "created";
+    return hasConnectionErrors
+      ? "created_unconnected"
+      : hasRequestedConnections
+        ? "connected"
+        : "created";
   }
 
   async function handleUpdateObject(
