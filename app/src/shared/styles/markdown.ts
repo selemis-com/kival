@@ -77,9 +77,15 @@ export const markdownStyles: Record<string, CSSProperties> = {
     margin: "5px 0 0",
     flex: "0 0 auto",
   },
+  markdownTaskCheckboxInteractive: {
+    cursor: "pointer",
+  },
   markdownTaskContent: {
     minWidth: 0,
     flex: 1,
+  },
+  markdownTaskContentCompleted: {
+    textDecoration: "line-through",
   },
   markdownBlockquote: {
     margin: "18px 0",

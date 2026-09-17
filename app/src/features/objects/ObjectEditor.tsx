@@ -259,6 +259,7 @@ export function ObjectEditor(props: Props) {
         <span>Title</span>
         <input
           data-1p-ignore="true"
+          autoFocus={!isEditing}
           value={title}
           onChange={(event) => setTitle(event.target.value)}
           style={styles.input}

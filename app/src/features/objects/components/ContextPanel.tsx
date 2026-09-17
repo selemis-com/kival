@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { kival } from "../../../shared/api";
+import { selectSoleResultOnEnter } from "../../../shared/forms";
 import { styles } from "../../../shared/styles/index";
 import type { CurrentObjectResponse, ObjectContext, ObjectSummary } from "../../../shared/types";
 import { ConfirmationDialog } from "../../../shared/ui/ConfirmationDialog";
@@ -166,8 +167,15 @@ export function ContextPanel({
                 <>
                   <input
                     data-1p-ignore="true"
+                    autoFocus
                     value={targetQuery}
                     onChange={(event) => setTargetQuery(event.target.value)}
+                    onKeyDown={(event) =>
+                      selectSoleResultOnEnter(event, filteredTargets, (target) => {
+                        setTargetObjectId(target.id);
+                        setTargetQuery("");
+                      })
+                    }
                     style={styles.input}
                     placeholder="Search objects…"
                     autoComplete="off"

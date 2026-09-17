@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { useSearchParams } from "react-router";
 import { kival } from "../../shared/api";
-import { submitFormOnEnter } from "../../shared/forms";
+import { selectSoleResultOnEnter, submitFormOnEnter } from "../../shared/forms";
 import { usePaginatedResource } from "../../shared/hooks/usePaginatedResource";
 import { KivalSideBar } from "../../shared/navigation/KivalSideBar";
 import { TopBar } from "../../shared/navigation/TopBar";
@@ -345,6 +345,17 @@ export function WorkspaceChooser({
                     autoComplete="off"
                     style={styles.input}
                     onChange={(event) => setSearchQuery(event.target.value)}
+                    onKeyDown={(event) =>
+                      selectSoleResultOnEnter(
+                        event,
+                        visibleWorkspaces.filter((workspace) => workspace.status === "active"),
+                        onOpenWorkspace,
+                        {
+                          enabled: searchActive && !directoryLoading && !directoryError,
+                          hasMore: Boolean(searchNextCursor),
+                        },
+                      )
+                    }
                   />
                 </label>
               </div>

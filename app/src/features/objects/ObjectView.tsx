@@ -10,6 +10,7 @@ import type {
   ObjectSummary,
   ObjectVersion,
   ObjectVersionWikilink,
+  UpdateObjectRequest,
   User,
 } from "../../shared/types";
 import { CopyableId } from "../../shared/ui/CopyableId";
@@ -37,7 +38,26 @@ type Props = {
   onArchive: () => Promise<void>;
   onUnarchive: () => Promise<void>;
   onAccessChanged: () => Promise<void>;
+  onUpdate: (input: UpdateObjectRequest) => Promise<boolean>;
 };
+
+function updateTaskMarker(body: string, targetIndex: number, checked: boolean) {
+  let taskIndex = 0;
+  let updated = false;
+  const nextBody = body.replace(
+    /^(\s*(?:[-+*]|\d+[.)])\s+\[)([ xX])(\]\s+)/gm,
+    (match, prefix: string, _current: string, suffix: string) => {
+      if (taskIndex++ !== targetIndex) {
+        return match;
+      }
+
+      updated = true;
+      return `${prefix}${checked ? "x" : " "}${suffix}`;
+    },
+  );
+
+  return updated ? nextBody : null;
+}
 
 function formatEventActor(event: Event, user: User) {
   if (!event.actor_user_id) {
@@ -278,6 +298,7 @@ export function ObjectView({
   onArchive,
   onUnarchive,
   onAccessChanged,
+  onUpdate,
 }: Props) {
   const { object, current_version } = value;
   const [archiveConfirmOpen, setArchiveConfirmOpen] = useState(false);
@@ -307,10 +328,19 @@ export function ObjectView({
   const [notificationPreferenceError, setNotificationPreferenceError] = useState<string | null>(
     null,
   );
+  const [taskUpdateLoading, setTaskUpdateLoading] = useState(false);
+  const [taskUpdateError, setTaskUpdateError] = useState<string | null>(null);
+  const [optimisticTaskBody, setOptimisticTaskBody] = useState<string | null>(null);
   const actionsRef = useRef<HTMLDivElement>(null);
   const versionsGenerationRef = useRef(0);
   const versionsScopeRef = useRef<string | null>(null);
   const versionsScope = `${object.workspace_id}:${object.id}`;
+
+  // biome-ignore lint/correctness/useExhaustiveDependencies: A new version settles or supersedes the optimistic task body.
+  useEffect(() => {
+    setOptimisticTaskBody(null);
+    setTaskUpdateError(null);
+  }, [current_version.id]);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -606,6 +636,40 @@ export function ObjectView({
     } catch (error) {
       setUnarchiveError(error instanceof Error ? error.message : String(error));
       setUnarchiveLoading(false);
+    }
+  }
+
+  async function handleTaskToggle(taskIndex: number, checked: boolean) {
+    if (taskUpdateLoading) {
+      return;
+    }
+
+    const body = optimisticTaskBody ?? current_version.body;
+    const nextBody = updateTaskMarker(body, taskIndex, checked);
+
+    if (nextBody === null) {
+      setTaskUpdateError("Could not find that task in the current object.");
+      return;
+    }
+
+    setOptimisticTaskBody(nextBody);
+    setTaskUpdateLoading(true);
+    setTaskUpdateError(null);
+
+    try {
+      if (
+        !(await onUpdate({
+          expected_current_version_id: current_version.id,
+          body: nextBody,
+        }))
+      ) {
+        setOptimisticTaskBody(null);
+      }
+    } catch (error) {
+      setOptimisticTaskBody(null);
+      setTaskUpdateError(error instanceof Error ? error.message : String(error));
+    } finally {
+      setTaskUpdateLoading(false);
     }
   }
 
@@ -936,13 +1000,24 @@ export function ObjectView({
         </section>
       )}
 
+      {taskUpdateError && (
+        <div style={styles.errorBox} role="alert">
+          <strong>Could not update task</strong>
+          <span>{taskUpdateError}</span>
+        </div>
+      )}
+
       <article style={styles.objectContent}>
         <MarkdownBody
-          body={selectedVersion.body}
+          body={
+            isCurrentVersion ? (optimisticTaskBody ?? selectedVersion.body) : selectedVersion.body
+          }
           workspaceId={object.workspace_id}
           objectId={object.id}
           wikilinks={wikilinks}
           onOpenObject={onOpenObject}
+          onTaskToggle={isCurrentVersion && !isArchived && canEdit ? handleTaskToggle : undefined}
+          taskToggleDisabled={taskUpdateLoading}
         />
       </article>
 

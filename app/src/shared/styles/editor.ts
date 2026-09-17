@@ -206,6 +206,10 @@ export const editorStyles: Record<string, CSSProperties> = {
     resize: "none",
     overflowY: "auto",
   },
+  markdownTextareaDropActive: {
+    outline: `2px solid ${colors.accent}`,
+    outlineOffset: -2,
+  },
   markdownPreview: {
     minHeight: layout.markdownEditorMinHeight,
     padding: "22px 28px",

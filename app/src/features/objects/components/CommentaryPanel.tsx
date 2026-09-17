@@ -20,7 +20,7 @@ import {
   updateComment,
 } from "../../../shared/api";
 import { formatTimestamp } from "../../../shared/format";
-import { submitFormOnEnter } from "../../../shared/forms";
+import { focusTextControlAtEnd, submitFormOnEnter } from "../../../shared/forms";
 import { KIVAL_REALTIME_EVENT } from "../../../shared/realtime";
 import { styles } from "../../../shared/styles";
 import type {
@@ -54,6 +54,8 @@ type ComposerProps = {
   objectId: string;
   initialBody?: string;
   initialMentions?: CommentMention[];
+  autoFocus?: boolean;
+  focusAtEnd?: boolean;
   label: string;
   submitLabel: string;
   onCancel?: () => void;
@@ -117,6 +119,8 @@ function Composer({
   objectId,
   initialBody = "",
   initialMentions = [],
+  autoFocus = false,
+  focusAtEnd = false,
   label,
   submitLabel,
   onCancel,
@@ -146,6 +150,14 @@ function Composer({
   );
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const mentionListId = useId();
+
+  useEffect(() => {
+    if (!autoFocus || !focusAtEnd) {
+      return;
+    }
+
+    focusTextControlAtEnd(textareaRef.current);
+  }, [autoFocus, focusAtEnd]);
 
   useEffect(() => {
     if (!mentionToken || submitting) {
@@ -293,6 +305,7 @@ function Composer({
         <div style={styles.commentaryTextareaWrap}>
           <textarea
             ref={textareaRef}
+            autoFocus={autoFocus}
             name="comment_body"
             value={body}
             rows={initialBody ? 4 : 3}
@@ -500,6 +513,8 @@ function CommentItem({
           objectId={comment.object_id}
           initialBody={comment.body ?? ""}
           initialMentions={comment.mentions}
+          autoFocus
+          focusAtEnd
           label="Edit comment"
           submitLabel="Save"
           onCancel={() => setEditing(false)}
@@ -786,6 +801,7 @@ function ThreadItem({
         <Composer
           workspaceId={thread.workspace_id}
           objectId={thread.object_id}
+          autoFocus
           label="Reply"
           submitLabel="Reply"
           onCancel={() => setReplying(false)}
