@@ -1,6 +1,7 @@
 import { KivalTransportError } from "kival-sdk";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { kival } from "../../shared/api";
+import { selectSoleResultOnEnter } from "../../shared/forms";
 import { colors, graphThemes, shadows } from "../../shared/styles/constants";
 import { styles } from "../../shared/styles/index";
 import { useTheme } from "../../shared/styles/theme";
@@ -215,6 +216,11 @@ export function GraphView({ workspace, onOpenObject, focusObjectId = null }: Pro
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [graphQuery, setGraphQuery] = useState("");
+  const normalizedGraphQuery = graphQuery.trim().toLowerCase();
+  const matchingGraphNodes = normalizedGraphQuery
+    ? (response?.nodes.filter((node) => node.title.toLowerCase().includes(normalizedGraphQuery)) ??
+      [])
+    : [];
   const layoutOptions = DEFAULT_GRAPH_LAYOUT_OPTIONS;
   const showArrowsRef = useRef(false);
   const textFadeThresholdRef = useRef(0.62);
@@ -793,6 +799,17 @@ export function GraphView({ workspace, onOpenObject, focusObjectId = null }: Pro
               value={graphQuery}
               placeholder="Filter graph…"
               onChange={(event) => setGraphQuery(event.target.value)}
+              onKeyDown={(event) =>
+                selectSoleResultOnEnter(
+                  event,
+                  matchingGraphNodes,
+                  (node) => onOpenObject(node.id),
+                  {
+                    enabled: normalizedGraphQuery.length > 0,
+                    hasMore: Boolean(response.limits.has_more_nodes),
+                  },
+                )
+              }
               style={{
                 width: 220,
                 minHeight: 36,

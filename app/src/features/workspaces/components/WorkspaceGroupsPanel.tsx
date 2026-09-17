@@ -293,6 +293,7 @@ export function WorkspaceGroupsPanel({ workspace, canManageWorkspace, onToast }:
               <span style={styles.fieldLabel}>Group</span>
               <AnimatedSelect
                 id="workspace-group-add"
+                autoFocus
                 value={selectedGroupId}
                 style={styles.input}
                 disabled={Boolean(groupActionId)}

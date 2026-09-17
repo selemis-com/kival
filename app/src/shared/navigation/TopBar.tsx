@@ -2,6 +2,7 @@ import { KivalTransportError } from "kival-sdk";
 import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router";
 import { kival } from "../api";
+import { focusTextControlAtEnd, selectSoleResultOnEnter } from "../forms";
 import { styles } from "../styles/index";
 import type { User, Workspace } from "../types";
 import { InfiniteScrollSentinel } from "../ui/InfiniteScrollSentinel";
@@ -137,7 +138,7 @@ export function TopBar({
       }
 
       event.preventDefault();
-      mainSearchRef.current?.focus();
+      focusTextControlAtEnd(mainSearchRef.current);
     }
 
     document.addEventListener("keydown", handleSearchShortcut);
@@ -327,15 +328,20 @@ export function TopBar({
         }
         break;
       case "Enter": {
-        const selected =
-          keyboardWorkspaces.find((candidate) => candidate.id === highlightedWorkspaceId) ??
-          (keyboardWorkspaces.length === 1 && !workspaceResultsHaveMore
-            ? keyboardWorkspaces[0]
-            : undefined);
+        const selected = keyboardWorkspaces.find(
+          (candidate) => candidate.id === highlightedWorkspaceId,
+        );
 
         if (selected) {
           event.preventDefault();
           onSelect(selected.id);
+        } else {
+          selectSoleResultOnEnter(
+            event,
+            keyboardWorkspaces,
+            (workspace) => onSelect(workspace.id),
+            { hasMore: workspaceResultsHaveMore },
+          );
         }
         return;
       }

@@ -1,6 +1,10 @@
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { kival } from "../../shared/api";
-import { submitFormOnEnter } from "../../shared/forms";
+import {
+  focusTextControlAtEnd,
+  selectSoleResultOnEnter,
+  submitFormOnEnter,
+} from "../../shared/forms";
 import { usePaginatedResource } from "../../shared/hooks/usePaginatedResource";
 import { KivalSideBar } from "../../shared/navigation/KivalSideBar";
 import { TopBar } from "../../shared/navigation/TopBar";
@@ -104,6 +108,13 @@ export function GroupsPage({
   const [lifecycleTarget, setLifecycleTarget] = useState<Group | null>(null);
   const [updatingLifecycle, setUpdatingLifecycle] = useState(false);
   const [openingGroupId, setOpeningGroupId] = useState<string | null>(null);
+  const editNameRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (editingGroup) {
+      focusTextControlAtEnd(editNameRef.current);
+    }
+  }, [editingGroup]);
 
   async function handleCurrentUserAuthorityChanged() {
     setManagedGroup(null);
@@ -345,6 +356,17 @@ export function GroupsPage({
                     autoComplete="off"
                     style={styles.input}
                     onChange={(event) => setSearchQuery(event.target.value)}
+                    onKeyDown={(event) =>
+                      selectSoleResultOnEnter(
+                        event,
+                        groups.filter((group) => group.status === "active"),
+                        (group) => void openLatestGroup(group, "members"),
+                        {
+                          enabled: searchActive && !loading && !error,
+                          hasMore: Boolean(nextCursor),
+                        },
+                      )
+                    }
                   />
                 </label>
               </div>
@@ -560,9 +582,9 @@ export function GroupsPage({
             <label style={styles.field}>
               <span style={styles.fieldLabel}>Name</span>
               <input
+                ref={editNameRef}
                 data-1p-ignore="true"
                 autoComplete="off"
-                autoFocus
                 required
                 value={editName}
                 style={styles.input}

@@ -1,6 +1,7 @@
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { kival } from "../../shared/api";
 import { formatTimestampOr } from "../../shared/format";
+import { focusTextControlAtEnd, selectSoleResultOnEnter } from "../../shared/forms";
 import { usePaginatedResource } from "../../shared/hooks/usePaginatedResource";
 import { KivalSideBar } from "../../shared/navigation/KivalSideBar";
 import { TopBar } from "../../shared/navigation/TopBar";
@@ -104,6 +105,13 @@ export function UsersPage({
   const [disabling, setDisabling] = useState(false);
   const [enableTarget, setEnableTarget] = useState<User | null>(null);
   const [enabling, setEnabling] = useState(false);
+  const displayNameRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (managedUser?.status === "active") {
+      focusTextControlAtEnd(displayNameRef.current);
+    }
+  }, [managedUser]);
 
   async function openUser(target: User) {
     setOpeningUserId(target.id);
@@ -304,6 +312,17 @@ export function UsersPage({
                     autoComplete="off"
                     style={styles.input}
                     onChange={(event) => setSearchQuery(event.target.value)}
+                    onKeyDown={(event) =>
+                      selectSoleResultOnEnter(
+                        event,
+                        users,
+                        (candidate) => void openUser(candidate),
+                        {
+                          enabled: searchActive && !loading && !error,
+                          hasMore: Boolean(nextCursor),
+                        },
+                      )
+                    }
                   />
                 </label>
               </div>
@@ -405,9 +424,9 @@ export function UsersPage({
                   <label style={styles.field}>
                     <span style={styles.fieldLabel}>Display name</span>
                     <input
+                      ref={displayNameRef}
                       data-1p-ignore="true"
                       autoComplete="off"
-                      autoFocus
                       required
                       value={displayName}
                       style={styles.input}
