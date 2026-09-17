@@ -493,6 +493,17 @@ export const objectsStyles: Record<string, CSSProperties> = {
     flexShrink: 0,
     pointerEvents: "none",
   },
+  pinnedObjectCardActions: {
+    position: "absolute",
+    top: 10,
+    right: 10,
+    zIndex: 2,
+    display: "flex",
+    flexDirection: "column",
+    alignItems: "center",
+    gap: 2,
+    pointerEvents: "none",
+  },
   objectOverviewMain: {
     position: "relative",
     minWidth: 0,

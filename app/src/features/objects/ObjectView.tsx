@@ -16,6 +16,7 @@ import type {
 import { CopyableId } from "../../shared/ui/CopyableId";
 import { InfiniteScrollSentinel } from "../../shared/ui/InfiniteScrollSentinel";
 import { LoadingIndicator } from "../../shared/ui/LoadingIndicator";
+import { PinIcon } from "../../shared/ui/PinIcon";
 import { ProfileHoverName } from "../../shared/ui/ProfileHoverCard";
 import { CommentaryPanel } from "./components/CommentaryPanel";
 import { MarkdownBody } from "./components/MarkdownBody";
@@ -37,6 +38,10 @@ type Props = {
   onRevealInGraph: () => void;
   onArchive: () => Promise<void>;
   onUnarchive: () => Promise<void>;
+  favorited: boolean;
+  pinned: boolean;
+  onSetFavorite: (favorited: boolean) => Promise<void>;
+  onSetPin: (pinned: boolean) => Promise<void>;
   onAccessChanged: () => Promise<void>;
   onUpdate: (input: UpdateObjectRequest) => Promise<boolean>;
 };
@@ -297,6 +302,10 @@ export function ObjectView({
   onRevealInGraph,
   onArchive,
   onUnarchive,
+  favorited,
+  pinned,
+  onSetFavorite,
+  onSetPin,
   onAccessChanged,
   onUpdate,
 }: Props) {
@@ -757,8 +766,6 @@ export function ObjectView({
               : `Historical · version ${selectedVersion.version_number}`}
           </span>
 
-          <CopyableId value={object.id} displayValue={`ID: ${object.id}`} label="object ID" />
-
           {isCurrentVersion && (
             <span style={styles.objectUpdatedBy}>
               Updated {formatTimestamp(object.updated_at)} by {updatedBy}
@@ -767,6 +774,43 @@ export function ObjectView({
         </div>
 
         <div style={styles.sectionActions}>
+          {!isArchived && (
+            <>
+              <button
+                type="button"
+                style={pinned ? styles.pinButtonActive : styles.pinButton}
+                aria-label={
+                  pinned ? `Unpin ${selectedVersion.title}` : `Pin ${selectedVersion.title}`
+                }
+                aria-pressed={pinned}
+                title={pinned ? "Unpin object" : "Pin object"}
+                onClick={() => void onSetPin(!pinned)}
+              >
+                <PinIcon active={pinned} />
+              </button>
+              <button
+                type="button"
+                style={styles.favoriteButton}
+                aria-label={
+                  favorited
+                    ? `Remove ${selectedVersion.title} from favorites`
+                    : `Add ${selectedVersion.title} to favorites`
+                }
+                aria-pressed={favorited}
+                title={favorited ? "Remove from favorites" : "Add to favorites"}
+                onClick={() => void onSetFavorite(!favorited)}
+              >
+                {favorited ? "★" : "☆"}
+              </button>
+            </>
+          )}
+          <CopyableId
+            value={object.id}
+            displayValue={`ID: ${object.id}`}
+            label="object ID"
+            iconOnly
+          />
+
           {!isCurrentVersion && (
             <button
               type="button"

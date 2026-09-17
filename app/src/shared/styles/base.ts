@@ -2,6 +2,17 @@ import type { CSSProperties } from "react";
 import { colors, fontFamilies, shadows } from "./constants";
 
 export const baseStyles: Record<string, CSSProperties> = {
+  visuallyHidden: {
+    position: "absolute",
+    width: 1,
+    height: 1,
+    padding: 0,
+    margin: -1,
+    overflow: "hidden",
+    clip: "rect(0, 0, 0, 0)",
+    whiteSpace: "nowrap",
+    border: 0,
+  },
   app: {
     height: "100vh",
     minHeight: 0,
@@ -27,6 +38,7 @@ export const baseStyles: Record<string, CSSProperties> = {
     background: colors.transparent,
     color: colors.textSubtle,
     font: "inherit",
+    fontFamily: fontFamilies.mono,
     fontSize: 13,
     textAlign: "left",
     cursor: "pointer",
@@ -35,6 +47,14 @@ export const baseStyles: Record<string, CSSProperties> = {
   copyableIdFeedback: {
     color: colors.textMuted,
     fontSize: "0.92em",
+  },
+  copyableIdIcon: {
+    width: 28,
+    height: 28,
+    display: "grid",
+    placeItems: "center",
+    flexShrink: 0,
+    color: colors.textMuted,
   },
   profileHoverName: {
     position: "relative",
