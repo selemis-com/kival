@@ -20,8 +20,18 @@ import { GraphPhysics } from "./physics";
 type Props = {
   workspace: Workspace;
   onOpenObject: (objectId: string) => void;
+  onEditObject: (objectId: string) => void;
+  onCreateObject: () => void;
   focusObjectId?: string | null;
 };
+
+type GraphContextMenu = {
+  x: number;
+  y: number;
+  node: PositionedNode | null;
+};
+
+type GraphContextAction = "open" | "edit" | "create";
 
 type PointerState = {
   pointerId: number;
@@ -195,7 +205,13 @@ const toolbarStyle = {
   gap: 8,
 } as const;
 
-export function GraphView({ workspace, onOpenObject, focusObjectId = null }: Props) {
+export function GraphView({
+  workspace,
+  onOpenObject,
+  onEditObject,
+  onCreateObject,
+  focusObjectId = null,
+}: Props) {
   const { resolvedTheme } = useTheme();
   const graphTheme = graphThemes[resolvedTheme];
   const containerRef = useRef<HTMLDivElement>(null);
@@ -206,6 +222,7 @@ export function GraphView({ workspace, onOpenObject, focusObjectId = null }: Pro
   const physicsRef = useRef<GraphPhysics | null>(null);
   const physicsFrameRef = useRef<number | null>(null);
   const pointerRef = useRef<PointerState | null>(null);
+  const contextMenuRef = useRef<HTMLDivElement>(null);
   const hoveredNodeRef = useRef<PositionedNode | null>(null);
   const focusedNodeIdRef = useRef<string | null>(null);
   const focusedNeighborIdsRef = useRef(new Set<string>());
@@ -216,6 +233,9 @@ export function GraphView({ workspace, onOpenObject, focusObjectId = null }: Pro
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [graphQuery, setGraphQuery] = useState("");
+  const [contextMenu, setContextMenu] = useState<GraphContextMenu | null>(null);
+  const [highlightedContextAction, setHighlightedContextAction] =
+    useState<GraphContextAction | null>(null);
   const normalizedGraphQuery = graphQuery.trim().toLowerCase();
   const matchingGraphNodes = normalizedGraphQuery
     ? (response?.nodes.filter((node) => node.title.toLowerCase().includes(normalizedGraphQuery)) ??
@@ -224,6 +244,21 @@ export function GraphView({ workspace, onOpenObject, focusObjectId = null }: Pro
   const layoutOptions = DEFAULT_GRAPH_LAYOUT_OPTIONS;
   const showArrowsRef = useRef(false);
   const textFadeThresholdRef = useRef(0.62);
+
+  useEffect(() => {
+    if (!contextMenu) {
+      return;
+    }
+
+    contextMenuRef.current?.querySelector<HTMLButtonElement>("[role='menuitem']")?.focus();
+
+    function dismissContextMenu() {
+      setContextMenu(null);
+    }
+
+    document.addEventListener("pointerdown", dismissContextMenu);
+    return () => document.removeEventListener("pointerdown", dismissContextMenu);
+  }, [contextMenu]);
 
   const filteredGraphData = useMemo(() => {
     if (!response) {
@@ -549,6 +584,12 @@ export function GraphView({ workspace, onOpenObject, focusObjectId = null }: Pro
   }
 
   function handlePointerDown(event: React.PointerEvent<HTMLDivElement>) {
+    setContextMenu(null);
+
+    if (event.button !== 0) {
+      return;
+    }
+
     const renderer = rendererRef.current;
 
     if (!renderer) {
@@ -628,6 +669,31 @@ export function GraphView({ workspace, onOpenObject, focusObjectId = null }: Pro
     }
   }
 
+  function handleContextMenu(event: React.MouseEvent<HTMLDivElement>) {
+    const renderer = rendererRef.current;
+    const container = containerRef.current;
+
+    if (!renderer || !container) {
+      return;
+    }
+
+    event.preventDefault();
+
+    const rect = container.getBoundingClientRect();
+    const pointerX = event.clientX - rect.left;
+    const pointerY = event.clientY - rect.top;
+    const node = renderer.pickNode(pointerX, pointerY);
+    const menuWidth = 156;
+    const menuHeight = node ? 88 : 36;
+
+    setHighlightedContextAction(null);
+    setContextMenu({
+      x: Math.max(8, Math.min(pointerX, container.clientWidth - menuWidth - 8)),
+      y: Math.max(8, Math.min(pointerY, container.clientHeight - menuHeight - 8)),
+      node,
+    });
+  }
+
   useEffect(() => {
     if (!response) {
       return;
@@ -704,6 +770,11 @@ export function GraphView({ workspace, onOpenObject, focusObjectId = null }: Pro
     }
 
     if (event.key === "Escape") {
+      if (contextMenu) {
+        setContextMenu(null);
+        return;
+      }
+
       clearGraphFocus();
       return;
     }
@@ -766,6 +837,7 @@ export function GraphView({ workspace, onOpenObject, focusObjectId = null }: Pro
           onPointerDown={handlePointerDown}
           onPointerUp={handlePointerUp}
           onDoubleClick={handleDoubleClick}
+          onContextMenu={handleContextMenu}
           onPointerCancel={() => {
             const pointer = pointerRef.current;
 
@@ -854,9 +926,93 @@ export function GraphView({ workspace, onOpenObject, focusObjectId = null }: Pro
             </div>
           )}
 
+          {contextMenu && (
+            <div
+              ref={contextMenuRef}
+              role="menu"
+              aria-label={
+                contextMenu.node ? `Actions for ${contextMenu.node.title}` : "Graph actions"
+              }
+              style={{
+                ...styles.graphContextMenu,
+                left: contextMenu.x,
+                top: contextMenu.y,
+              }}
+              onPointerDown={stopGraphPointerEvent}
+              onPointerMove={stopGraphPointerEvent}
+              onPointerUp={stopGraphPointerEvent}
+              onContextMenu={(event) => {
+                event.preventDefault();
+                event.stopPropagation();
+              }}
+            >
+              {contextMenu.node && (
+                <>
+                  <button
+                    type="button"
+                    role="menuitem"
+                    style={
+                      highlightedContextAction === "open"
+                        ? styles.graphContextMenuItemHighlighted
+                        : styles.graphContextMenuItem
+                    }
+                    onFocus={() => setHighlightedContextAction("open")}
+                    onPointerMove={() => setHighlightedContextAction("open")}
+                    onClick={() => {
+                      const nodeId = contextMenu.node?.id;
+                      if (nodeId) {
+                        onOpenObject(nodeId);
+                      }
+                      setContextMenu(null);
+                    }}
+                  >
+                    Open object
+                  </button>
+                  <button
+                    type="button"
+                    role="menuitem"
+                    style={
+                      highlightedContextAction === "edit"
+                        ? styles.graphContextMenuItemHighlighted
+                        : styles.graphContextMenuItem
+                    }
+                    onFocus={() => setHighlightedContextAction("edit")}
+                    onPointerMove={() => setHighlightedContextAction("edit")}
+                    onClick={() => {
+                      const nodeId = contextMenu.node?.id;
+                      if (nodeId) {
+                        onEditObject(nodeId);
+                      }
+                      setContextMenu(null);
+                    }}
+                  >
+                    Edit object
+                  </button>
+                </>
+              )}
+              <button
+                type="button"
+                role="menuitem"
+                style={
+                  highlightedContextAction === "create"
+                    ? styles.graphContextMenuItemHighlighted
+                    : styles.graphContextMenuItem
+                }
+                onFocus={() => setHighlightedContextAction("create")}
+                onPointerMove={() => setHighlightedContextAction("create")}
+                onClick={() => {
+                  setContextMenu(null);
+                  onCreateObject();
+                }}
+              >
+                New object
+              </button>
+            </div>
+          )}
+
           <div style={styles.graphHint}>
-            Drag nodes to rearrange · Drag empty space to pan · Scroll to zoom · Double-click to
-            open
+            Drag nodes to rearrange · Drag empty space to pan · Scroll to zoom · Right-click for
+            actions
           </div>
         </div>
       )}

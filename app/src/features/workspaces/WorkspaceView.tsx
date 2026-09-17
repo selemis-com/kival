@@ -1022,6 +1022,10 @@ export function WorkspaceView({
               <GraphView
                 workspace={workspace}
                 onOpenObject={guardedOpenObject}
+                onEditObject={(objectId) =>
+                  guardedNavigate(`${workspaceBasePath}/objects/${objectId}/edit`)
+                }
+                onCreateObject={() => guardedNavigate(`${workspaceBasePath}/new`)}
                 focusObjectId={searchParams.get("focus")}
               />
             )}
