@@ -450,15 +450,32 @@ current_kival_version() {
     installed_binary_version kival
 }
 
+installed_kivalup_version() {
+    local binary="$BIN_DIR/kivalup"
+    [[ -x "$binary" && ! -L "$binary" ]] || return 0
+
+    local output
+    output="$("$binary" --version 2>/dev/null)" || return 0
+    output="${output%%$'\n'*}"
+    output="${output#"kivalup "}"
+
+    [[ "$output" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]] || return 0
+    printf '%s\n' "$output"
+}
+
 release_is_installed() {
     local expected="$1"
     local kival_version
     local kivald_version
+    local kivalup_version
 
     kival_version="$(installed_binary_version kival)"
     kivald_version="$(installed_binary_version kivald)"
+    kivalup_version="$(installed_kivalup_version)"
 
-    [[ "$kival_version" == "$expected" && "$kivald_version" == "$expected" ]]
+    [[ "$kival_version" == "$expected" &&
+        "$kivald_version" == "$expected" &&
+        "$kivalup_version" == "$expected" ]]
 }
 
 latest_is_newer() {
@@ -496,7 +513,6 @@ install_kival() {
     check_cmd tar || error "tar not found. Please install tar."
 
     local target tag
-    local refresh_kivalup=0
     target="$(detect_target)"
 
     if [[ -n "$VERSION" ]]; then
@@ -504,11 +520,10 @@ install_kival() {
     else
         tag="$(get_latest_version)"
         warn_if_new_release_available "$tag"
-        refresh_kivalup=1
     fi
 
     if release_is_installed "$tag"; then
-        if [[ "$refresh_kivalup" -eq 1 ]]; then
+        if [[ -z "$VERSION" ]]; then
             info "Kival $tag is already up to date."
         else
             info "Kival $tag is already installed."
@@ -536,21 +551,16 @@ install_kival() {
     [[ -f "$release_dir/kivald" && ! -L "$release_dir/kivald" ]] ||
         error "Downloaded release must contain kivald as a regular file."
 
-    local files=(kival kivald)
-    if [[ "$refresh_kivalup" -eq 1 ]]; then
-        download_verified_asset "$tag" "kivalup" "kivalup.attestation.txt"
-        bash -n "$TMP_DIR/kivalup" || error "Downloaded kivalup failed shell syntax validation."
-        cp "$TMP_DIR/kivalup" "$release_dir/kivalup"
-        [[ "$(compute_sha256 "$TMP_DIR/kivalup")" == "$(compute_sha256 "$release_dir/kivalup")" ]] ||
-            error "Staged kivalup does not match the verified release artifact."
-        files+=(kivalup)
-    fi
+    download_verified_asset "$tag" "kivalup" "kivalup.attestation.txt"
+    bash -n "$TMP_DIR/kivalup" || error "Downloaded kivalup failed shell syntax validation."
+    cp "$TMP_DIR/kivalup" "$release_dir/kivalup"
+    [[ "$(compute_sha256 "$TMP_DIR/kivalup")" == "$(compute_sha256 "$release_dir/kivalup")" ]] ||
+        error "Staged kivalup does not match the verified release artifact."
 
-    install_release "$release_dir" "${tag#v}" "$tag" "${files[@]}"
+    install_release "$release_dir" "${tag#v}" "$tag" kival kivald kivalup
 
     echo
     info "Kival $tag installed successfully."
-    [[ "$refresh_kivalup" -eq 0 ]] || info "kivalup refreshed from Kival $tag."
     [[ ":$PATH:" == *":$BIN_DIR:"* ]] || warn "$BIN_DIR is not in your PATH."
 }
 
