@@ -9,7 +9,7 @@ use kival_kernel::{
 use kival_metrics::{counter, describe_counter, describe_gauge, gauge};
 use kival_tracing::error;
 use sqlx::{PgPool, Postgres, Transaction};
-use steda::{Queue, RetryStrategy, Task, TaskContext, Worker};
+use steda::{Queue, RetryStrategy, Task, TaskContext, TaskExecutor, Worker};
 use tokio::time::sleep;
 use uuid::Uuid;
 
@@ -85,14 +85,28 @@ pub(crate) async fn enqueue_backlog_if_needed(queue: &Queue, pool: &PgPool) -> s
 pub(crate) fn worker(queue: &Queue, pool: PgPool) -> steda::Result<Worker> {
     queue
         .worker()
-        .task(PROJECT_NOTIFICATIONS, move |(), _ctx: TaskContext| project_backlog(pool.clone()))
+        .task_executor(PROJECT_NOTIFICATIONS, NotificationProjectionExecutor { pool })
         .build()
 }
 
+/// Reusable executor for durable notification projection attempts.
+struct NotificationProjectionExecutor {
+    /// Shared Kival database pool.
+    pool: PgPool,
+}
+
+impl TaskExecutor<(), ()> for NotificationProjectionExecutor {
+    type Error = sqlx::Error;
+
+    async fn execute(&self, (): (), _context: TaskContext) -> Result<(), Self::Error> {
+        project_backlog(&self.pool).await
+    }
+}
+
 /// Projects bounded candidate batches until the durable candidate backlog is empty.
-async fn project_backlog(pool: PgPool) -> steda::Result<()> {
+async fn project_backlog(pool: &PgPool) -> Result<(), sqlx::Error> {
     describe_projection_metrics();
-    let result = project_backlog_inner(&pool).await;
+    let result = project_backlog_inner(pool).await;
     if let Err(error) = &result {
         counter!("notifications.projection_failures_total").increment(1);
         error!(
@@ -105,7 +119,7 @@ async fn project_backlog(pool: PgPool) -> steda::Result<()> {
 }
 
 /// Performs one durable backlog projection attempt.
-async fn project_backlog_inner(pool: &PgPool) -> steda::Result<()> {
+async fn project_backlog_inner(pool: &PgPool) -> Result<(), sqlx::Error> {
     loop {
         let batch = process_notification_projection_batch(pool, PROJECTION_BATCH_SIZE).await?;
         record_projection_batch(&batch);
