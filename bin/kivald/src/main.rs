@@ -173,8 +173,8 @@ fn main() {
 
     // Parse command-line arguments and run the appropriate command. If any error occurs, print it
     // and exit with a non-zero status code.
-    if let Err(err) = Cli::parse().run() {
-        eprintln!("Error: {err}");
+    if let Err(error) = Cli::parse().run() {
+        eprintln!("Error: {error:#}");
         std::process::exit(1);
     }
 }

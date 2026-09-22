@@ -17,7 +17,7 @@ use axum::{
 use kival_metrics::{
     counter, describe_counter, describe_gauge, describe_histogram, gauge, histogram,
 };
-use kival_tracing::{Level, Span, debug_span, error, field};
+use kival_tracing::{Level, Span, error, field, info_span};
 use tower::{ServiceBuilder, timeout::TimeoutLayer};
 use tower_http::{
     catch_panic::{CatchPanicLayer, ResponseForPanic},
@@ -248,7 +248,7 @@ impl ResponseForPanic for RecordHttpPanic {
 fn make_request_span<B>(request: &Request<B>) -> Span {
     let headers = request.headers();
 
-    let span = debug_span!(
+    let span = info_span!(
         target: "kival::server::http",
         "request",
         method = %request.method(),
