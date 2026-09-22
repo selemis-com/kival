@@ -340,7 +340,7 @@ fn main() {
                 print_json_error(&CliFailure::from_report(&error));
             }
         } else {
-            eprintln!("Error: {error}");
+            eprintln!("Error: {error:#}");
         }
         std::process::exit(1);
     }
