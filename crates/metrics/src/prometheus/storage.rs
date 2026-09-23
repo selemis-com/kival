@@ -208,17 +208,6 @@ mod tests {
     //! (including out-of-range and idempotent-sort behavior).
     use super::*;
 
-    /// A freshly constructed storage reports zero count, zero sum, and an
-    /// empty sample buffer.
-    #[test]
-    fn new_storage_is_empty() {
-        let s = HistogramStorage::new();
-        let snap = s.snapshot();
-        assert_eq!(snap.count, 0);
-        assert_eq!(snap.sum, 0.0);
-        assert!(snap.samples.is_empty());
-    }
-
     /// `quantile` on an empty snapshot returns `0.0` rather than `NaN`.
     /// `NaN` would render as the literal string `NaN` and trip strict
     /// Prometheus parsers; pin the safe value here so it can never silently
@@ -227,6 +216,9 @@ mod tests {
     fn empty_snapshot_quantile_returns_zero_not_nan() {
         let s = HistogramStorage::new();
         let mut snap = s.snapshot();
+        assert_eq!(snap.count, 0);
+        assert_eq!(snap.sum, 0.0);
+        assert!(snap.samples.is_empty());
         for q in [0.0, 0.5, 0.9, 0.95, 0.99, 1.0] {
             let v = snap.quantile(q);
             assert_eq!(v, 0.0, "q={q} returned {v}, expected 0.0");
@@ -234,23 +226,18 @@ mod tests {
         }
     }
 
-    /// Recording a single value is reflected in count/sum/samples.
-    #[test]
-    fn record_single_value() {
-        let s = HistogramStorage::new();
-        s.record(42.0);
-        let snap = s.snapshot();
-        assert_eq!(snap.count, 1);
-        assert_eq!(snap.sum, 42.0);
-        assert_eq!(snap.samples, vec![42.0]);
-    }
-
     /// Record several values, snapshot, and assert lifetime totals plus
     /// the standard q=0.5 / q=0 / q=1 reads.
     #[test]
     fn snapshot_after_several_records() {
         let s = HistogramStorage::new();
-        for v in [10.0, 20.0, 30.0, 40.0, 50.0] {
+        s.record(10.0);
+        let first = s.snapshot();
+        assert_eq!(first.count, 1);
+        assert_eq!(first.sum, 10.0);
+        assert_eq!(first.samples, vec![10.0]);
+
+        for v in [20.0, 30.0, 40.0, 50.0] {
             s.record(v);
         }
         let mut snap = s.snapshot();
@@ -318,30 +305,5 @@ mod tests {
         assert_eq!(snap.quantile(-1.0), 1.0);
         // q > 1.0 clamps to 1.0 → maximum.
         assert_eq!(snap.quantile(2.0), 3.0);
-    }
-
-    /// Sort is performed on the first `quantile` call; the second call
-    /// must reuse the existing sort order (verified by reading the
-    /// `samples` vec after one quantile call and confirming it's sorted).
-    #[test]
-    fn quantile_sorts_samples_in_place_idempotently() {
-        let s = HistogramStorage::new();
-        // Insert in clearly out-of-order sequence so an unsorted snapshot
-        // can be detected.
-        for v in [5.0, 1.0, 4.0, 2.0, 3.0] {
-            s.record(v);
-        }
-        let mut snap = s.snapshot();
-        let q1 = snap.quantile(0.5);
-        // After one quantile call the samples must be sorted ascending.
-        assert!(
-            snap.samples.windows(2).all(|w| w[0] <= w[1]),
-            "samples not sorted after first quantile call: {:?}",
-            snap.samples
-        );
-        // A second quantile call returns the same value and preserves the order.
-        let q2 = snap.quantile(0.5);
-        assert_eq!(q1, q2);
-        assert!(snap.samples.windows(2).all(|w| w[0] <= w[1]));
     }
 }

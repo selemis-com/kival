@@ -169,14 +169,12 @@ mod tests {
 
     use super::*;
 
-    /// A complete kernel-shaped snapshot parses all IO counters.
     #[test]
-    fn parse_process_io_snapshot() {
-        let text = "\
+    fn parse_process_io_cases() {
+        let complete = "\
 rchar: 1\nwchar: 2\nsyscr: 3\nsyscw: 4\nread_bytes: 5\nwrite_bytes: 6\ncancelled_write_bytes: 7\n";
-
         assert_eq!(
-            ProcessIo::parse(text),
+            ProcessIo::parse(complete),
             Ok(ProcessIo {
                 rchar: 1,
                 wchar: 2,
@@ -187,22 +185,12 @@ rchar: 1\nwchar: 2\nsyscr: 3\nsyscw: 4\nread_bytes: 5\nwrite_bytes: 6\ncancelled
                 cancelled_write_bytes: 7,
             })
         );
-    }
 
-    /// Missing required fields reject the whole snapshot.
-    #[test]
-    fn parse_process_io_rejects_missing_fields() {
-        let text = "rchar: 1\nwchar: 2\nsyscr: 3\nsyscw: 4\nread_bytes: 5\nwrite_bytes: 6\n";
+        let missing = "rchar: 1\nwchar: 2\nsyscr: 3\nsyscw: 4\nread_bytes: 5\nwrite_bytes: 6\n";
+        assert_eq!(ProcessIo::parse(missing), Err("cancelled_write_bytes"));
 
-        assert_eq!(ProcessIo::parse(text), Err("cancelled_write_bytes"));
-    }
-
-    /// Malformed field values reject the whole snapshot.
-    #[test]
-    fn parse_process_io_rejects_malformed_values() {
-        let text = "\
+        let malformed = "\
 rchar: 1\nwchar: two\nsyscr: 3\nsyscw: 4\nread_bytes: 5\nwrite_bytes: 6\ncancelled_write_bytes: 7\n";
-
-        assert_eq!(ProcessIo::parse(text), Err("wchar"));
+        assert_eq!(ProcessIo::parse(malformed), Err("wchar"));
     }
 }

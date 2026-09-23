@@ -180,29 +180,25 @@ mod tests {
     use super::*;
 
     #[test]
-    fn parse_kib_handles_valid_status_lines() {
-        // The leading whitespace and `kB` suffix in `/proc/self/status`
-        // values are part of the format we parse — verify both work.
-        assert_eq!(parse_kib("   1234 kB"), Some(1234 * 1024));
-        assert_eq!(parse_kib("0 kB"), Some(0));
-        assert_eq!(parse_kib("\t42  kB"), Some(42 * 1024));
-    }
+    fn parse_kib_cases() {
+        let cases = [
+            ("   1234 kB", Some(1234 * 1024)),
+            ("0 kB", Some(0)),
+            ("\t42  kB", Some(42 * 1024)),
+            ("", None),
+            ("abc", None),
+            ("-1 kB", None),
+            ("1234", None),
+            ("1234 MB", None),
+            ("1234 garbage", None),
+            ("1234 kB extra", None),
+            // Integer overflow when multiplied by 1024 must not panic or wrap.
+            ("18446744073709551615 kB", None),
+        ];
 
-    #[test]
-    fn parse_kib_rejects_malformed_input() {
-        assert_eq!(parse_kib(""), None);
-        assert_eq!(parse_kib("abc"), None);
-        assert_eq!(parse_kib("-1 kB"), None);
-
-        assert_eq!(parse_kib("1234"), None);
-        assert_eq!(parse_kib("1234 MB"), None);
-        assert_eq!(parse_kib("1234 garbage"), None);
-        assert_eq!(parse_kib("1234 kB extra"), None);
-
-        // Integer overflow when multiplied by 1024 must not panic or wrap.
-        assert_eq!(parse_kib("18446744073709551615 kB"), None);
-
-        assert_eq!(parse_kib("   1234 kB"), Some(1234 * 1024));
+        for (input, expected) in cases {
+            assert_eq!(parse_kib(input), expected, "input={input:?}");
+        }
     }
 
     #[test]
@@ -229,7 +225,7 @@ VmRSS:\t10 kB\nVmSize:\t20 kB\nThreads:\t3\nvoluntary_ctxt_switches:\t4\nnonvolu
     }
 
     #[test]
-    fn parse_btime_extracts_boot_time_from_proc_stat() {
+    fn parse_btime_cases() {
         let snapshot = "\
 cpu  100 0 200 300 0 0 0 0 0 0
 cpu0 50 0 100 150 0 0 0 0 0 0
@@ -239,15 +235,7 @@ btime 1700000000
 processes 4242
 ";
         assert_eq!(parse_btime_from_proc_stat(snapshot), Some(1_700_000_000));
-    }
-
-    #[test]
-    fn parse_btime_returns_none_when_btime_missing() {
         assert_eq!(parse_btime_from_proc_stat("cpu 0 0 0 0\nctxt 1\n"), None);
-    }
-
-    #[test]
-    fn parse_btime_returns_none_when_value_garbled() {
         assert_eq!(parse_btime_from_proc_stat("btime not_a_number\n"), None);
     }
 
@@ -278,21 +266,13 @@ processes 4242
     }
 
     #[test]
-    fn parse_self_stat_starttime_returns_none_when_close_paren_missing() {
+    fn parse_self_stat_starttime_rejects_malformed_input() {
         assert_eq!(parse_self_stat_starttime("1234 broken_comm S 1 1\n"), None);
-    }
-
-    #[test]
-    fn parse_self_stat_starttime_returns_none_when_too_few_fields() {
-        // Fewer than 20 whitespace tokens after the close-paren.
         assert_eq!(parse_self_stat_starttime("1234 (x) S 1 2 3\n"), None);
-    }
 
-    #[test]
-    fn parse_self_stat_starttime_returns_none_when_starttime_garbled() {
-        let stat = "\
+        let garbled = "\
 1234 (x) S 1 1 1 1 1 1 1 1 1 1 1 1 1 1 \
 1 1 1 1 not_a_number rest rest rest\n";
-        assert_eq!(parse_self_stat_starttime(stat), None);
+        assert_eq!(parse_self_stat_starttime(garbled), None);
     }
 }

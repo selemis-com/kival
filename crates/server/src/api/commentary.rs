@@ -852,15 +852,11 @@ mod tests {
     }
 
     #[test]
-    fn mention_usernames_are_extracted() {
+    fn mention_usernames_are_extracted_without_sentence_punctuation() {
         assert_eq!(
             mentioned_usernames("Ask @Alice and @ops-team; ignore @. and alice@example.com"),
             BTreeSet::from(["alice".to_owned(), "ops-team".to_owned()]),
         );
-    }
-
-    #[test]
-    fn mention_usernames_exclude_trailing_punctuation() {
         assert_eq!(
             mentioned_usernames("Ask @Alice. Then notify @ops_team- and @release.captain."),
             BTreeSet::from([
@@ -869,10 +865,7 @@ mod tests {
                 "release.captain".to_owned(),
             ]),
         );
-    }
 
-    #[test]
-    fn maximum_length_mentions_allow_sentence_punctuation() {
         let username = "a".repeat(30);
         assert_eq!(
             mentioned_usernames(&format!("Please review this, @{username}.")),

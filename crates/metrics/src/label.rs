@@ -138,55 +138,25 @@ mod tests {
     }
 
     #[test]
-    fn vec_of_labels_passthrough() {
-        let v = vec![Label::new("k1", "v1"), Label::new("k2", "v2")];
-        assert_eq!(v.into_labels(), expected());
-    }
+    fn into_labels_supports_all_declared_shapes() {
+        let labels = vec![Label::new("k1", "v1"), Label::new("k2", "v2")];
+        assert_eq!(labels.into_labels(), expected());
 
-    #[test]
-    fn borrowed_slice_of_labels() {
-        let arr = [Label::new("k1", "v1"), Label::new("k2", "v2")];
-        let s: &[Label] = &arr;
-        assert_eq!(s.into_labels(), expected());
-    }
+        let labels = [Label::new("k1", "v1"), Label::new("k2", "v2")];
+        let borrowed: &[Label] = &labels;
+        assert_eq!(borrowed.into_labels(), expected());
+        assert_eq!(labels.into_labels(), expected());
 
-    #[test]
-    fn owned_array_of_labels() {
-        let arr = [Label::new("k1", "v1"), Label::new("k2", "v2")];
-        assert_eq!(arr.into_labels(), expected());
-    }
-
-    #[test]
-    fn borrowed_slice_of_str_pairs() {
         let pairs = [("k1", "v1"), ("k2", "v2")];
-        let s: &[(&str, &str)] = &pairs;
-        assert_eq!(s.into_labels(), expected());
-    }
+        let borrowed: &[(&str, &str)] = &pairs;
+        assert_eq!(borrowed.into_labels(), expected());
+        assert_eq!((&pairs).into_labels(), expected());
+        assert_eq!(pairs.into_labels(), expected());
 
-    #[test]
-    fn borrowed_array_of_str_pairs() {
-        let arr = [("k1", "v1"), ("k2", "v2")];
-        assert_eq!((&arr).into_labels(), expected());
-    }
+        let pairs: Vec<(&str, &str)> = vec![("k1", "v1"), ("k2", "v2")];
+        assert_eq!(pairs.into_labels(), expected());
 
-    #[test]
-    fn owned_array_of_str_pairs() {
-        let arr = [("k1", "v1"), ("k2", "v2")];
-        assert_eq!(arr.into_labels(), expected());
-    }
-
-    #[test]
-    fn vec_of_str_pairs() {
-        let v: Vec<(&str, &str)> = vec![("k1", "v1"), ("k2", "v2")];
-        assert_eq!(v.into_labels(), expected());
-    }
-
-    /// Specifically cover the `(K, V) where V: String` shape. Catches a
-    /// regression that silently loses owned-string label values at the
-    /// conversion boundary.
-    #[test]
-    fn array_of_str_string_pairs_keeps_owned_values() {
-        let arr = [("k1", String::from("v1")), ("k2", String::from("v2"))];
-        assert_eq!(arr.into_labels(), expected());
+        let owned = [("k1", String::from("v1")), ("k2", String::from("v2"))];
+        assert_eq!(owned.into_labels(), expected());
     }
 }

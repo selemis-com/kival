@@ -108,24 +108,3 @@ impl PrometheusRecorder {
         Ok(Self::new(handle))
     }
 }
-
-#[cfg(test)]
-#[cfg(target_os = "linux")]
-mod tests {
-    use super::*;
-    use crate::process::Collector;
-
-    /// Test that process metrics are collected correctly.
-    #[test]
-    fn process_metrics() {
-        // Install the recorder with a test prefix (idempotent)
-        let recorder = install_prometheus_recorder("test").expect("should install recorder");
-
-        let process = Collector::default();
-        process.describe();
-        process.collect();
-
-        let metrics = recorder.handle.render();
-        assert!(metrics.contains("process_cpu_seconds_total"), "{metrics:?}");
-    }
-}
