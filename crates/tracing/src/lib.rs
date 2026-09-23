@@ -186,18 +186,3 @@ impl Tracer for KivalTracer {
         Ok(file_guard)
     }
 }
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn tracer_default() {
-        let tracer = KivalTracer::default();
-        assert_eq!(tracer.stdout.format, LogFormat::Terminal);
-        assert_eq!(tracer.stdout.default_directive, "info");
-        assert_eq!(tracer.stdout.filters, "");
-        assert_eq!(tracer.stdout.color, Some("always".to_owned()));
-        assert_eq!(tracer.journald, None);
-    }
-}

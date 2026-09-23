@@ -134,18 +134,11 @@ mod tests {
     }
 
     #[test]
-    fn flat_metadata_rejects_nested_objects() {
-        validate_metadata(&json!({
-            "config": { "enabled": true }
-        }))
-        .expect_err("nested object metadata should be rejected");
-    }
-
-    #[test]
-    fn flat_metadata_rejects_nested_lists() {
-        validate_metadata(&json!({
-            "matrix": [[1, 2], [3, 4]]
-        }))
-        .expect_err("nested list metadata should be rejected");
+    fn flat_metadata_rejects_nested_values() {
+        for value in
+            [json!({ "config": { "enabled": true } }), json!({ "matrix": [[1, 2], [3, 4]] })]
+        {
+            validate_metadata(&value).expect_err("nested metadata should be rejected");
+        }
     }
 }

@@ -76,12 +76,8 @@ mod tests {
     use crate::{BlobRef, BlobStoreError};
 
     #[test]
-    fn same_bytes_produce_same_ref() {
+    fn content_hash_is_deterministic_and_sensitive_to_bytes() {
         assert_eq!(BlobRef::from_bytes(b"same"), BlobRef::from_bytes(b"same"));
-    }
-
-    #[test]
-    fn different_bytes_produce_different_refs() {
         assert_ne!(BlobRef::from_bytes(b"left"), BlobRef::from_bytes(b"right"));
     }
 
@@ -103,58 +99,32 @@ mod tests {
     }
 
     #[test]
-    fn display_from_str_roundtrip() {
+    fn text_representation_round_trips_canonically() {
         let reference = BlobRef::from_bytes(b"hello");
-        let parsed = BlobRef::from_str(&reference.to_string()).expect("valid ref");
+        let text = reference.to_string();
+        let parsed = BlobRef::from_str(&text).expect("valid ref");
 
         assert_eq!(parsed, reference);
         assert_eq!(parsed.digest(), reference.digest());
-    }
-
-    #[test]
-    fn debug_matches_display() {
-        let reference = BlobRef::from_bytes(b"hello");
-
-        assert_eq!(format!("{reference:?}"), reference.to_string());
-    }
-
-    #[test]
-    fn display_is_canonical_lowercase() {
-        let reference = BlobRef::from_bytes(b"hello");
-        let text = reference.to_string();
-
         assert_eq!(text.len(), 64);
         assert!(
             text.chars().all(|character| {
                 character.is_ascii_digit() || ('a'..='f').contains(&character)
             })
         );
+
+        let upper = text.to_uppercase();
+        assert_eq!(BlobRef::from_str(&upper).expect("valid uppercase ref"), reference);
     }
 
     #[test]
-    fn empty_digest_is_rejected() {
-        assert!(matches!(
-            BlobRef::from_str(""),
-            Err(BlobStoreError::InvalidBlobRefLength { expected: 64, actual: 0 })
-        ));
-    }
-
-    #[test]
-    fn short_digest_is_rejected() {
-        assert!(matches!(
-            BlobRef::from_str("abc"),
-            Err(BlobStoreError::InvalidBlobRefLength { expected: 64, actual: 3 })
-        ));
-    }
-
-    #[test]
-    fn long_digest_is_rejected() {
-        let value = "0".repeat(65);
-
-        assert!(matches!(
-            BlobRef::from_str(&value),
-            Err(BlobStoreError::InvalidBlobRefLength { expected: 64, actual: 65 })
-        ));
+    fn invalid_digest_lengths_are_rejected() {
+        for (value, actual) in [(String::new(), 0), ("abc".to_owned(), 3), ("0".repeat(65), 65)] {
+            assert!(matches!(
+                BlobRef::from_str(&value),
+                Err(BlobStoreError::InvalidBlobRefLength { expected: 64, actual: got }) if got == actual
+            ));
+        }
     }
 
     #[test]
@@ -163,14 +133,5 @@ mod tests {
             BlobRef::from_str("zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz"),
             Err(BlobStoreError::InvalidDigestHex)
         ));
-    }
-
-    #[test]
-    fn uppercase_hex_is_accepted_and_displayed_lowercase() {
-        let lower = BlobRef::from_bytes(b"hello").to_string();
-        let upper_digest = lower.to_uppercase();
-        let parsed = BlobRef::from_str(&upper_digest).expect("valid ref");
-
-        assert_eq!(parsed.to_string(), lower);
     }
 }

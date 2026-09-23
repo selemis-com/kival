@@ -274,6 +274,7 @@ mod tests {
     #[test]
     fn sanitize_metric_name_known_cases() {
         let cases = [
+            ("", ""),
             ("*", "_"),
             ("\"", "_"),
             ("foo_bar", "foo_bar"),
@@ -292,6 +293,7 @@ mod tests {
     #[test]
     fn sanitize_label_key_known_cases() {
         let cases = [
+            ("", ""),
             ("*", "_"),
             ("\"", "_"),
             (":", "_"),
@@ -312,6 +314,7 @@ mod tests {
     #[test]
     fn label_value_escape_known_cases() {
         let cases = [
+            ("", ""),
             ("*", "*"),
             ("\"", "\\\""),
             ("\\", "\\\\"),
@@ -332,6 +335,7 @@ mod tests {
     #[test]
     fn help_escape_known_cases() {
         let cases = [
+            ("", ""),
             ("*", "*"),
             ("\"", "\""),
             ("\\", "\\\\"),
@@ -343,24 +347,5 @@ mod tests {
         for (input, expected) in cases {
             assert_eq!(escape_help(input), expected, "input={input:?}");
         }
-    }
-
-    /// HELP escape MUST diverge from label-value escape on the `"`
-    /// character — that's the whole point of having two escape paths.
-    /// Pin both behaviors in one test so the asymmetry can't drift.
-    #[test]
-    fn help_escape_does_not_escape_double_quote_but_label_value_does() {
-        assert_eq!(escape_label("a\"b"), "a\\\"b");
-        assert_eq!(escape_help("a\"b"), "a\"b");
-    }
-
-    /// Empty input must not panic and must round-trip to empty for every
-    /// sanitizer/escaper.
-    #[test]
-    fn all_sanitizers_handle_empty_input() {
-        assert_eq!(sanitize_metric_name(""), "");
-        assert_eq!(sanitize_label_key(""), "");
-        assert_eq!(escape_label(""), "");
-        assert_eq!(escape_help(""), "");
     }
 }
