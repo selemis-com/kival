@@ -831,7 +831,7 @@ Apache License 2.0
 Apache License 2.0
 
 #### Used by
-- [object_store]( https://github.com/apache/arrow-rs-object-store ) 0.14.1
+- [object_store]( https://github.com/apache/arrow-rs-object-store ) 0.14.2
 
 #### License
 ```
