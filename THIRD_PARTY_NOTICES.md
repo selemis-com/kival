@@ -6096,7 +6096,7 @@ Apache License 2.0
 - [rustc_version]( https://github.com/djc/rustc-version-rs ) 0.4.1
 - [rustix]( https://github.com/bytecodealliance/rustix ) 1.1.4
 - [rustls-native-certs]( https://github.com/rustls/rustls-native-certs ) 0.8.4
-- [rustls]( https://github.com/rustls/rustls ) 0.23.45
+- [rustls]( https://github.com/rustls/rustls ) 0.23.46
 - [rusty-fork]( https://github.com/altsysrq/rusty-fork ) 0.3.1
 - [scopeguard]( https://github.com/bluss/scopeguard ) 1.2.0
 - [security-framework-sys]( https://github.com/kornelski/rust-security-framework ) 2.17.0
