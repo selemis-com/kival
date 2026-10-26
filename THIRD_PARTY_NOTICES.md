@@ -9823,7 +9823,7 @@ CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 ISC License
 
 #### Used by
-- [rustls-webpki]( https://github.com/rustls/webpki ) 0.103.15
+- [rustls-webpki]( https://github.com/rustls/webpki ) 0.103.16
 
 #### License
 ```
