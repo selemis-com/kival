@@ -7417,7 +7417,7 @@ Apache License 2.0
 - [sec1]( https://github.com/RustCrypto/formats ) 0.8.1
 - [sha1]( https://github.com/RustCrypto/hashes ) 0.10.6
 - [sha2]( https://github.com/RustCrypto/hashes ) 0.10.9
-- [sha2]( https://github.com/RustCrypto/hashes ) 0.11.0
+- [sha2]( https://github.com/RustCrypto/hashes ) 0.11.1
 - [signature]( https://github.com/RustCrypto/traits ) 3.0.0
 - [spki]( https://github.com/RustCrypto/formats ) 0.8.0
 - [wnaf]( https://github.com/RustCrypto/elliptic-curves ) 0.14.1
@@ -9937,7 +9937,7 @@ THE SOFTWARE.
 MIT License
 
 #### Used by
-- [schemars]( https://github.com/GREsau/schemars ) 1.2.2
+- [schemars]( https://github.com/GREsau/schemars ) 1.2.3
 
 #### License
 ```
@@ -10654,8 +10654,8 @@ SOFTWARE.
 MIT License
 
 #### Used by
-- [schemars]( https://github.com/GREsau/schemars ) 1.2.2
-- [schemars_derive]( https://github.com/GREsau/schemars ) 1.2.2
+- [schemars]( https://github.com/GREsau/schemars ) 1.2.3
+- [schemars_derive]( https://github.com/GREsau/schemars ) 1.2.3
 
 #### License
 ```
