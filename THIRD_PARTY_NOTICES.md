@@ -616,7 +616,7 @@ Apache License 2.0
 #### Used by
 - [cmov]( https://github.com/RustCrypto/utils ) 0.5.4
 - [coset]( https://github.com/google/coset ) 0.4.2
-- [ctutils]( https://github.com/RustCrypto/utils ) 0.4.2
+- [ctutils]( https://github.com/RustCrypto/utils ) 0.4.6
 - [tinyvec]( https://github.com/Lokathor/tinyvec ) 1.11.0
 - [utf8_iter]( https://github.com/hsivonen/utf8_iter ) 1.0.4
 - [zeroize]( https://github.com/RustCrypto/utils ) 1.9.0
@@ -7399,7 +7399,7 @@ Apache License 2.0
 - [cpubits]( https://github.com/RustCrypto/utils ) 0.1.1
 - [cpufeatures]( https://github.com/RustCrypto/utils ) 0.2.17
 - [cpufeatures]( https://github.com/RustCrypto/utils ) 0.3.0
-- [crypto-bigint]( https://github.com/RustCrypto/crypto-bigint ) 0.7.5
+- [crypto-bigint]( https://github.com/RustCrypto/crypto-bigint ) 0.7.10
 - [crypto-common]( https://github.com/RustCrypto/traits ) 0.1.7
 - [crypto-common]( https://github.com/RustCrypto/traits ) 0.2.2
 - [der]( https://github.com/RustCrypto/formats ) 0.8.1
@@ -9176,8 +9176,8 @@ THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND 
 Community Data License Agreement Permissive 2.0
 
 #### Used by
-- [webpki-root-certs]( https://github.com/rustls/webpki-roots ) 1.0.8
-- [webpki-roots]( https://github.com/rustls/webpki-roots ) 1.0.7
+- [webpki-root-certs]( https://github.com/rustls/webpki-roots ) 1.0.11
+- [webpki-roots]( https://github.com/rustls/webpki-roots ) 1.0.11
 
 #### License
 ```
